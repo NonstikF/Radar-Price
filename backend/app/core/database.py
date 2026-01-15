@@ -2,16 +2,18 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base
 from app.core.config import settings
 
-# --- FIX PARA RAILWAY ---
-# Railway entrega la URL como "postgres://...", pero SQLAlchemy asíncrono
-# necesita "postgresql+asyncpg://...". Aquí hacemos el cambio automático.
+# --- FIX PARA RAILWAY (ROBUSTO) ---
 connection_string = settings.DATABASE_URL
 
-if connection_string and connection_string.startswith("postgres://"):
-    connection_string = connection_string.replace("postgres://", "postgresql+asyncpg://", 1)
+if connection_string:
+    # Si empieza con "postgres://", lo cambiamos (caso antiguo)
+    if connection_string.startswith("postgres://"):
+        connection_string = connection_string.replace("postgres://", "postgresql+asyncpg://", 1)
+    # Si empieza con "postgresql://" (caso nuevo), TAMBIÉN lo cambiamos
+    elif connection_string.startswith("postgresql://"):
+        connection_string = connection_string.replace("postgresql://", "postgresql+asyncpg://", 1)
 
-# 1. Crear el motor asíncrono usando la URL corregida
-# 'pool_pre_ping=True' ayuda a recuperar conexiones perdidas (muy útil en la nube)
+# 1. Crear el motor asíncrono
 engine = create_async_engine(
     connection_string, 
     echo=True, 
