@@ -16,7 +16,7 @@ app = FastAPI(on_startup=[startup_event])
 origins = [
     "http://localhost:5173",
     # Agrega TU URL de frontend de Railway (sin barra al final)
-    "https://frontend-production-a0cf.up.railway.app", 
+    "https://radar-price-production.up.railway.app", 
     "*" # Déjalo por ahora para descartar problemas
 ]
 
