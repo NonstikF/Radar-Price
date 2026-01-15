@@ -78,11 +78,8 @@ export function PriceChecker() {
         const currentSku = normalize(editSku);
         const originalSku = normalize(selectedProduct.sku);
 
-        // --- ZONA DE DEBUG (Míralo en F12 -> Console si falla) ---
-        // Si sigue saliendo la alerta, esto te dirá por qué
         if (currentUpc !== originalUpc) console.log(`Diferencia UPC: "${currentUpc}" vs "${originalUpc}"`);
         if (currentSku !== originalSku) console.log(`Diferencia SKU: "${currentSku}" vs "${originalSku}"`);
-        // ---------------------------------------------------------
 
         if (currentUpc !== originalUpc || currentSku !== originalSku) {
             setShowExitConfirm(true);
