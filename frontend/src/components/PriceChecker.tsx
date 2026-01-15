@@ -65,18 +65,26 @@ export function PriceChecker() {
     const handleAttemptClose = () => {
         if (!selectedProduct) return;
 
-        // 1. Convertimos todo a String (texto) para evitar errores de número vs texto
-        // 2. Usamos trim() para que "ABC " sea igual a "ABC" (ignora espacios al final)
-        const originalUpc = String(selectedProduct.upc || "").trim();
-        const originalSku = String(selectedProduct.sku || "").trim();
+        // Función auxiliar para limpiar los valores antes de comparar
+        // Convierte null, undefined o números a texto y quita espacios
+        const normalize = (val: any) => {
+            if (val === null || val === undefined) return "";
+            return String(val).trim();
+        };
 
-        const currentUpc = String(editUpc || "").trim();
-        const currentSku = String(editSku || "").trim();
+        const currentUpc = normalize(editUpc);
+        const originalUpc = normalize(selectedProduct.upc);
 
-        // Comparamos
-        const hasChanges = currentUpc !== originalUpc || currentSku !== originalSku;
+        const currentSku = normalize(editSku);
+        const originalSku = normalize(selectedProduct.sku);
 
-        if (hasChanges) {
+        // --- ZONA DE DEBUG (Míralo en F12 -> Console si falla) ---
+        // Si sigue saliendo la alerta, esto te dirá por qué
+        if (currentUpc !== originalUpc) console.log(`Diferencia UPC: "${currentUpc}" vs "${originalUpc}"`);
+        if (currentSku !== originalSku) console.log(`Diferencia SKU: "${currentSku}" vs "${originalSku}"`);
+        // ---------------------------------------------------------
+
+        if (currentUpc !== originalUpc || currentSku !== originalSku) {
             setShowExitConfirm(true);
         } else {
             setSelectedProduct(null);
