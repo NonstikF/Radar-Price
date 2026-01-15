@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Search, X, Save, Barcode, Hash, CheckCircle2, AlertTriangle, ArrowLeft, History, TrendingUp, TrendingDown, ArrowRight } from 'lucide-react';
 
-// IMPORTAMOS LA CONFIGURACIÓN CENTRALIZADA
+//  IMPORTAMOS LA CONFIGURACIÓN CENTRALIZADA
 import { API_URL } from '../config';
 
 export function PriceChecker() {
@@ -17,7 +17,6 @@ export function PriceChecker() {
     const [saving, setSaving] = useState(false);
     const [showExitConfirm, setShowExitConfirm] = useState(false);
 
-    // NUEVO: Estado para el historial
     const [history, setHistory] = useState<any[]>([]);
     const [showHistory, setShowHistory] = useState(false);
 
@@ -29,7 +28,6 @@ export function PriceChecker() {
 
     const fetchProducts = async () => {
         try {
-            //Usamos la variable importada
             const response = await axios.get(`${API_URL}/invoices/products`);
             setProducts(response.data);
         } catch (error) {
@@ -46,15 +44,14 @@ export function PriceChecker() {
 
     const handleProductClick = async (p: any) => {
         setSelectedProduct(p);
-        setEditUpc(p.upc || "");
-        setEditSku(p.sku || "");
+        // Al abrir, aseguramos que sean texto (o vacío) para evitar conflictos null/undefined
+        setEditUpc(p.upc ? String(p.upc) : "");
+        setEditSku(p.sku ? String(p.sku) : "");
         setShowExitConfirm(false);
-        setShowHistory(false); // Reseteamos vista
-        setHistory([]); // Limpiamos historial anterior
+        setShowHistory(false);
+        setHistory([]);
 
-        // Cargamos historial en segundo plano
         try {
-            //Usamos la variable importada
             const res = await axios.get(`${API_URL}/invoices/products/${p.id}/history`);
             setHistory(res.data);
         } catch (err) {
@@ -62,28 +59,24 @@ export function PriceChecker() {
         }
     };
 
+    // --- LÓGICA DE CIERRE BLINDADA ---
     const handleAttemptClose = () => {
         if (!selectedProduct) return;
 
-        // Función auxiliar para limpiar los valores antes de comparar
-        // Convierte null, undefined o números a texto y quita espacios
-        const normalize = (val: any) => {
-            if (val === null || val === undefined) return "";
-            return String(val).trim();
-        };
+        // Función para limpiar valores y comparar justamente
+        const clean = (val: any) => String(val || "").trim();
 
-        const currentUpc = normalize(editUpc);
-        const originalUpc = normalize(selectedProduct.upc);
+        const currentUpc = clean(editUpc);
+        const originalUpc = clean(selectedProduct.upc);
 
-        const currentSku = normalize(editSku);
-        const originalSku = normalize(selectedProduct.sku);
+        const currentSku = clean(editSku);
+        const originalSku = clean(selectedProduct.sku);
 
-        if (currentUpc !== originalUpc) console.log(`Diferencia UPC: "${currentUpc}" vs "${originalUpc}"`);
-        if (currentSku !== originalSku) console.log(`Diferencia SKU: "${currentSku}" vs "${originalSku}"`);
-
+        // Si hay diferencias REALES, pedimos confirmación
         if (currentUpc !== originalUpc || currentSku !== originalSku) {
             setShowExitConfirm(true);
         } else {
+            // Si son iguales, cerramos directo
             setSelectedProduct(null);
         }
     };
@@ -93,17 +86,30 @@ export function PriceChecker() {
         setSelectedProduct(null);
     };
 
+    // --- GUARDADO LIMPIO ---
     const handleSaveField = async (field: 'upc' | 'sku') => {
         if (!selectedProduct) return;
         setSaving(true);
         try {
-            const payload = field === 'upc' ? { upc: editUpc } : { sku: editSku };
-            //Usamos la variable importada
+            // 1. Limpiamos el valor (quitamos espacios extra)
+            const cleanValue = field === 'upc' ? editUpc.trim() : editSku.trim();
+            const payload = field === 'upc' ? { upc: cleanValue } : { sku: cleanValue };
+
+            // 2. Enviamos al backend
             await axios.put(`${API_URL}/invoices/products/${selectedProduct.id}`, payload);
 
+            // 3. ACTUALIZAMOS TODO LOCALMENTE (La clave para "limpiar la lista")
+            // Actualizamos la lista grande
             const updatedProducts = products.map(p => p.id === selectedProduct.id ? { ...p, ...payload } : p);
             setProducts(updatedProducts);
-            setSelectedProduct({ ...selectedProduct, ...payload });
+
+            // Actualizamos el producto seleccionado (Original) para que coincida con el editado
+            setSelectedProduct((prev: any) => ({ ...prev, ...payload }));
+
+            // Actualizamos el input con el valor limpio
+            if (field === 'upc') setEditUpc(cleanValue);
+            if (field === 'sku') setEditSku(cleanValue);
+
             showToast(`${field === 'upc' ? 'CÓDIGO' : 'ID'} GUARDADO`);
         } catch (error) {
             showToast("Error al guardar.", 'error');
@@ -202,7 +208,7 @@ export function PriceChecker() {
                         <div className="p-6 space-y-6 bg-white overflow-y-auto">
 
                             {!showHistory ? (
-                                /* VISTA DE EDICIÓN (NORMAL) */
+                                /* VISTA DE EDICIÓN */
                                 <>
                                     <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
                                         <label className="block text-[10px] font-black text-gray-400 uppercase mb-2 tracking-wide">Producto</label>
@@ -210,27 +216,27 @@ export function PriceChecker() {
                                     </div>
 
                                     <div className="space-y-4">
-                                        <div className={`transition-all ${editUpc !== (selectedProduct.upc || "") ? 'bg-yellow-50 p-3 rounded-2xl border border-yellow-200' : ''}`}>
+                                        <div className={`transition-all ${editUpc.trim() !== (selectedProduct.upc || "").trim() ? 'bg-yellow-50 p-3 rounded-2xl border border-yellow-200' : ''}`}>
                                             <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase mb-2 tracking-wide">
                                                 <Barcode className="w-4 h-4 text-blue-500" /> UPC
-                                                {editUpc !== (selectedProduct.upc || "") && <span className="text-yellow-600 animate-pulse ml-auto text-[10px]">● Sin guardar</span>}
+                                                {editUpc.trim() !== (selectedProduct.upc || "").trim() && <span className="text-yellow-600 animate-pulse ml-auto text-[10px]">● Sin guardar</span>}
                                             </label>
                                             <div className="flex gap-2">
                                                 <input type="text" value={editUpc} onChange={(e) => setEditUpc(e.target.value)} className="flex-1 bg-white border border-gray-200 text-gray-900 font-mono text-lg p-3 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all" placeholder="Escanear..." />
-                                                <button onClick={() => handleSaveField('upc')} disabled={saving || editUpc === (selectedProduct.upc || "")} className={`px-4 rounded-xl transition-all shadow-md flex items-center justify-center ${editUpc !== (selectedProduct.upc || "") ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
+                                                <button onClick={() => handleSaveField('upc')} disabled={saving || editUpc.trim() === (selectedProduct.upc || "").trim()} className={`px-4 rounded-xl transition-all shadow-md flex items-center justify-center ${editUpc.trim() !== (selectedProduct.upc || "").trim() ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
                                                     <Save className="w-6 h-6" />
                                                 </button>
                                             </div>
                                         </div>
 
-                                        <div className={`transition-all ${editSku !== (selectedProduct.sku || "") ? 'bg-yellow-50 p-3 rounded-2xl border border-yellow-200' : ''}`}>
+                                        <div className={`transition-all ${editSku.trim() !== (selectedProduct.sku || "").trim() ? 'bg-yellow-50 p-3 rounded-2xl border border-yellow-200' : ''}`}>
                                             <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase mb-2 tracking-wide">
                                                 <Hash className="w-4 h-4 text-purple-500" /> ID Interno
-                                                {editSku !== (selectedProduct.sku || "") && <span className="text-yellow-600 animate-pulse ml-auto text-[10px]">● Sin guardar</span>}
+                                                {editSku.trim() !== (selectedProduct.sku || "").trim() && <span className="text-yellow-600 animate-pulse ml-auto text-[10px]">● Sin guardar</span>}
                                             </label>
                                             <div className="flex gap-2">
                                                 <input type="text" value={editSku} onChange={(e) => setEditSku(e.target.value)} className="flex-1 bg-white border border-gray-200 text-gray-900 font-mono text-lg p-3 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 outline-none transition-all" placeholder="Clave..." />
-                                                <button onClick={() => handleSaveField('sku')} disabled={saving || editSku === (selectedProduct.sku || "")} className={`px-4 rounded-xl transition-all shadow-md flex items-center justify-center ${editSku !== (selectedProduct.sku || "") ? 'bg-purple-600 text-white hover:bg-purple-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
+                                                <button onClick={() => handleSaveField('sku')} disabled={saving || editSku.trim() === (selectedProduct.sku || "").trim()} className={`px-4 rounded-xl transition-all shadow-md flex items-center justify-center ${editSku.trim() !== (selectedProduct.sku || "").trim() ? 'bg-purple-600 text-white hover:bg-purple-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
                                                     <Save className="w-6 h-6" />
                                                 </button>
                                             </div>
@@ -250,9 +256,7 @@ export function PriceChecker() {
 
                                                 return (
                                                     <div key={i} className="relative pl-6">
-                                                        {/* Bolita de tiempo */}
                                                         <div className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full border-2 border-white ${isCost ? 'bg-orange-400' : 'bg-green-500'}`}></div>
-
                                                         <div className="flex justify-between items-start">
                                                             <div>
                                                                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${isCost ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
@@ -262,7 +266,6 @@ export function PriceChecker() {
                                                                     {new Date(h.date).toLocaleDateString()} &bull; {new Date(h.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                                 </p>
                                                             </div>
-
                                                             <div className="text-right">
                                                                 <div className="flex items-center gap-1 justify-end font-bold text-gray-800">
                                                                     <span className="text-gray-400 line-through text-xs">${h.old.toFixed(2)}</span>
