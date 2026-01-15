@@ -2,7 +2,7 @@ import { useState } from 'react';
 import axios from 'axios';
 import { Upload, Save, FileText, Loader2, DollarSign, Package, EyeOff, GitMerge, ArrowRight, CheckCircle2 } from 'lucide-react';
 
-// Ajusta la ruta si tu archivo config.ts está en otro nivel (ej: '../config' o '../../config')
+// ✅ IMPORTAMOS LA CONFIGURACIÓN CENTRALIZADA
 import { API_URL } from '../config';
 
 // Definimos las propiedades que vienen del padre (App.tsx)
@@ -57,6 +57,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
         setProducts(updatedProducts);
     };
 
+    // ✅ FUNCIÓN CORREGIDA: Borra la lista automáticamente
     const handleSavePrices = async () => {
         setLoading(true);
         try {
@@ -64,9 +65,25 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                 name: p.name,
                 selling_price: p.selling_price || 0
             }));
+
+            // Enviamos al backend
             await axios.post(`${API_URL}/invoices/update-prices`, updates);
-            setSavedMessage("¡Precios guardados!");
-            setTimeout(() => setSavedMessage(""), 3000);
+
+            // Mostramos éxito
+            setSavedMessage("¡Precios guardados correctamente! ✅");
+
+            // --- MAGIA AQUÍ ---
+            // Esperamos 1.5 segundos y limpiamos todo
+            setTimeout(() => {
+                setProducts([]); // Borra la lista visual
+                setFile(null);   // Reinicia el archivo (variable interna)
+                setSavedMessage("");
+                setHiddenCount(0);
+
+                // Opcional: Si quieres limpiar el input file visualmente, 
+                // necesitarías usar una referencia (useRef), pero esto limpia la lógica.
+            }, 1500);
+
         } catch (error) {
             alert("Error al guardar precios");
         } finally {
@@ -151,7 +168,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
 
                         {savedMessage ? (
                             <span className="text-green-600 font-bold px-4 py-2 bg-green-50 rounded-lg border border-green-200 animate-pulse text-sm">
-                                Guardado
+                                {savedMessage}
                             </span>
                         ) : (
                             <button onClick={handleSavePrices} disabled={loading} className="bg-green-600 text-white px-4 py-2 md:px-6 rounded-xl font-bold hover:bg-green-700 shadow-lg shadow-green-500/20 active:scale-95 transition-all flex items-center gap-2 text-sm md:text-base">

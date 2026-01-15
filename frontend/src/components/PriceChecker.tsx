@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Search, X, Save, Barcode, Hash, CheckCircle2, AlertTriangle, ArrowLeft, History, TrendingUp, TrendingDown, ArrowRight } from 'lucide-react';
 
-//  IMPORTAMOS LA CONFIGURACIÓN CENTRALIZADA
+// ✅ IMPORTAMOS LA CONFIGURACIÓN CENTRALIZADA
 import { API_URL } from '../config';
 
 export function PriceChecker() {
@@ -17,6 +17,7 @@ export function PriceChecker() {
     const [saving, setSaving] = useState(false);
     const [showExitConfirm, setShowExitConfirm] = useState(false);
 
+    // Historial
     const [history, setHistory] = useState<any[]>([]);
     const [showHistory, setShowHistory] = useState(false);
 
@@ -86,7 +87,7 @@ export function PriceChecker() {
         setSelectedProduct(null);
     };
 
-    // --- GUARDADO LIMPIO ---
+    // --- GUARDADO INDIVIDUAL (SKU / UPC) ---
     const handleSaveField = async (field: 'upc' | 'sku') => {
         if (!selectedProduct) return;
         setSaving(true);
@@ -98,7 +99,7 @@ export function PriceChecker() {
             // 2. Enviamos al backend
             await axios.put(`${API_URL}/invoices/products/${selectedProduct.id}`, payload);
 
-            // 3. ACTUALIZAMOS TODO LOCALMENTE (La clave para "limpiar la lista")
+            // 3. ACTUALIZAMOS TODO LOCALMENTE
             // Actualizamos la lista grande
             const updatedProducts = products.map(p => p.id === selectedProduct.id ? { ...p, ...payload } : p);
             setProducts(updatedProducts);
