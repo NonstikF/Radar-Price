@@ -3,6 +3,7 @@ import { InvoiceUploader } from './components/InvoiceUploader';
 import { PriceChecker } from './components/PriceChecker';
 import { ManualEntry } from './components/ManualEntry'; // <--- IMPORTADO
 import { UploadCloud, Search, AlertTriangle, ArrowLeft, Trash2, PlusSquare } from 'lucide-react'; // <--- ICONO NUEVO
+import { Logo } from './components/Logo';
 
 function App() {
   // Ahora el estado acepta 3 valores: 'upload', 'search', 'manual'
@@ -35,10 +36,16 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
 
-      {/* HEADER */}
-      <div className="bg-white shadow-sm border-b border-gray-200 py-4 px-6 text-center sticky top-0 z-30 hidden md:block">
-        <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">Radar Price </h1>
-      </div>
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
+
+          {/* AQUÍ VA TU NUEVO LOGO */}
+          <Logo variant="full" />
+
+          {/* ... tus botones de navegación ... */}
+        </div>
+      </header>
 
       {/* CONTENIDO PRINCIPAL */}
       <main className="flex-1 pb-24 md:pb-0">
