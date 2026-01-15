@@ -37,7 +37,7 @@ function App() {
 
       {/* HEADER */}
       <div className="bg-white shadow-sm border-b border-gray-200 py-4 px-6 text-center sticky top-0 z-30 hidden md:block">
-        <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">Gestión de Paquetes 📦</h1>
+        <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">Radar Price </h1>
       </div>
 
       {/* CONTENIDO PRINCIPAL */}
