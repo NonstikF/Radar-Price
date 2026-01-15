@@ -64,12 +64,23 @@ export function PriceChecker() {
 
     const handleAttemptClose = () => {
         if (!selectedProduct) return;
-        const originalUpc = selectedProduct.upc || "";
-        const originalSku = selectedProduct.sku || "";
-        const hasChanges = editUpc !== originalUpc || editSku !== originalSku;
 
-        if (hasChanges) setShowExitConfirm(true);
-        else setSelectedProduct(null);
+        // 1. Convertimos todo a String (texto) para evitar errores de número vs texto
+        // 2. Usamos trim() para que "ABC " sea igual a "ABC" (ignora espacios al final)
+        const originalUpc = String(selectedProduct.upc || "").trim();
+        const originalSku = String(selectedProduct.sku || "").trim();
+
+        const currentUpc = String(editUpc || "").trim();
+        const currentSku = String(editSku || "").trim();
+
+        // Comparamos
+        const hasChanges = currentUpc !== originalUpc || currentSku !== originalSku;
+
+        if (hasChanges) {
+            setShowExitConfirm(true);
+        } else {
+            setSelectedProduct(null);
+        }
     };
 
     const handleDiscardChanges = () => {
