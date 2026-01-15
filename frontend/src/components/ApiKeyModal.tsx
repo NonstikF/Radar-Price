@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import axios from 'axios';
 import { AlertTriangle, Key } from 'lucide-react'; // Iconos bonitos
+import { API_URL } from '../config'
 
 interface Props {
     isOpen: boolean;
@@ -18,12 +19,13 @@ export function ApiKeyModal({ isOpen, onSuccess }: Props) {
         setLoading(true);
         setError('');
         try {
-            // Enviamos la llave al backend
-            await axios.post('http://127.0.0.1:8000/config/api-key', {
+            // 2. CAMBIO AQUÍ: Usamos la variable y comillas invertidas ( ` )
+            await axios.post(`${API_URL}/config/api-key`, {
                 api_key: apiKey
             });
+
             // Si todo sale bien:
-            alert('API Key guardada correctamente ✅');
+            alert('API Key guardada correctamente');
             onSuccess(); // Cerramos el modal
         } catch (err) {
             console.error(err);

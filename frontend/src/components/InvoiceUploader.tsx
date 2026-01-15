@@ -2,8 +2,8 @@ import { useState } from 'react';
 import axios from 'axios';
 import { Upload, Save, FileText, Loader2, DollarSign, Package, EyeOff, GitMerge, ArrowRight, CheckCircle2 } from 'lucide-react';
 
-// IP DE TU PC (AJUSTA SI ES NECESARIO)
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+// Ajusta la ruta si tu archivo config.ts está en otro nivel (ej: '../config' o '../../config')
+import { API_URL } from '../config';
 
 // Definimos las propiedades que vienen del padre (App.tsx)
 interface Props {
@@ -151,7 +151,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
 
                         {savedMessage ? (
                             <span className="text-green-600 font-bold px-4 py-2 bg-green-50 rounded-lg border border-green-200 animate-pulse text-sm">
-                                ✅ Guardado
+                                Guardado
                             </span>
                         ) : (
                             <button onClick={handleSavePrices} disabled={loading} className="bg-green-600 text-white px-4 py-2 md:px-6 rounded-xl font-bold hover:bg-green-700 shadow-lg shadow-green-500/20 active:scale-95 transition-all flex items-center gap-2 text-sm md:text-base">

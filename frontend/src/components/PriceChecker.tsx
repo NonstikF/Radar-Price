@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Search, X, Save, Barcode, Hash, CheckCircle2, AlertTriangle, ArrowLeft, History, TrendingUp, TrendingDown, ArrowRight } from 'lucide-react';
 
-// IP DE TU PC
-const API_URL = 'http://127.0.0.1:8000';
+// IMPORTAMOS LA CONFIGURACIÓN CENTRALIZADA
+import { API_URL } from '../config';
 
 export function PriceChecker() {
     const [products, setProducts] = useState<any[]>([]);
@@ -29,6 +29,7 @@ export function PriceChecker() {
 
     const fetchProducts = async () => {
         try {
+            //Usamos la variable importada
             const response = await axios.get(`${API_URL}/invoices/products`);
             setProducts(response.data);
         } catch (error) {
@@ -53,6 +54,7 @@ export function PriceChecker() {
 
         // Cargamos historial en segundo plano
         try {
+            //Usamos la variable importada
             const res = await axios.get(`${API_URL}/invoices/products/${p.id}/history`);
             setHistory(res.data);
         } catch (err) {
@@ -80,6 +82,7 @@ export function PriceChecker() {
         setSaving(true);
         try {
             const payload = field === 'upc' ? { upc: editUpc } : { sku: editSku };
+            //Usamos la variable importada
             await axios.put(`${API_URL}/invoices/products/${selectedProduct.id}`, payload);
 
             const updatedProducts = products.map(p => p.id === selectedProduct.id ? { ...p, ...payload } : p);

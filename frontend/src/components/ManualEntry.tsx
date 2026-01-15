@@ -2,8 +2,8 @@ import { useState } from 'react';
 import axios from 'axios';
 import { Save, Barcode, Hash, Tag, PlusCircle, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
 
-// IP DE TU PC
-const API_URL = 'http://127.0.0.1:8000';
+//IMPORTAMOS LA CONFIGURACIÓN CENTRALIZADA
+import { API_URL } from '../config';
 
 export function ManualEntry() {
     const [loading, setLoading] = useState(false);
@@ -47,6 +47,7 @@ export function ManualEntry() {
                 stock: parseInt(formData.stock) || 0
             };
 
+            // Usamos la variable importada
             await axios.post(`${API_URL}/invoices/products/manual`, payload);
 
             setSuccessMsg(`Producto "${formData.name}" agregado con éxito.`);

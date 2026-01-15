@@ -57,9 +57,9 @@ class XmlInvoiceParser:
                     "total_line": precio_total_linea          # Total (Con todo)
                 })
 
-            print(f"✅ Productos procesados: {len(items)}")
+            print(f"Productos procesados: {len(items)}")
             return items
 
         except Exception as e:
-            print(f"❌ Error leyendo XML: {e}")
+            print(f"Error leyendo XML: {e}")
             raise ValueError("Error al leer estructura del XML")

@@ -51,5 +51,5 @@ class LocalInvoiceParser:
                 }
             ]
 
-        print(f"✅ Se encontraron {len(items)} productos.")
+        print(f"Se encontraron {len(items)} productos.")
         return items
