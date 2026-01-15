@@ -1,0 +1,17 @@
+# Archivos de sistema y entorno
+.DS_Store
+.env
+.venv
+venv/
+__pycache__/
+
+# Backend
+backend/__pycache__/
+*.pyc
+
+# Frontend
+node_modules/
+frontend/node_modules/
+dist/
+build/
+.vscode/

@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  # Servicio de Base de Datos
+  db:
+    image: postgres:15-alpine
+    container_name: postgres_db
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: adminpassword
+      POSTGRES_DB: gestion_paquetes_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+  # Aquí agregaremos el backend y frontend más adelante.
+  # Por ahora, correremos el código localmente para desarrollar más rápido.
+
+volumes:
+  postgres_data:
