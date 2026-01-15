@@ -123,6 +123,7 @@ export function PriceChecker() {
         p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (p.upc && p.upc.includes(searchTerm))
+            (p.selling_price && p.selling_price.toString().includes(searchTerm))
     );
 
     return (
