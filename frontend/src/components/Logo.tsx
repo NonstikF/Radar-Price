@@ -1,4 +1,4 @@
-import { Radio, DollarSign, ScanLine, TrendingUp } from 'lucide-react';
+import { Radio, DollarSign, ScanLine } from 'lucide-react';
 
 interface Props {
     variant?: 'minimal' | 'full' | 'scanner';
