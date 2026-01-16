@@ -119,13 +119,17 @@ export function PriceChecker() {
         }
     };
 
-    const filteredProducts = products.filter(p =>
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (p.upc && p.upc.includes(searchTerm))
-            (p.selling_price && p.selling_price.toString().includes(searchTerm))
-    );
+    const filteredProducts = products.filter(p => {
+        const term = searchTerm.toLowerCase();
 
+        // Convertimos cada campo a String de forma segura antes de buscar
+        const nameMatch = p.name && String(p.name).toLowerCase().includes(term);
+        const skuMatch = p.sku && String(p.sku).toLowerCase().includes(term);
+        const upcMatch = p.upc && String(p.upc).toLowerCase().includes(term);
+        const priceMatch = p.selling_price && String(p.selling_price).includes(term);
+
+        return nameMatch || skuMatch || upcMatch || priceMatch;
+    });
     return (
         <div className="w-full max-w-4xl mx-auto p-4 pb-24 relative">
 
