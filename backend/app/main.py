@@ -15,7 +15,7 @@ from app.api.endpoints import invoices
 from app.core.database import engine, Base
 
 # --- 1. CONFIGURACIÓN DE SEGURIDAD ---
-SECRET_KEY = "1234hola"  # Tu clave secreta
+SECRET_KEY = "supersecreto_dificil_de_adivinar_12345"  # Tu clave secreta
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 
 
