@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { UserPlus, Trash2, User, Loader2, CheckCircle2, X } from 'lucide-react';
+import { UserPlus, Trash2, User, Loader2, CheckCircle2, X, AlertTriangle } from 'lucide-react';
 import { API_URL } from '../config';
 
 export function AdminUsers() {
     const [users, setUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
+    const [errorMsg, setErrorMsg] = useState('');
 
     // Estado formulario nuevo usuario
     const [newUser, setNewUser] = useState({ username: '', password: '', role: 'user' });
@@ -16,18 +17,26 @@ export function AdminUsers() {
         fetchUsers();
     }, []);
 
+    // --- FUNCIÓN AYUDA PARA OBTENER CABECERAS CON TOKEN ---
+    const getAuthHeaders = () => {
+        const token = localStorage.getItem('token');
+        return {
+            headers: {
+                'Authorization': `Bearer ${token}` // 👈 ¡ESTO ES LA CLAVE!
+            }
+        };
+    };
+
     const fetchUsers = async () => {
         try {
-            // Endpoint sugerido: GET /users
-            const response = await axios.get(`${API_URL}/users`);
+            setLoading(true);
+            // Agregamos getAuthHeaders() a la petición
+            const response = await axios.get(`${API_URL}/users`, getAuthHeaders());
             setUsers(response.data);
+            setErrorMsg('');
         } catch (error) {
             console.error("Error al cargar usuarios", error);
-            // Datos falsos por si no tienes backend aún
-            setUsers([
-                { id: 1, username: 'admin', role: 'admin', created_at: new Date().toISOString() },
-                { id: 2, username: 'almacen', role: 'user', created_at: new Date().toISOString() }
-            ]);
+            setErrorMsg("No se pudieron cargar los usuarios. Verifica tu conexión o permisos.");
         } finally {
             setLoading(false);
         }
@@ -37,15 +46,18 @@ export function AdminUsers() {
         e.preventDefault();
         setCreating(true);
         try {
-            // Endpoint sugerido: POST /users
-            await axios.post(`${API_URL}/auth/register`, newUser); // Ajusta la ruta a tu backend
+            // Agregamos getAuthHeaders() como tercer argumento (config)
+            await axios.post(`${API_URL}/auth/register`, newUser, getAuthHeaders());
 
-            // Refrescamos lista o agregamos manual
-            setUsers([...users, { ...newUser, id: Date.now(), created_at: new Date().toISOString() }]);
+            // Si éxito, recargamos la lista desde el servidor para asegurar que está ahí
+            await fetchUsers();
+
             setShowModal(false);
             setNewUser({ username: '', password: '', role: 'user' });
-        } catch (error) {
-            alert("Error al crear usuario");
+            alert("Usuario creado correctamente");
+        } catch (error: any) {
+            console.error(error);
+            alert("Error al crear: " + (error.response?.data?.detail || "Error desconocido"));
         } finally {
             setCreating(false);
         }
@@ -54,10 +66,13 @@ export function AdminUsers() {
     const handleDeleteUser = async (id: number) => {
         if (!confirm('¿Seguro que deseas eliminar este usuario?')) return;
         try {
-            await axios.delete(`${API_URL}/users/${id}`);
+            // Agregamos getAuthHeaders() a la petición
+            await axios.delete(`${API_URL}/users/${id}`, getAuthHeaders());
+
+            // Filtramos la lista local para que se vea rápido
             setUsers(users.filter(u => u.id !== id));
-        } catch (error) {
-            alert("Error al eliminar");
+        } catch (error: any) {
+            alert("Error al eliminar: " + (error.response?.data?.detail || "No tienes permisos"));
         }
     };
 
@@ -77,10 +92,19 @@ export function AdminUsers() {
                 </button>
             </div>
 
+            {/* MENSAJE DE ERROR SI FALLA CARGA */}
+            {errorMsg && (
+                <div className="mb-6 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-xl flex items-center gap-3 border border-red-100 dark:border-red-800">
+                    <AlertTriangle className="w-5 h-5" /> {errorMsg}
+                </div>
+            )}
+
             {/* LISTA DE USUARIOS */}
             <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
                 {loading ? (
-                    <div className="p-10 text-center text-gray-400 dark:text-gray-500">Cargando usuarios...</div>
+                    <div className="p-10 text-center text-gray-400 dark:text-gray-500 flex justify-center items-center gap-2">
+                        <Loader2 className="animate-spin" /> Cargando usuarios...
+                    </div>
                 ) : (
                     <table className="w-full text-left">
                         <thead className="bg-gray-50 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 uppercase text-xs font-bold border-b border-gray-100 dark:border-gray-700">
