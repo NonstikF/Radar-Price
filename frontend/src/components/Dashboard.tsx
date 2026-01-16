@@ -4,7 +4,6 @@ import { FileText, Search, PlusCircle, AlertCircle, Package, ArrowRight, Loader2
 import { API_URL } from '../config';
 
 interface Props {
-    // ✅ Actualizamos la definición para aceptar el segundo parámetro opcional
     onNavigate: (view: string, filterMissing?: boolean) => void;
 }
 
@@ -34,41 +33,49 @@ export function Dashboard({ onNavigate }: Props) {
 
             <div className="flex justify-between items-end">
                 <div>
-                    <h1 className="text-3xl font-black text-gray-900 tracking-tight">Panel Principal</h1>
-                    <p className="text-gray-500 mt-1">Bienvenido a Radar Price. Aquí tienes un resumen de tu inventario.</p>
+                    <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">Panel Principal</h1>
+                    <p className="text-gray-500 dark:text-gray-400 mt-1">Bienvenido a Radar Price. Aquí tienes un resumen de tu inventario.</p>
                 </div>
                 <div className="text-right hidden md:block">
-                    <span className="block text-xs font-bold text-gray-400 uppercase tracking-wider">Fecha</span>
-                    <span className="font-medium text-gray-700">{new Date().toLocaleDateString()}</span>
+                    <span className="block text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Fecha</span>
+                    <span className="font-medium text-gray-700 dark:text-gray-300">{new Date().toLocaleDateString()}</span>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-                {/* 1. Total Productos (Clic lleva al buscador normal) */}
+                {/* Tarjeta 1: Total Productos */}
                 <div
                     onClick={() => onNavigate('search')}
-                    className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 flex items-center justify-between relative overflow-hidden group hover:shadow-md transition-all cursor-pointer"
+                    className="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-between relative overflow-hidden group hover:shadow-md transition-all cursor-pointer"
                 >
                     <div className="relative z-10">
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Total Productos</p>
-                        {loading ? <Loader2 className="w-8 h-8 text-blue-600 animate-spin" /> : <p className="text-5xl font-black text-blue-600 tracking-tighter">{stats.total}</p>}
+                        <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Total Productos</p>
+                        {loading ? (
+                            <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                        ) : (
+                            <p className="text-5xl font-black text-blue-600 dark:text-blue-400 tracking-tighter">{stats.total}</p>
+                        )}
                     </div>
-                    <div className="bg-blue-50 p-4 rounded-2xl group-hover:scale-110 transition-transform">
-                        <Package className="w-8 h-8 text-blue-600" />
+                    <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl group-hover:scale-110 transition-transform">
+                        <Package className="w-8 h-8 text-blue-600 dark:text-blue-400" />
                     </div>
                 </div>
 
-                {/* 2. Pendientes (Clic lleva al buscador CON FILTRO) */}
+                {/* Tarjeta 2: Pendientes */}
                 <div
-                    onClick={() => onNavigate('search', true)} // 👈 AQUÍ ACTIVAMOS EL FILTRO
-                    className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 flex items-center justify-between relative overflow-hidden group hover:shadow-md transition-all cursor-pointer ring-2 ring-transparent hover:ring-orange-100"
+                    onClick={() => onNavigate('search', true)}
+                    className="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-between relative overflow-hidden group hover:shadow-md transition-all cursor-pointer ring-2 ring-transparent hover:ring-orange-100 dark:hover:ring-orange-900/30"
                 >
                     <div className="relative z-10">
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Sin Precio Venta</p>
-                        {loading ? <Loader2 className="w-8 h-8 text-orange-500 animate-spin" /> : <p className="text-5xl font-black text-orange-500 tracking-tighter">{stats.missingPrice}</p>}
+                        <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Sin Precio Venta</p>
+                        {loading ? (
+                            <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
+                        ) : (
+                            <p className="text-5xl font-black text-orange-500 tracking-tighter">{stats.missingPrice}</p>
+                        )}
                     </div>
-                    <div className="bg-orange-50 p-4 rounded-2xl group-hover:scale-110 transition-transform">
+                    <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-2xl group-hover:scale-110 transition-transform">
                         <AlertCircle className="w-8 h-8 text-orange-500" />
                     </div>
                     <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity text-orange-500 text-xs font-bold flex items-center gap-1">
@@ -78,9 +85,10 @@ export function Dashboard({ onNavigate }: Props) {
 
             </div>
 
-            <h2 className="text-xl font-bold text-gray-800 mt-8 mb-4">Herramientas</h2>
+            <h2 className="text-xl font-bold text-gray-800 dark:text-white mt-8 mb-4">Herramientas</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
+                {/* Botón Cargar XML */}
                 <button onClick={() => onNavigate('upload')} className="group bg-gradient-to-br from-blue-600 to-blue-700 text-white p-6 rounded-3xl shadow-lg hover:shadow-blue-500/30 transition-all text-left relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-32 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
                     <div className="relative z-10">
@@ -91,18 +99,20 @@ export function Dashboard({ onNavigate }: Props) {
                     </div>
                 </button>
 
-                <button onClick={() => onNavigate('search')} className="group bg-white border border-gray-200 p-6 rounded-3xl shadow-sm hover:shadow-xl hover:border-blue-300 transition-all text-left">
-                    <div className="bg-purple-50 w-12 h-12 rounded-xl flex items-center justify-center mb-4"><Search className="w-6 h-6 text-purple-600" /></div>
-                    <h3 className="text-xl font-bold text-gray-800 mb-1">Buscador</h3>
-                    <p className="text-gray-500 text-sm mb-4">Consulta precios.</p>
-                    <span className="text-blue-600 text-xs font-bold flex items-center gap-1 group-hover:translate-x-1 transition-transform">Entrar <ArrowRight className="w-3 h-3" /></span>
+                {/* Botón Buscador */}
+                <button onClick={() => onNavigate('search')} className="group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6 rounded-3xl shadow-sm hover:shadow-xl hover:border-blue-300 dark:hover:border-blue-500 transition-all text-left">
+                    <div className="bg-purple-50 dark:bg-purple-900/20 w-12 h-12 rounded-xl flex items-center justify-center mb-4"><Search className="w-6 h-6 text-purple-600 dark:text-purple-400" /></div>
+                    <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-1">Buscador</h3>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">Consulta precios.</p>
+                    <span className="text-blue-600 dark:text-blue-400 text-xs font-bold flex items-center gap-1 group-hover:translate-x-1 transition-transform">Entrar <ArrowRight className="w-3 h-3" /></span>
                 </button>
 
-                <button onClick={() => onNavigate('manual')} className="group bg-white border border-gray-200 p-6 rounded-3xl shadow-sm hover:shadow-xl hover:border-green-300 transition-all text-left">
-                    <div className="bg-green-50 w-12 h-12 rounded-xl flex items-center justify-center mb-4"><PlusCircle className="w-6 h-6 text-green-600" /></div>
-                    <h3 className="text-xl font-bold text-gray-800 mb-1">Manual</h3>
-                    <p className="text-gray-500 text-sm mb-4">Registro manual.</p>
-                    <span className="text-green-600 text-xs font-bold flex items-center gap-1 group-hover:translate-x-1 transition-transform">Entrar <ArrowRight className="w-3 h-3" /></span>
+                {/* Botón Manual */}
+                <button onClick={() => onNavigate('manual')} className="group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6 rounded-3xl shadow-sm hover:shadow-xl hover:border-green-300 dark:hover:border-green-500 transition-all text-left">
+                    <div className="bg-green-50 dark:bg-green-900/20 w-12 h-12 rounded-xl flex items-center justify-center mb-4"><PlusCircle className="w-6 h-6 text-green-600 dark:text-green-400" /></div>
+                    <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-1">Manual</h3>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">Registro manual.</p>
+                    <span className="text-green-600 dark:text-green-400 text-xs font-bold flex items-center gap-1 group-hover:translate-x-1 transition-transform">Entrar <ArrowRight className="w-3 h-3" /></span>
                 </button>
 
             </div>

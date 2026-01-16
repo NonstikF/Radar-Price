@@ -2,7 +2,7 @@ import { useState } from 'react';
 import axios from 'axios';
 import { Upload, Save, FileText, Loader2, DollarSign, Package, EyeOff, GitMerge, ArrowRight, CheckCircle2 } from 'lucide-react';
 
-// ✅ IMPORTAMOS LA CONFIGURACIÓN CENTRALIZADA
+// IMPORTAMOS LA CONFIGURACIÓN CENTRALIZADA
 import { API_URL } from '../config';
 
 // Definimos las propiedades que vienen del padre (App.tsx)
@@ -57,7 +57,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
         setProducts(updatedProducts);
     };
 
-    // ✅ FUNCIÓN CORREGIDA: Borra la lista automáticamente
+    // FUNCIÓN CORREGIDA: Borra la lista automáticamente
     const handleSavePrices = async () => {
         setLoading(true);
         try {
@@ -79,9 +79,6 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                 setFile(null);   // Reinicia el archivo (variable interna)
                 setSavedMessage("");
                 setHiddenCount(0);
-
-                // Opcional: Si quieres limpiar el input file visualmente, 
-                // necesitarías usar una referencia (useRef), pero esto limpia la lógica.
             }, 1500);
 
         } catch (error) {
@@ -128,17 +125,22 @@ export function InvoiceUploader({ products, setProducts }: Props) {
         <div className="w-full max-w-7xl mx-auto p-4 md:p-6 pb-24 relative">
 
             {/* --- ZONA DE CARGA --- */}
-            <div className="bg-white rounded-2xl shadow-sm p-4 mb-6 border border-gray-200 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-4 mb-6 border border-gray-200 dark:border-gray-700 flex flex-col md:flex-row items-center justify-between gap-4 transition-colors">
                 <div className="flex items-center gap-4 w-full">
-                    <div className="bg-blue-50 p-3 rounded-full shrink-0">
-                        <Upload className="w-6 h-6 text-blue-600" />
+                    <div className="bg-blue-50 dark:bg-blue-900/30 p-3 rounded-full shrink-0 transition-colors">
+                        <Upload className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div className="flex-1 min-w-0">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Cargar XML (CFDI)</label>
-                        <input type="file" accept=".xml" onChange={handleFileChange} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cargar XML (CFDI)</label>
+                        <input
+                            type="file"
+                            accept=".xml"
+                            onChange={handleFileChange}
+                            className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900/30 dark:file:text-blue-300 dark:hover:file:bg-blue-900/50"
+                        />
                     </div>
                 </div>
-                <button onClick={handleUpload} disabled={!file || loading} className="w-full md:w-auto bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 disabled:opacity-50 flex justify-center items-center gap-2">
+                <button onClick={handleUpload} disabled={!file || loading} className="w-full md:w-auto bg-blue-600 dark:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 flex justify-center items-center gap-2 transition-colors">
                     {loading ? <Loader2 className="animate-spin w-4 h-4" /> : <FileText className="w-4 h-4" />}
                     {loading ? 'Procesando...' : 'Cargar Lista'}
                 </button>
@@ -146,7 +148,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
 
             {/* MENSAJE DE OCULTOS */}
             {hiddenCount > 0 && (
-                <div className="mb-4 bg-gray-100 text-gray-600 px-4 py-3 rounded-xl text-xs md:text-sm flex items-center gap-2 border border-gray-200">
+                <div className="mb-4 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-4 py-3 rounded-xl text-xs md:text-sm flex items-center gap-2 border border-gray-200 dark:border-gray-700">
                     <EyeOff className="w-4 h-4 shrink-0" />
                     <span>Se ocultaron <b>{hiddenCount} productos</b> sin cambios de precio y con precio de venta ya asignado.</span>
                 </div>
@@ -157,21 +159,21 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                 <div className="animate-fade-in">
 
                     {/* Header Sticky */}
-                    <div className="sticky top-2 z-20 bg-white/95 backdrop-blur shadow-md rounded-xl p-3 md:p-4 mb-4 border border-gray-200 flex justify-between items-center gap-3">
+                    <div className="sticky top-2 z-20 bg-white/95 dark:bg-gray-900/95 backdrop-blur shadow-md rounded-xl p-3 md:p-4 mb-4 border border-gray-200 dark:border-gray-700 flex justify-between items-center gap-3 transition-colors">
                         <div className="flex flex-col">
-                            <h3 className="font-bold text-gray-700 flex items-center gap-2 text-base md:text-lg">
-                                <DollarSign className="w-5 h-5 text-green-600" />
+                            <h3 className="font-bold text-gray-700 dark:text-gray-200 flex items-center gap-2 text-base md:text-lg">
+                                <DollarSign className="w-5 h-5 text-green-600 dark:text-green-400" />
                                 <span>Gestión de Precios</span>
                             </h3>
-                            <span className="text-gray-400 text-xs md:hidden">({products.length} visibles)</span>
+                            <span className="text-gray-400 dark:text-gray-500 text-xs md:hidden">({products.length} visibles)</span>
                         </div>
 
                         {savedMessage ? (
-                            <span className="text-green-600 font-bold px-4 py-2 bg-green-50 rounded-lg border border-green-200 animate-pulse text-sm">
+                            <span className="text-green-600 dark:text-green-400 font-bold px-4 py-2 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-900 animate-pulse text-sm">
                                 {savedMessage}
                             </span>
                         ) : (
-                            <button onClick={handleSavePrices} disabled={loading} className="bg-green-600 text-white px-4 py-2 md:px-6 rounded-xl font-bold hover:bg-green-700 shadow-lg shadow-green-500/20 active:scale-95 transition-all flex items-center gap-2 text-sm md:text-base">
+                            <button onClick={handleSavePrices} disabled={loading} className="bg-green-600 dark:bg-green-700 text-white px-4 py-2 md:px-6 rounded-xl font-bold hover:bg-green-700 dark:hover:bg-green-600 shadow-lg shadow-green-500/20 active:scale-95 transition-all flex items-center gap-2 text-sm md:text-base">
                                 <Save className="w-5 h-5" />
                                 <span>Guardar</span>
                             </button>
@@ -188,18 +190,18 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                             const isNewWithSuggestions = p.status === 'new' && p.suggestions?.length > 0;
 
                             return (
-                                <div key={i} className={`p-4 rounded-xl shadow-sm border border-gray-200 relative overflow-hidden ${isPriceChanged ? 'bg-yellow-50/50' : 'bg-white'}`}>
+                                <div key={i} className={`p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 relative overflow-hidden transition-colors ${isPriceChanged ? 'bg-yellow-50/50 dark:bg-yellow-900/10' : 'bg-white dark:bg-gray-800'}`}>
 
                                     {/* Etiquetas */}
                                     <div className="flex gap-2 mb-2 flex-wrap">
-                                        {isPriceChanged && <span className="bg-yellow-100 text-yellow-800 text-[10px] font-bold px-2 py-1 rounded-md border border-yellow-200">⚠️ Costo Cambió</span>}
-                                        {p.status === 'new' && <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-md border border-blue-200">NUEVO</span>}
+                                        {isPriceChanged && <span className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400 text-[10px] font-bold px-2 py-1 rounded-md border border-yellow-200 dark:border-yellow-800">⚠️ Costo Cambió</span>}
+                                        {p.status === 'new' && <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] font-bold px-2 py-1 rounded-md border border-blue-200 dark:border-blue-800">NUEVO</span>}
                                     </div>
 
                                     {/* Nombre */}
                                     <div className="flex justify-between items-start mb-3 gap-2">
-                                        <h4 className="font-bold text-gray-800 text-sm leading-snug">{p.name}</h4>
-                                        <span className="bg-gray-100 text-gray-600 text-xs font-bold px-2 py-1 rounded-lg shrink-0 flex items-center gap-1">
+                                        <h4 className="font-bold text-gray-800 dark:text-gray-100 text-sm leading-snug">{p.name}</h4>
+                                        <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs font-bold px-2 py-1 rounded-lg shrink-0 flex items-center gap-1">
                                             <Package className="w-3 h-3" /> {p.qty}
                                         </span>
                                     </div>
@@ -209,7 +211,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                                         <div className="mb-3">
                                             <button
                                                 onClick={() => setMergeMenuOpen(mergeMenuOpen === i ? null : i)}
-                                                className="w-full bg-orange-50 border border-orange-200 text-orange-800 text-xs font-bold py-2 rounded-lg flex items-center justify-center gap-2 active:bg-orange-100"
+                                                className="w-full bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 text-orange-800 dark:text-orange-300 text-xs font-bold py-2 rounded-lg flex items-center justify-center gap-2 active:bg-orange-100 dark:active:bg-orange-900/40"
                                             >
                                                 <GitMerge className="w-4 h-4" />
                                                 {mergeMenuOpen === i ? 'Cerrar sugerencias' : '¿Es duplicado? Ver opciones'}
@@ -221,12 +223,12 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                                                         <button
                                                             key={s.id}
                                                             onClick={() => initiateMerge(i, s.id, s.name)}
-                                                            className="w-full text-left p-3 bg-white border border-orange-200 rounded-lg shadow-sm active:bg-orange-50"
+                                                            className="w-full text-left p-3 bg-white dark:bg-gray-800 border border-orange-200 dark:border-orange-800 rounded-lg shadow-sm active:bg-orange-50 dark:active:bg-gray-700"
                                                         >
-                                                            <div className="text-xs font-bold text-gray-800 mb-1">Fusionar con: {s.name}</div>
-                                                            <div className="text-[10px] text-gray-500 flex justify-between">
+                                                            <div className="text-xs font-bold text-gray-800 dark:text-white mb-1">Fusionar con: {s.name}</div>
+                                                            <div className="text-[10px] text-gray-500 dark:text-gray-400 flex justify-between">
                                                                 <span>Costo BD: ${s.price}</span>
-                                                                <span className="text-blue-600 font-bold">Clic para unir</span>
+                                                                <span className="text-blue-600 dark:text-blue-400 font-bold">Clic para unir</span>
                                                             </div>
                                                         </button>
                                                     ))}
@@ -238,22 +240,22 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                                     {/* Inputs */}
                                     <div className="flex gap-3 items-end">
                                         <div className="flex-1">
-                                            <div className="flex justify-between text-[10px] text-gray-400 mb-1 uppercase font-bold tracking-wide">
+                                            <div className="flex justify-between text-[10px] text-gray-400 dark:text-gray-500 mb-1 uppercase font-bold tracking-wide">
                                                 <span>Costo: ${p.cost_with_tax?.toFixed(2)}</span>
-                                                {isPriceChanged && <span className="text-yellow-600">Ant: ${p.old_cost?.toFixed(2)}</span>}
+                                                {isPriceChanged && <span className="text-yellow-600 dark:text-yellow-400">Ant: ${p.old_cost?.toFixed(2)}</span>}
                                             </div>
                                             <div className="relative">
-                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">$</span>
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 font-bold">$</span>
                                                 <input
                                                     type="number"
                                                     value={p.selling_price === 0 ? '' : p.selling_price}
                                                     onChange={(e) => handlePriceChange(i, e.target.value)}
-                                                    className="w-full pl-8 pr-3 py-3 border border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 font-bold text-blue-900 text-lg bg-blue-50/30"
+                                                    className="w-full pl-8 pr-3 py-3 border border-blue-200 dark:border-blue-900/50 rounded-xl focus:ring-2 focus:ring-blue-500 font-bold text-blue-900 dark:text-blue-200 text-lg bg-blue-50/30 dark:bg-gray-700"
                                                     placeholder="0.00"
                                                 />
                                             </div>
                                         </div>
-                                        <div className={`flex flex-col items-center justify-center w-12 h-12 rounded-full border-2 shrink-0 ${margen > 0 ? 'border-green-100 bg-green-50 text-green-700' : 'border-gray-100 bg-gray-50 text-gray-300'}`}>
+                                        <div className={`flex flex-col items-center justify-center w-12 h-12 rounded-full border-2 shrink-0 ${margen > 0 ? 'border-green-100 bg-green-50 text-green-700 dark:border-green-900 dark:bg-green-900/20 dark:text-green-400' : 'border-gray-100 bg-gray-50 text-gray-300 dark:border-gray-700 dark:bg-gray-700 dark:text-gray-500'}`}>
                                             <span className="text-[10px] font-bold">{margen > 0 ? margen.toFixed(0) : '-'}%</span>
                                         </div>
                                     </div>
@@ -263,20 +265,20 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                     </div>
 
                     {/* --- VISTA ESCRITORIO (TABLA) --- */}
-                    <div className="hidden md:block bg-white rounded-xl shadow-lg border border-gray-200 overflow-visible">
+                    <div className="hidden md:block bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-visible transition-colors">
                         <div className="overflow-visible">
                             <table className="min-w-full text-sm text-left">
-                                <thead className="bg-gray-100 text-gray-600 uppercase text-xs font-bold">
+                                <thead className="bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-400 uppercase text-xs font-bold">
                                     <tr>
                                         <th className="px-4 py-3 w-32">Estado</th>
                                         <th className="px-4 py-3">Producto</th>
                                         <th className="px-4 py-3 text-center">Cant.</th>
                                         <th className="px-4 py-3 text-right">Costo</th>
-                                        <th className="px-4 py-3 text-center bg-blue-50 text-blue-700 border-l border-blue-100 w-40">PRECIO VENTA</th>
+                                        <th className="px-4 py-3 text-center bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-l border-blue-100 dark:border-blue-800 w-40">PRECIO VENTA</th>
                                         <th className="px-4 py-3 text-right">Margen</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-100">
+                                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                                     {products.map((p, i) => {
                                         const costo = p.cost_with_tax || 0;
                                         const venta = parseFloat(p.selling_price) || 0;
@@ -284,44 +286,44 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                                         const isPriceChanged = p.status === 'price_changed';
                                         const isNewWithSuggestions = p.status === 'new' && p.suggestions?.length > 0;
 
-                                        let rowClass = "hover:bg-gray-50 transition-colors";
-                                        if (isPriceChanged) rowClass = "bg-yellow-50 hover:bg-yellow-100 transition-colors";
+                                        let rowClass = "hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors";
+                                        if (isPriceChanged) rowClass = "bg-yellow-50 dark:bg-yellow-900/10 hover:bg-yellow-100 dark:hover:bg-yellow-900/20 transition-colors";
 
                                         return (
                                             <tr key={i} className={rowClass}>
                                                 <td className="px-4 py-3 align-top">
                                                     <div className="flex flex-col gap-1 items-start">
-                                                        {isPriceChanged && <span className="bg-yellow-200 text-yellow-800 text-[10px] font-bold px-2 py-0.5 rounded-md">⚠️ Precio</span>}
-                                                        {p.status === 'new' && <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded-md">NUEVO</span>}
+                                                        {isPriceChanged && <span className="bg-yellow-200 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 text-[10px] font-bold px-2 py-0.5 rounded-md">⚠️ Precio</span>}
+                                                        {p.status === 'new' && <span className="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 text-[10px] font-bold px-2 py-0.5 rounded-md">NUEVO</span>}
 
                                                         {isNewWithSuggestions && (
                                                             <div className="relative">
                                                                 <button
                                                                     onClick={() => setMergeMenuOpen(mergeMenuOpen === i ? null : i)}
-                                                                    className="mt-1 bg-orange-100 hover:bg-orange-200 text-orange-800 text-[10px] font-bold px-2 py-1 rounded-md flex items-center gap-1 cursor-pointer border border-orange-300 transition-colors"
+                                                                    className="mt-1 bg-orange-100 hover:bg-orange-200 dark:bg-orange-900/30 dark:hover:bg-orange-900/50 text-orange-800 dark:text-orange-300 text-[10px] font-bold px-2 py-1 rounded-md flex items-center gap-1 cursor-pointer border border-orange-300 dark:border-orange-800 transition-colors"
                                                                 >
                                                                     <GitMerge className="w-3 h-3" /> Duplicado?
                                                                 </button>
 
                                                                 {mergeMenuOpen === i && (
-                                                                    <div className="absolute left-0 top-8 z-50 bg-white shadow-2xl rounded-xl border border-gray-200 p-3 w-80 animate-scale-in">
-                                                                        <p className="text-xs text-gray-500 mb-2 font-bold uppercase">Posibles coincidencias:</p>
+                                                                    <div className="absolute left-0 top-8 z-50 bg-white dark:bg-gray-800 shadow-2xl rounded-xl border border-gray-200 dark:border-gray-700 p-3 w-80 animate-scale-in">
+                                                                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 font-bold uppercase">Posibles coincidencias:</p>
                                                                         <div className="space-y-2 max-h-60 overflow-y-auto">
                                                                             {p.suggestions.map((s: any) => (
                                                                                 <button
                                                                                     key={s.id}
                                                                                     onClick={() => initiateMerge(i, s.id, s.name)}
-                                                                                    className="w-full text-left p-2 hover:bg-blue-50 rounded-lg text-xs border border-gray-100 group transition-colors"
+                                                                                    className="w-full text-left p-2 hover:bg-blue-50 dark:hover:bg-gray-700 rounded-lg text-xs border border-gray-100 dark:border-gray-700 group transition-colors"
                                                                                 >
-                                                                                    <div className="font-bold text-gray-800 group-hover:text-blue-700">{s.name}</div>
-                                                                                    <div className="text-gray-400 flex justify-between mt-1">
+                                                                                    <div className="font-bold text-gray-800 dark:text-gray-200 group-hover:text-blue-700 dark:group-hover:text-blue-400">{s.name}</div>
+                                                                                    <div className="text-gray-400 dark:text-gray-500 flex justify-between mt-1">
                                                                                         <span>Costo BD: ${s.price}</span>
-                                                                                        <span className="text-blue-600 font-bold flex items-center gap-1">Fusionar <ArrowRight className="w-3 h-3" /></span>
+                                                                                        <span className="text-blue-600 dark:text-blue-400 font-bold flex items-center gap-1">Fusionar <ArrowRight className="w-3 h-3" /></span>
                                                                                     </div>
                                                                                 </button>
                                                                             ))}
                                                                         </div>
-                                                                        <button onClick={() => setMergeMenuOpen(null)} className="mt-2 w-full text-center text-xs text-gray-400 hover:text-gray-600 py-1">Cancelar</button>
+                                                                        <button onClick={() => setMergeMenuOpen(null)} className="mt-2 w-full text-center text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 py-1">Cancelar</button>
                                                                     </div>
                                                                 )}
                                                             </div>
@@ -330,27 +332,27 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                                                 </td>
 
                                                 <td className="px-4 py-3 align-middle">
-                                                    <div className="font-medium text-gray-900">{p.name}</div>
-                                                    {isPriceChanged && <div className="text-xs text-yellow-700 mt-0.5">Antes: ${p.old_cost?.toFixed(2)}</div>}
+                                                    <div className="font-medium text-gray-900 dark:text-white">{p.name}</div>
+                                                    {isPriceChanged && <div className="text-xs text-yellow-700 dark:text-yellow-400 mt-0.5">Antes: ${p.old_cost?.toFixed(2)}</div>}
                                                 </td>
 
-                                                <td className="px-4 py-3 text-center align-middle">{p.qty}</td>
-                                                <td className="px-4 py-3 text-right text-gray-400 align-middle">${p.cost_with_tax?.toFixed(2)}</td>
+                                                <td className="px-4 py-3 text-center align-middle text-gray-700 dark:text-gray-300">{p.qty}</td>
+                                                <td className="px-4 py-3 text-right text-gray-400 dark:text-gray-500 align-middle">${p.cost_with_tax?.toFixed(2)}</td>
 
-                                                <td className="px-4 py-2 bg-blue-50 border-l border-blue-100 align-middle">
+                                                <td className="px-4 py-2 bg-blue-50 dark:bg-blue-900/10 border-l border-blue-100 dark:border-blue-900 align-middle">
                                                     <div className="relative">
-                                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500">$</span>
                                                         <input
                                                             type="number"
                                                             value={p.selling_price === 0 ? '' : p.selling_price}
                                                             onChange={(e) => handlePriceChange(i, e.target.value)}
-                                                            className="w-full pl-6 pr-2 py-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 font-bold text-blue-900 text-right placeholder-gray-300"
+                                                            className="w-full pl-6 pr-2 py-2 border border-blue-200 dark:border-blue-800 rounded-lg focus:ring-2 focus:ring-blue-500 font-bold text-blue-900 dark:text-blue-200 text-right placeholder-gray-300 dark:placeholder-gray-600 bg-white dark:bg-gray-800"
                                                             placeholder="0.00"
                                                         />
                                                     </div>
                                                 </td>
 
-                                                <td className={`px-4 py-3 text-right font-bold align-middle ${margen > 0 ? 'text-green-600' : 'text-red-400'}`}>
+                                                <td className={`px-4 py-3 text-right font-bold align-middle ${margen > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-400 dark:text-red-400'}`}>
                                                     {margen > 0 ? `${margen.toFixed(0)}%` : '-'}
                                                 </td>
                                             </tr>
@@ -367,18 +369,18 @@ export function InvoiceUploader({ products, setProducts }: Props) {
             {/* --- MODAL BONITO PARA UNIFICAR --- */}
             {pendingMerge && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden animate-scale-in relative text-center p-6">
+                    <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden animate-scale-in relative text-center p-6 transition-colors">
 
-                        <div className="bg-blue-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-white shadow-lg relative -mt-10">
-                            <GitMerge className="w-10 h-10 text-blue-600" />
+                        <div className="bg-blue-100 dark:bg-blue-900/30 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-white dark:border-gray-800 shadow-lg relative -mt-10 transition-colors">
+                            <GitMerge className="w-10 h-10 text-blue-600 dark:text-blue-400" />
                         </div>
 
-                        <h3 className="text-xl font-black text-gray-900 mb-2">Unificar Producto</h3>
+                        <h3 className="text-xl font-black text-gray-900 dark:text-white mb-2">Unificar Producto</h3>
 
-                        <p className="text-gray-500 text-sm mb-6 leading-relaxed">
+                        <p className="text-gray-500 dark:text-gray-400 text-sm mb-6 leading-relaxed">
                             Este producto se registrará como:
                             <br />
-                            <strong className="text-blue-600 bg-blue-50 px-2 py-1 rounded-md mt-2 inline-block border border-blue-100">
+                            <strong className="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded-md mt-2 inline-block border border-blue-100 dark:border-blue-900">
                                 {pendingMerge.targetName}
                             </strong>
                         </p>
@@ -387,7 +389,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                             <button
                                 onClick={executeMerge}
                                 disabled={loading}
-                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-blue-500/30 active:scale-95 flex items-center justify-center gap-2"
+                                className="w-full bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-blue-500/30 active:scale-95 flex items-center justify-center gap-2"
                             >
                                 {loading ? <Loader2 className="animate-spin w-4 h-4" /> : <CheckCircle2 className="w-5 h-5" />}
                                 Confirmar y Unificar
@@ -396,7 +398,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                             <button
                                 onClick={() => setPendingMerge(null)}
                                 disabled={loading}
-                                className="w-full bg-white hover:bg-gray-50 text-gray-500 font-bold py-3 rounded-xl transition-colors border border-gray-200"
+                                className="w-full bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-500 dark:text-white font-bold py-3 rounded-xl transition-colors border border-gray-200 dark:border-gray-600"
                             >
                                 Cancelar
                             </button>
