@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { InvoiceUploader } from './components/InvoiceUploader';
 import { ManualEntry } from './components/ManualEntry';
 import { PriceChecker } from './components/PriceChecker';
-import { Dashboard } from './components/dashboard'; // <--- IMPORTANTE
+import { Dashboard } from './components/Dashboard'; // <--- IMPORTANTE
 import { Logo } from './components/Logo';
 import { LayoutGrid, FileText, Search, PlusCircle } from 'lucide-react';
 
