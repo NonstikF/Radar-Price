@@ -4,7 +4,7 @@ import { ManualEntry } from './components/ManualEntry';
 import { PriceChecker } from './components/PriceChecker';
 import { Dashboard } from './components/Dashboard';
 import { AdminUsers } from './components/AdminUsers'; // Importar el nuevo componente
-import { Login } from './components/Login';
+import { Login } from './components/UserLogin';
 import { Logo } from './components/Logo';
 import { LayoutGrid, FileText, Search, PlusCircle, Moon, Sun, Users, LogOut } from 'lucide-react';
 
