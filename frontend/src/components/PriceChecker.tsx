@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Search, X, Save, Barcode, Hash, CheckCircle2, AlertTriangle, ArrowLeft, History, TrendingUp, TrendingDown, ArrowRight, Camera, Filter } from 'lucide-react';
+import { Search, X, Save, Barcode, Hash, CheckCircle2, AlertTriangle, ArrowLeft, History, ArrowRight, Camera, Filter } from 'lucide-react';
 import { BarcodeScanner } from './BarcodeScanner';
 import { API_URL } from '../config';
 
