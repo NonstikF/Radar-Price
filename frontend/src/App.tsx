@@ -3,8 +3,8 @@ import { InvoiceUploader } from './components/InvoiceUploader';
 import { ManualEntry } from './components/ManualEntry';
 import { PriceChecker } from './components/PriceChecker';
 import { Dashboard } from './components/Dashboard';
-import { AdminUsers } from './components/AdminUsers'; // Importar el nuevo componente
-import { Login } from './components/UserLogin';
+import { AdminUsers } from './components/AdminUsers';
+import { Login } from './components/UserLogin'; // Asegúrate que la ruta sea correcta
 import { Logo } from './components/Logo';
 import { LayoutGrid, FileText, Search, PlusCircle, Moon, Sun, Users, LogOut } from 'lucide-react';
 
@@ -31,8 +31,14 @@ function App() {
     const token = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
     if (token && storedUser) {
+      const parsedUser = JSON.parse(storedUser);
       setIsAuthenticated(true);
-      setUser(JSON.parse(storedUser));
+      setUser(parsedUser);
+
+      // Opcional: Si recarga la página y es 'user', asegurar que no se quede en dashboard
+      if (parsedUser.role !== 'admin' && currentView === 'dashboard') {
+        setCurrentView('search');
+      }
     }
   }, []);
 
@@ -51,7 +57,13 @@ function App() {
     localStorage.setItem('user', JSON.stringify({ username: userData.username, role: userData.role }));
     setIsAuthenticated(true);
     setUser(userData);
-    setCurrentView('dashboard');
+
+    // LOGICA DE REDIRECCIÓN POR ROL
+    if (userData.role === 'admin') {
+      setCurrentView('dashboard');
+    } else {
+      setCurrentView('search');
+    }
   };
 
   const handleLogout = () => {
@@ -59,6 +71,7 @@ function App() {
     localStorage.removeItem('user');
     setIsAuthenticated(false);
     setUser(null);
+    setCurrentView('dashboard'); // Reset view
   };
 
   const handleNavigate = (view: string, enableFilter: boolean = false) => {
@@ -81,18 +94,28 @@ function App() {
       {/* HEADER */}
       <header className="bg-white/90 dark:bg-gray-900/90 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-40 shadow-sm/50 backdrop-blur-xl transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
-          <div className="cursor-pointer" onClick={() => handleNavigate('dashboard')}>
+          <div className="cursor-pointer" onClick={() => user?.role === 'admin' ? handleNavigate('dashboard') : handleNavigate('search')}>
             <Logo variant="full" />
           </div>
 
           <div className="flex items-center gap-2 md:gap-4">
             <nav className="hidden md:flex gap-1">
-              <NavButton active={currentView === 'dashboard'} onClick={() => handleNavigate('dashboard')} icon={<LayoutGrid className="w-4 h-4" />} label="Panel" />
+
+              {/* SOLO ADMIN: Panel Dashboard */}
+              {user?.role === 'admin' && (
+                <NavButton active={currentView === 'dashboard'} onClick={() => handleNavigate('dashboard')} icon={<LayoutGrid className="w-4 h-4" />} label="Panel" />
+              )}
+
+              {/* AMBOS: Cargar XML y Buscador */}
               <NavButton active={currentView === 'upload'} onClick={() => handleNavigate('upload')} icon={<FileText className="w-4 h-4" />} label="Cargar XML" />
               <NavButton active={currentView === 'search'} onClick={() => handleNavigate('search')} icon={<Search className="w-4 h-4" />} label="Buscador" />
-              <NavButton active={currentView === 'manual'} onClick={() => handleNavigate('manual')} icon={<PlusCircle className="w-4 h-4" />} label="Manual" />
 
-              {/* Botón Admin solo para admin */}
+              {/* SOLO ADMIN: Entrada Manual */}
+              {user?.role === 'admin' && (
+                <NavButton active={currentView === 'manual'} onClick={() => handleNavigate('manual')} icon={<PlusCircle className="w-4 h-4" />} label="Manual" />
+              )}
+
+              {/* SOLO ADMIN: Usuarios */}
               {user?.role === 'admin' && (
                 <NavButton active={currentView === 'admin'} onClick={() => handleNavigate('admin')} icon={<Users className="w-4 h-4" />} label="Usuarios" />
               )}
@@ -121,21 +144,49 @@ function App() {
         </div>
       </header>
 
-      {/* CONTENIDO PRINCIPAL */}
+      {/* CONTENIDO PRINCIPAL - PROTEGIDO POR ROL */}
       <main className="animate-fade-in">
-        {currentView === 'dashboard' && <Dashboard onNavigate={handleNavigate} />}
-        {currentView === 'upload' && <InvoiceUploader products={products} setProducts={setProducts} />}
-        {currentView === 'search' && <PriceChecker initialFilter={filterMissing} onClearFilter={() => setFilterMissing(false)} />}
-        {currentView === 'manual' && <ManualEntry />}
-        {currentView === 'admin' && <AdminUsers />}
+
+        {/* Solo Admin ve Dashboard */}
+        {currentView === 'dashboard' && user?.role === 'admin' && (
+          <Dashboard onNavigate={handleNavigate} />
+        )}
+
+        {/* Todos ven Upload */}
+        {currentView === 'upload' && (
+          <InvoiceUploader products={products} setProducts={setProducts} />
+        )}
+
+        {/* Todos ven Search */}
+        {currentView === 'search' && (
+          <PriceChecker initialFilter={filterMissing} onClearFilter={() => setFilterMissing(false)} />
+        )}
+
+        {/* Solo Admin ve Manual */}
+        {currentView === 'manual' && user?.role === 'admin' && (
+          <ManualEntry />
+        )}
+
+        {/* Solo Admin ve Usuarios */}
+        {currentView === 'admin' && user?.role === 'admin' && (
+          <AdminUsers />
+        )}
       </main>
 
-      {/* MENÚ MÓVIL */}
+      {/* MENÚ MÓVIL - PROTEGIDO POR ROL */}
       <div className="md:hidden fixed bottom-4 left-4 right-4 bg-gray-900/90 dark:bg-gray-800/90 backdrop-blur-lg text-white p-2 rounded-2xl flex justify-around items-center shadow-2xl z-50 border border-white/10 overflow-x-auto">
-        <MobileNavBtn active={currentView === 'dashboard'} onClick={() => handleNavigate('dashboard')} icon={<LayoutGrid className="w-5 h-5" />} />
+
+        {user?.role === 'admin' && (
+          <MobileNavBtn active={currentView === 'dashboard'} onClick={() => handleNavigate('dashboard')} icon={<LayoutGrid className="w-5 h-5" />} />
+        )}
+
         <MobileNavBtn active={currentView === 'upload'} onClick={() => handleNavigate('upload')} icon={<FileText className="w-5 h-5" />} />
         <MobileNavBtn active={currentView === 'search'} onClick={() => handleNavigate('search')} icon={<Search className="w-5 h-5" />} />
-        <MobileNavBtn active={currentView === 'manual'} onClick={() => handleNavigate('manual')} icon={<PlusCircle className="w-5 h-5" />} />
+
+        {user?.role === 'admin' && (
+          <MobileNavBtn active={currentView === 'manual'} onClick={() => handleNavigate('manual')} icon={<PlusCircle className="w-5 h-5" />} />
+        )}
+
         {user?.role === 'admin' && (
           <MobileNavBtn active={currentView === 'admin'} onClick={() => handleNavigate('admin')} icon={<Users className="w-5 h-5" />} />
         )}

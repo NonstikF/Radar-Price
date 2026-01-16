@@ -7,7 +7,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from typing import Optional, List
 from sqlalchemy import Column, Integer, String, select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker # <--- IMPORTANTE
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 
 # --- TUS IMPORTACIONES EXISTENTES ---
@@ -65,7 +65,6 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 # --- 5. GESTIÓN DE BASE DE DATOS ASÍNCRONA ---
-# Creamos el generador de sesiones asíncronas
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 async def get_db():
@@ -96,49 +95,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- 8. ENDPOINTS (CONECTADOS A POSTGRES CON AWAIT) ---
+# --- 8. AUTH: DEPENDENCIAS DE SEGURIDAD ---
 
-@app.post("/auth/token", response_model=Token)
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
-    # 1. Buscar usuario con AWAIT
-    stmt = select(UserDB).where(UserDB.username == form_data.username)
-    result = await db.execute(stmt) # <--- AWAIT AQUÍ
-    user = result.scalar_one_or_none()
-
-    # --- AUTO-CREACIÓN DE ADMIN (CORREGIDO PARA ASYNC) ---
-    if not user and form_data.username == "admin":
-        stmt_count = select(UserDB)
-        result_count = await db.execute(stmt_count) # <--- AWAIT AQUÍ
-        users_count = result_count.scalars().all()
-        
-        if len(users_count) == 0:
-            print("Base de datos vacía. Creando ADMIN por defecto...")
-            admin_user = UserDB(
-                username="admin",
-                hashed_password=get_password_hash("admin123"),
-                role="admin",
-                created_at=datetime.now().isoformat()
-            )
-            db.add(admin_user)
-            await db.commit() # <--- AWAIT AQUÍ
-            await db.refresh(admin_user) # <--- AWAIT AQUÍ
-            user = admin_user
-    # ---------------------------------------------------------
-
-    if not user or not verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Usuario o contraseña incorrectos",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    access_token = create_access_token(
-        data={"sub": user.username, "role": user.role},
-        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    )
-    return {"access_token": access_token, "token_type": "bearer"}
-
-# Dependencia para obtener usuario actual
+# Obtener usuario actual (Cualquier rol logueado)
 async def get_current_user(token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -155,25 +114,68 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     except JWTError:
         raise credentials_exception
 
+# Verificar que sea ADMIN (Solo Admin)
 async def verify_admin(current_user: dict = Depends(get_current_user)):
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Requiere permisos de Administrador")
     return current_user
 
-# --- RUTAS DE GESTIÓN DE USUARIOS (ASYNC) ---
+# --- 9. ENDPOINTS DE AUTENTICACIÓN ---
+
+@app.post("/auth/token", response_model=Token)
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
+    # Buscar usuario
+    stmt = select(UserDB).where(UserDB.username == form_data.username)
+    result = await db.execute(stmt)
+    user = result.scalar_one_or_none()
+
+    # --- AUTO-CREACIÓN DE ADMIN (SI BD VACÍA) ---
+    if not user and form_data.username == "admin":
+        stmt_count = select(UserDB)
+        result_count = await db.execute(stmt_count)
+        users_count = result_count.scalars().all()
+        
+        if len(users_count) == 0:
+            print("Base de datos vacía. Creando ADMIN por defecto...")
+            admin_user = UserDB(
+                username="admin",
+                hashed_password=get_password_hash("admin123"),
+                role="admin",
+                created_at=datetime.now().isoformat()
+            )
+            db.add(admin_user)
+            await db.commit()
+            await db.refresh(admin_user)
+            user = admin_user
+    # ---------------------------------------------------------
+
+    if not user or not verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Usuario o contraseña incorrectos",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    access_token = create_access_token(
+        data={"sub": user.username, "role": user.role},
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+# --- 10. GESTIÓN DE USUARIOS (PROTEGIDO: SOLO ADMIN) ---
 
 @app.get("/users", response_model=List[UserResponse])
 async def get_users(db: AsyncSession = Depends(get_db), current_user: dict = Depends(verify_admin)):
     stmt = select(UserDB)
-    result = await db.execute(stmt) # <--- AWAIT
+    result = await db.execute(stmt)
     users = result.scalars().all()
     return users
 
 @app.post("/auth/register")
 async def register_user(user: UserCreate, db: AsyncSession = Depends(get_db), current_user: dict = Depends(verify_admin)):
-    # Verificar si existe
+    # Verificar existencia
     stmt = select(UserDB).where(UserDB.username == user.username)
-    result = await db.execute(stmt) # <--- AWAIT
+    result = await db.execute(stmt)
     existing_user = result.scalar_one_or_none()
     
     if existing_user:
@@ -186,13 +188,13 @@ async def register_user(user: UserCreate, db: AsyncSession = Depends(get_db), cu
         created_at=datetime.now().isoformat()
     )
     db.add(new_user)
-    await db.commit() # <--- AWAIT
+    await db.commit()
     return {"message": "Usuario creado exitosamente"}
 
 @app.delete("/users/{user_id}")
 async def delete_user(user_id: int, db: AsyncSession = Depends(get_db), current_user: dict = Depends(verify_admin)):
     stmt = select(UserDB).where(UserDB.id == user_id)
-    result = await db.execute(stmt) # <--- AWAIT
+    result = await db.execute(stmt)
     user_to_delete = result.scalar_one_or_none()
     
     if not user_to_delete:
@@ -201,13 +203,19 @@ async def delete_user(user_id: int, db: AsyncSession = Depends(get_db), current_
     if user_to_delete.username == "admin":
          raise HTTPException(status_code=400, detail="No puedes eliminar al admin principal")
          
-    await db.delete(user_to_delete) # <--- AWAIT
-    await db.commit() # <--- AWAIT
+    await db.delete(user_to_delete)
+    await db.commit()
     return {"message": "Usuario eliminado"}
 
-# --- OTRAS RUTAS ---
-app.include_router(invoices.router, prefix="/invoices", tags=["invoices"])
+# --- 11. RUTAS DE FACTURAS (PROTEGIDAS: ADMIN Y USUARIOS) ---
+# Agregamos 'dependencies' para que solo usuarios logueados (Almacen o Admin) puedan usarlas.
+app.include_router(
+    invoices.router, 
+    prefix="/invoices", 
+    tags=["invoices"], 
+    dependencies=[Depends(get_current_user)] 
+)
 
 @app.get("/")
 def read_root():
-    return {"message": "Sistema Online con Base de Datos Async 🚀"}
+    return {"message": "Sistema Online 🚀"}
