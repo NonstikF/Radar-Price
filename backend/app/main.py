@@ -10,13 +10,11 @@ async def startup_event():
 
 app = FastAPI(on_startup=[startup_event])
 
-# --- CONFIGURACIÓN DE SEGURIDAD (CORS) ---
-# El asterisco "*" significa: "Acepta peticiones de CUALQUIER lugar"
-# Esto es vital para que funcione desde el celular.
+
 origins = [
     "http://localhost:5173",
-    # Agrega TU URL de frontend de Railway (sin barra al final)
     "https://radar-price-production.up.railway.app", 
+    "https://frontend-production-a0cf.up.railway.app",
     "*" # Déjalo por ahora para descartar problemas
 ]
 
