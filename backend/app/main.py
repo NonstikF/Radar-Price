@@ -7,20 +7,20 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from typing import Optional
 
-# Importaciones de tu proyecto
+# --- TUS IMPORTACIONES EXISTENTES ---
 from app.api.endpoints import invoices
 from app.core.database import engine, Base
 
-# --- CONFIGURACIÓN DE SEGURIDAD ---
-SECRET_KEY = "tu_clave_secreta_super_segura_y_larga" # Cambia esto en producción
+# --- 1. CONFIGURACIÓN DE SEGURIDAD ---
+SECRET_KEY = "tu_clave_secreta_super_segura_y_larga"  # En producción usa variables de entorno
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 # 24 horas
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 horas
 
-# Contexto para encriptar contraseñas
+# Herramientas de seguridad
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
 
-# --- MODELOS DE AUTENTICACIÓN ---
+# --- 2. MODELOS DE DATOS PARA LOGIN ---
 class Token(BaseModel):
     access_token: str
     token_type: str
@@ -29,8 +29,9 @@ class User(BaseModel):
     username: str
     role: str
 
-# --- BASE DE DATOS DE USUARIOS SIMULADA ---
-# El password "admin123" encriptado es este string largo
+# --- 3. USUARIOS SIMULADOS (MOCK DB) ---
+# Aquí definimos al usuario admin.
+# El hash corresponde a la contraseña: "admin123"
 fake_users_db = {
     "admin": {
         "username": "admin",
@@ -39,7 +40,7 @@ fake_users_db = {
     }
 }
 
-# --- FUNCIONES DE UTILIDAD ---
+# --- 4. FUNCIONES DE AYUDA ---
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
@@ -54,20 +55,19 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-# --- INICIO DE LA APP ---
-
+# --- 5. INICIALIZACIÓN DE APP Y BASE DE DATOS ---
 async def startup_event():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
 app = FastAPI(on_startup=[startup_event])
 
-# --- CORS ---
+# --- 6. CONFIGURACIÓN CORS (CRUCIAL PARA QUE NO FALLE) ---
 origins = [
     "http://localhost:5173",
     "https://radar-price-production.up.railway.app", 
-    "https://frontend-production-a0cf.up.railway.app",
-    "*" 
+    "https://frontend-production-a0cf.up.railway.app", # Tu frontend actual
+    "*"  # Permite todo temporalmente para descartar errores
 ]
 
 app.add_middleware(
@@ -78,13 +78,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- ENDPOINT DE LOGIN ---
+# --- 7. ENDPOINT DE LOGIN (LA PIEZA QUE FALTABA) ---
 @app.post("/auth/token", response_model=Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
-    # 1. Buscar usuario
+    # Buscar usuario
     user_dict = fake_users_db.get(form_data.username)
     
-    # 2. Validar usuario y contraseña
+    # Validar
     if not user_dict or not verify_password(form_data.password, user_dict["hashed_password"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -92,7 +92,7 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # 3. Generar token
+    # Crear token
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": user_dict["username"], "role": user_dict["role"]},
@@ -101,9 +101,9 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     
     return {"access_token": access_token, "token_type": "bearer"}
 
-# --- RUTAS EXISTENTES ---
+# --- 8. TUS RUTAS EXISTENTES ---
 app.include_router(invoices.router, prefix="/invoices", tags=["invoices"])
 
 @app.get("/")
 def read_root():
-    return {"message": "Sistema de Paquetes Funcionando"}
+    return {"message": "Sistema de Paquetes Funcionando 🚀"}
