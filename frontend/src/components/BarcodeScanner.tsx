@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
-import { X } from 'lucide-react'; // ✅ Corregido: Se quitó Loader2
+import { X } from 'lucide-react';
 
 interface Props {
     onScan: (decodedText: string) => void;
@@ -11,7 +11,6 @@ export function BarcodeScanner({ onScan, onClose }: Props) {
     const scannerRef = useRef<Html5Qrcode | null>(null);
 
     useEffect(() => {
-        // 1. Instanciamos la clase "Pro"
         const html5QrCode = new Html5Qrcode("reader");
         scannerRef.current = html5QrCode;
 
@@ -21,22 +20,20 @@ export function BarcodeScanner({ onScan, onClose }: Props) {
             aspectRatio: 1.0
         };
 
-        // 2. Iniciamos directamente con la cámara trasera
         html5QrCode.start(
-            { facingMode: "environment" }, // Cámara trasera
+            { facingMode: "environment" },
             config,
             (decodedText) => {
-                // Éxito
                 handleStopAndScan(decodedText);
             },
-            (errorMessage) => {
-                // Error de lectura (ignorar)
+            // ✅ CORREGIDO: Usamos (_) para indicar que ignoramos el error de lectura
+            (_) => {
+                // Error de lectura (ignorar, pasa muchas veces por segundo mientras busca)
             }
         ).catch(err => {
             console.error("Error al iniciar cámara:", err);
         });
 
-        // Limpieza al salir
         return () => {
             if (scannerRef.current?.isScanning) {
                 scannerRef.current.stop().catch(err => console.error("Error al detener", err));
@@ -60,7 +57,6 @@ export function BarcodeScanner({ onScan, onClose }: Props) {
     return (
         <div className="fixed inset-0 z-[60] bg-black flex flex-col items-center justify-center p-4 animate-fade-in">
 
-            {/* Botón cerrar */}
             <button
                 onClick={onClose}
                 className="absolute top-6 right-6 bg-white/20 p-3 rounded-full text-white hover:bg-white/30 transition-all z-50 backdrop-blur-sm"
@@ -70,12 +66,9 @@ export function BarcodeScanner({ onScan, onClose }: Props) {
 
             <h2 className="text-white font-bold text-xl mb-8 relative z-10">Apunta al código</h2>
 
-            {/* Contenedor del video */}
             <div className="w-full max-w-sm aspect-square relative rounded-3xl overflow-hidden border-4 border-white/20 shadow-2xl bg-black">
-                {/* ID requerido por la librería */}
                 <div id="reader" className="w-full h-full"></div>
 
-                {/* Guía visual (cuadro rojo) */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <div className="w-64 h-64 border-2 border-red-500/50 rounded-2xl relative">
                         <div className="absolute top-0 left-0 w-6 h-6 border-l-4 border-t-4 border-red-500 rounded-tl-xl"></div>
