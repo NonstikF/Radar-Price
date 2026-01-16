@@ -1,19 +1,39 @@
-import { FileText, Search, PlusCircle, TrendingUp, AlertCircle, Package, ArrowRight } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import axios from 'axios';
+import { FileText, Search, PlusCircle, AlertCircle, Package, ArrowRight, Loader2 } from 'lucide-react';
+import { API_URL } from '../config';
 
 interface Props {
-    products: any[];
+    products?: any[]; // Lo dejamos opcional porque ahora cargamos los datos aquí mismo
     onNavigate: (view: string) => void;
 }
 
-export function Dashboard({ products, onNavigate }: Props) {
+export function Dashboard({ onNavigate }: Props) {
+    const [stats, setStats] = useState({ total: 0, missingPrice: 0 });
+    const [loading, setLoading] = useState(true);
 
-    // --- ESTADÍSTICAS RÁPIDAS ---
-    const totalProducts = products.length;
-    const withPrice = products.filter(p => parseFloat(p.selling_price) > 0).length;
-    const withoutPrice = totalProducts - withPrice;
+    // --- CARGAR DATOS REALES AL INICIAR ---
+    useEffect(() => {
+        const fetchStats = async () => {
+            try {
+                // Pedimos todos los productos a la base de datos
+                const response = await axios.get(`${API_URL}/invoices/products`);
+                const allProducts = response.data;
 
-    // Calcular valor total de inventario (Costo)
-    const totalInventoryValue = products.reduce((acc, curr) => acc + (curr.cost_with_tax || 0) * (curr.stock || curr.qty || 0), 0);
+                // Calculamos las estadísticas
+                const total = allProducts.length;
+                const missing = allProducts.filter((p: any) => !p.selling_price || parseFloat(p.selling_price) <= 0).length;
+
+                setStats({ total, missingPrice: missing });
+            } catch (error) {
+                console.error("Error cargando estadísticas", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchStats();
+    }, []);
 
     return (
         <div className="max-w-6xl mx-auto p-6 space-y-8 animate-fade-in pb-24">
@@ -30,40 +50,39 @@ export function Dashboard({ products, onNavigate }: Props) {
                 </div>
             </div>
 
-            {/* --- TARJETAS DE ESTADÍSTICAS --- */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Total Productos */}
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
-                    <div>
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Total Productos</p>
-                        <p className="text-3xl font-black text-blue-600">{totalProducts}</p>
+            {/* --- TARJETAS DE ESTADÍSTICAS (Ahora son 2) --- */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                {/* 1. Total Productos */}
+                <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 flex items-center justify-between relative overflow-hidden group hover:shadow-md transition-all">
+                    <div className="relative z-10">
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Total Productos</p>
+                        {loading ? (
+                            <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                        ) : (
+                            <p className="text-5xl font-black text-blue-600 tracking-tighter">{stats.total}</p>
+                        )}
                     </div>
-                    <div className="bg-blue-50 p-3 rounded-xl">
-                        <Package className="w-6 h-6 text-blue-600" />
+                    <div className="bg-blue-50 p-4 rounded-2xl group-hover:scale-110 transition-transform">
+                        <Package className="w-8 h-8 text-blue-600" />
                     </div>
                 </div>
 
-                {/* Pendientes de Precio */}
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
-                    <div>
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Sin Precio Venta</p>
-                        <p className="text-3xl font-black text-orange-500">{withoutPrice}</p>
+                {/* 2. Pendientes de Precio */}
+                <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 flex items-center justify-between relative overflow-hidden group hover:shadow-md transition-all">
+                    <div className="relative z-10">
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Sin Precio Venta</p>
+                        {loading ? (
+                            <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
+                        ) : (
+                            <p className="text-5xl font-black text-orange-500 tracking-tighter">{stats.missingPrice}</p>
+                        )}
                     </div>
-                    <div className="bg-orange-50 p-3 rounded-xl">
-                        <AlertCircle className="w-6 h-6 text-orange-500" />
+                    <div className="bg-orange-50 p-4 rounded-2xl group-hover:scale-110 transition-transform">
+                        <AlertCircle className="w-8 h-8 text-orange-500" />
                     </div>
                 </div>
 
-                {/* Valor Inventario (Aproximado) */}
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
-                    <div>
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Valor Inventario (Costo)</p>
-                        <p className="text-3xl font-black text-green-600">${totalInventoryValue.toLocaleString('en-US', { maximumFractionDigits: 0 })}</p>
-                    </div>
-                    <div className="bg-green-50 p-3 rounded-xl">
-                        <TrendingUp className="w-6 h-6 text-green-600" />
-                    </div>
-                </div>
             </div>
 
             {/* --- ACCESOS RÁPIDOS (MÓDULOS) --- */}
