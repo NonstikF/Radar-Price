@@ -9,7 +9,7 @@ interface Props {
 }
 
 export function Login({ onLoginSuccess }: Props) {
-    const [credentials, setCredentials] = useState({ username: '', password: '' });
+    const [credentials, setCredentials] = useState({ username: 'admin', password: 'admin123' });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
