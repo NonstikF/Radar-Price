@@ -76,7 +76,6 @@ origins = [
     "http://localhost:5173",
     "https://radar-price-production.up.railway.app", 
     "https://frontend-production-a0cf.up.railway.app",
-    "*" 
 ]
 
 app.add_middleware(
