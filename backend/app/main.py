@@ -41,7 +41,7 @@ fake_users_db = [
     {
         "id": 1,
         "username": "admin",
-        "hashed_password": "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga311W", # admin123
+        "hashed_password": "$2b$12$QKK.bP2CKmMrJuMv5cvdgO/yU9h/uB8HcF9JctyxMuwRBM3kP0P9S", # admin123
         "role": "admin",
         "created_at": datetime.now().isoformat()
     }
