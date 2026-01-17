@@ -1,7 +1,15 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { UserPlus, Trash2, User, Loader2, CheckCircle2, X, AlertTriangle, Lock, Shield } from 'lucide-react';
+import { UserPlus, Trash2, User, Loader2, CheckCircle2, X, AlertTriangle, Shield, CheckSquare, Square, Lock } from 'lucide-react';
 import { API_URL } from '../config';
+
+// 1. DEFINICIÓN DE PERMISOS DISPONIBLES
+const AVAILABLE_PERMISSIONS = [
+    { id: 'dashboard', label: 'Ver Panel Financiero' },
+    { id: 'upload', label: 'Cargar XML/Facturas' },
+    { id: 'search', label: 'Buscador de Precios' },
+    { id: 'manual', label: 'Entrada Manual' },
+];
 
 export function AdminUsers() {
     const [users, setUsers] = useState<any[]>([]);
@@ -9,21 +17,23 @@ export function AdminUsers() {
     const [showModal, setShowModal] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
 
-    // Estado formulario nuevo usuario
-    const [newUser, setNewUser] = useState({ username: '', password: '', role: 'user' });
+    // 2. ESTADO ACTUALIZADO CON ARRAY DE PERMISOS
+    const [newUser, setNewUser] = useState({
+        username: '',
+        password: '',
+        role: 'user',
+        permissions: [] as string[] // <--- Lista de permisos activados
+    });
     const [creating, setCreating] = useState(false);
 
     useEffect(() => {
         fetchUsers();
     }, []);
 
-    // --- FUNCIÓN AYUDA PARA OBTENER CABECERAS CON TOKEN ---
     const getAuthHeaders = () => {
         const token = localStorage.getItem('token');
         return {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
+            headers: { 'Authorization': `Bearer ${token}` }
         };
     };
 
@@ -41,6 +51,19 @@ export function AdminUsers() {
         }
     };
 
+    // 3. FUNCIÓN PARA MARCAR/DESMARCAR PERMISOS
+    const togglePermission = (permId: string) => {
+        setNewUser(prev => {
+            if (prev.permissions.includes(permId)) {
+                // Si ya lo tiene, lo quitamos
+                return { ...prev, permissions: prev.permissions.filter(p => p !== permId) };
+            } else {
+                // Si no lo tiene, lo agregamos
+                return { ...prev, permissions: [...prev.permissions, permId] };
+            }
+        });
+    };
+
     const handleCreateUser = async (e: React.FormEvent) => {
         e.preventDefault();
         setCreating(true);
@@ -49,7 +72,8 @@ export function AdminUsers() {
             await fetchUsers(); // Recargar lista
 
             setShowModal(false);
-            setNewUser({ username: '', password: '', role: 'user' });
+            // Resetear formulario
+            setNewUser({ username: '', password: '', role: 'user', permissions: [] });
             alert("Usuario creado correctamente");
         } catch (error: any) {
             console.error(error);
@@ -75,7 +99,7 @@ export function AdminUsers() {
             <div className="flex justify-between items-end mb-8">
                 <div>
                     <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">Gestión de Usuarios</h1>
-                    <p className="text-gray-500 dark:text-gray-400 mt-1">Administra el acceso al sistema.</p>
+                    <p className="text-gray-500 dark:text-gray-400 mt-1">Administra el acceso y los permisos del sistema.</p>
                 </div>
                 <button
                     onClick={() => setShowModal(true)}
@@ -85,7 +109,6 @@ export function AdminUsers() {
                 </button>
             </div>
 
-            {/* MENSAJE DE ERROR */}
             {errorMsg && (
                 <div className="mb-6 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-xl flex items-center gap-3 border border-red-100 dark:border-red-800">
                     <AlertTriangle className="w-5 h-5" /> {errorMsg}
@@ -105,7 +128,7 @@ export function AdminUsers() {
                             <tr>
                                 <th className="px-6 py-5">Usuario</th>
                                 <th className="px-6 py-5">Rol</th>
-                                <th className="px-6 py-5 hidden sm:table-cell">Fecha Creación</th>
+                                <th className="px-6 py-5">Permisos Asignados</th>
                                 <th className="px-6 py-5 text-right">Acciones</th>
                             </tr>
                         </thead>
@@ -124,8 +147,25 @@ export function AdminUsers() {
                                             {u.role}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 text-gray-500 dark:text-gray-400 text-sm hidden sm:table-cell">
-                                        {new Date(u.created_at).toLocaleDateString()}
+                                    {/* COLUMNA DE PERMISOS */}
+                                    <td className="px-6 py-4">
+                                        <div className="flex flex-wrap gap-1">
+                                            {u.role === 'admin' ? (
+                                                <span className="text-[10px] font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded border border-green-200 dark:border-green-800">
+                                                    ACCESO TOTAL
+                                                </span>
+                                            ) : (
+                                                u.permissions && u.permissions.length > 0 ? (
+                                                    u.permissions.map((p: string) => (
+                                                        <span key={p} className="text-[10px] font-bold uppercase bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 px-2 py-1 rounded border border-blue-100 dark:border-blue-800">
+                                                            {AVAILABLE_PERMISSIONS.find(ap => ap.id === p)?.label.replace('Ver ', '').replace('Cargar ', '') || p}
+                                                        </span>
+                                                    ))
+                                                ) : (
+                                                    <span className="text-xs text-gray-400 italic">Sin permisos</span>
+                                                )
+                                            )}
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                         <button
@@ -143,10 +183,10 @@ export function AdminUsers() {
                 )}
             </div>
 
-            {/* MODAL CREAR USUARIO (MEJORADO) */}
+            {/* MODAL CREAR USUARIO */}
             {showModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white dark:bg-[#1a1b1e] rounded-3xl w-full max-w-md p-8 shadow-2xl relative animate-scale-in border border-gray-100 dark:border-gray-800">
+                    <div className="bg-white dark:bg-[#1a1b1e] rounded-3xl w-full max-w-md p-8 shadow-2xl relative animate-scale-in border border-gray-100 dark:border-gray-800 max-h-[90vh] overflow-y-auto">
 
                         <button
                             onClick={() => setShowModal(false)}
@@ -155,38 +195,38 @@ export function AdminUsers() {
                             <X className="w-5 h-5" />
                         </button>
 
-                        <div className="text-center mb-8">
+                        <div className="text-center mb-6">
                             <div className="w-14 h-14 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-inner">
                                 <UserPlus className="w-7 h-7" />
                             </div>
                             <h2 className="text-2xl font-black text-gray-900 dark:text-white">Nuevo Usuario</h2>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">Ingresa los datos para registrar el acceso.</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Define credenciales y permisos.</p>
                         </div>
 
-                        <form onSubmit={handleCreateUser} className="space-y-5">
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase ml-1">Nombre de Usuario</label>
+                        <form onSubmit={handleCreateUser} className="space-y-4">
+                            {/* INPUTS NORMALES */}
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase ml-1">Usuario</label>
                                 <div className="relative">
                                     <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                                     <input
                                         type="text"
-                                        className="w-full pl-12 pr-4 py-3 bg-gray-50 dark:bg-[#25262b] border-2 border-gray-100 dark:border-gray-700/50 rounded-xl focus:bg-white dark:focus:bg-[#2c2e33] focus:border-blue-500 dark:focus:border-blue-500 outline-none transition-all text-gray-900 dark:text-white font-medium placeholder-gray-400"
+                                        className="w-full pl-12 pr-4 py-3 bg-gray-50 dark:bg-[#25262b] border-2 border-gray-100 dark:border-gray-700/50 rounded-xl focus:bg-white dark:focus:bg-[#2c2e33] focus:border-blue-500 dark:focus:border-blue-500 outline-none transition-all text-gray-900 dark:text-white font-medium"
                                         value={newUser.username}
                                         onChange={e => setNewUser({ ...newUser, username: e.target.value })}
                                         placeholder="Ej: almacen2"
                                         required
-                                        autoFocus
                                     />
                                 </div>
                             </div>
 
-                            <div className="space-y-2">
+                            <div className="space-y-1">
                                 <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase ml-1">Contraseña</label>
                                 <div className="relative">
                                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                                     <input
                                         type="password"
-                                        className="w-full pl-12 pr-4 py-3 bg-gray-50 dark:bg-[#25262b] border-2 border-gray-100 dark:border-gray-700/50 rounded-xl focus:bg-white dark:focus:bg-[#2c2e33] focus:border-blue-500 dark:focus:border-blue-500 outline-none transition-all text-gray-900 dark:text-white font-medium placeholder-gray-400"
+                                        className="w-full pl-12 pr-4 py-3 bg-gray-50 dark:bg-[#25262b] border-2 border-gray-100 dark:border-gray-700/50 rounded-xl focus:bg-white dark:focus:bg-[#2c2e33] focus:border-blue-500 dark:focus:border-blue-500 outline-none transition-all text-gray-900 dark:text-white font-medium"
                                         value={newUser.password}
                                         onChange={e => setNewUser({ ...newUser, password: e.target.value })}
                                         placeholder="••••••••"
@@ -195,8 +235,8 @@ export function AdminUsers() {
                                 </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase ml-1">Rol de Acceso</label>
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase ml-1">Rol</label>
                                 <div className="relative">
                                     <Shield className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                                     <select
@@ -207,19 +247,45 @@ export function AdminUsers() {
                                         <option value="user">Usuario (Limitado)</option>
                                         <option value="admin">Administrador (Total)</option>
                                     </select>
-                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none border-l border-gray-200 dark:border-gray-600 pl-2">
-                                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                                    </div>
                                 </div>
                             </div>
+
+                            {/* SECCIÓN DE PERMISOS: SOLO SI ES USUARIO */}
+                            {newUser.role === 'user' && (
+                                <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-900/30 animate-fade-in mt-4">
+                                    <label className="block text-xs font-bold text-blue-600 dark:text-blue-400 uppercase mb-3 flex items-center gap-2">
+                                        <CheckSquare className="w-4 h-4" /> Asignar Permisos
+                                    </label>
+                                    <div className="space-y-2">
+                                        {AVAILABLE_PERMISSIONS.map(perm => (
+                                            <div
+                                                key={perm.id}
+                                                onClick={() => togglePermission(perm.id)}
+                                                className={`flex items-center gap-3 cursor-pointer p-2 rounded-lg transition-all border ${newUser.permissions.includes(perm.id)
+                                                    ? 'bg-white dark:bg-gray-800 border-blue-200 dark:border-blue-800 shadow-sm'
+                                                    : 'hover:bg-white/50 dark:hover:bg-gray-800/50 border-transparent'
+                                                    }`}
+                                            >
+                                                {newUser.permissions.includes(perm.id)
+                                                    ? <CheckSquare className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                                                    : <Square className="w-5 h-5 text-gray-400" />
+                                                }
+                                                <span className={`text-sm font-medium ${newUser.permissions.includes(perm.id) ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
+                                                    {perm.label}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             <button
                                 type="submit"
                                 disabled={creating}
-                                className="w-full bg-blue-600 dark:bg-blue-600 text-white font-bold py-4 rounded-xl mt-2 hover:bg-blue-700 dark:hover:bg-blue-500 active:scale-95 transition-all flex justify-center items-center gap-2 shadow-lg shadow-blue-500/25"
+                                className="w-full bg-blue-600 dark:bg-blue-600 text-white font-bold py-4 rounded-xl mt-4 hover:bg-blue-700 dark:hover:bg-blue-500 active:scale-95 transition-all flex justify-center items-center gap-2 shadow-lg shadow-blue-500/25"
                             >
                                 {creating ? <Loader2 className="animate-spin w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
-                                Crear Usuario
+                                {creating ? "Registrando..." : "Confirmar Usuario"}
                             </button>
                         </form>
                     </div>
