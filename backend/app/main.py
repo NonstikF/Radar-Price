@@ -9,20 +9,21 @@ from typing import Optional, List
 from sqlalchemy import Column, Integer, String, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
+import json
 
 # --- TUS IMPORTACIONES EXISTENTES ---
 from app.api.endpoints import invoices
 from app.core.database import engine, Base
 
 # --- 1. CONFIGURACIÓN DE SEGURIDAD ---
-SECRET_KEY = "supersecreto_dificil_de_adivinar_12345"  # Tu clave secreta
+SECRET_KEY = "1234hola"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
 
-# --- 2. MODELO DE BASE DE DATOS (TABLA REAL) ---
+# --- 2. MODELO DE BASE DE DATOS ---
 class UserDB(Base):
     __tablename__ = "users"
     
@@ -30,26 +31,38 @@ class UserDB(Base):
     username = Column(String, unique=True, index=True)
     hashed_password = Column(String)
     role = Column(String)
+    permissions = Column(String, default="[]") # <--- NUEVA COLUMNA (Guardaremos JSON como texto)
     created_at = Column(String)
 
 # --- 3. MODELOS PYDANTIC ---
 class Token(BaseModel):
     access_token: str
     token_type: str
+    permissions: List[str] # Enviamos permisos en el login
 
 class UserCreate(BaseModel):
     username: str
     password: str
     role: str
+    permissions: List[str] = [] # Recibimos permisos al crear
 
 class UserResponse(BaseModel):
     id: int
     username: str
     role: str
+    permissions: List[str] # Devolvemos permisos al listar
     created_at: str
     
     class Config:
         from_attributes = True
+        
+    # Helper para convertir el string JSON a lista real al responder
+    @staticmethod
+    def resolve_permissions(obj):
+        try:
+            return json.loads(obj.permissions)
+        except:
+            return []
 
 # --- 4. FUNCIONES DE AYUDA ---
 def verify_password(plain_password, hashed_password):
@@ -73,19 +86,13 @@ async def get_db():
 
 # --- 6. INICIALIZACIÓN ---
 async def startup_event():
-    # Crear tablas (async compatible)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    print("Base de datos inicializada correctamente.")
 
 app = FastAPI(on_startup=[startup_event])
 
 # --- 7. CORS ---
-origins = [
-    "http://localhost:5173",
-    "https://radar-price-production.up.railway.app",
-    "https://frontend-production-a0cf.up.railway.app" 
-]
+origins = ["*"] # Ajusta esto a tus dominios en producción
 
 app.add_middleware(
     CORSMiddleware,
@@ -95,127 +102,113 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- 8. AUTH: DEPENDENCIAS DE SEGURIDAD ---
-
-# Obtener usuario actual (Cualquier rol logueado)
+# --- 8. AUTH ---
 async def get_current_user(token: str = Depends(oauth2_scheme)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="No se pudo validar credenciales",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         role: str = payload.get("role")
+        permissions: List[str] = payload.get("permissions", [])
         if username is None:
-            raise credentials_exception
-        return {"username": username, "role": role}
+            raise HTTPException(status_code=401)
+        return {"username": username, "role": role, "permissions": permissions}
     except JWTError:
-        raise credentials_exception
+        raise HTTPException(status_code=401)
 
-# Verificar que sea ADMIN (Solo Admin)
 async def verify_admin(current_user: dict = Depends(get_current_user)):
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Requiere permisos de Administrador")
     return current_user
 
-# --- 9. ENDPOINTS DE AUTENTICACIÓN ---
+# --- 9. ENDPOINTS ---
 
-@app.post("/auth/token", response_model=Token)
+@app.post("/auth/token")
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
-    # Buscar usuario
     stmt = select(UserDB).where(UserDB.username == form_data.username)
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()
 
-    # --- AUTO-CREACIÓN DE ADMIN (SI BD VACÍA) ---
+    # Auto-crear Admin con TODOS los permisos
     if not user and form_data.username == "admin":
         stmt_count = select(UserDB)
         result_count = await db.execute(stmt_count)
-        users_count = result_count.scalars().all()
-        
-        if len(users_count) == 0:
-            print("Base de datos vacía. Creando ADMIN por defecto...")
+        if len(result_count.scalars().all()) == 0:
             admin_user = UserDB(
                 username="admin",
                 hashed_password=get_password_hash("admin123"),
                 role="admin",
+                permissions=json.dumps(["dashboard", "upload", "search", "manual", "users"]), # Todo
                 created_at=datetime.now().isoformat()
             )
             db.add(admin_user)
             await db.commit()
             await db.refresh(admin_user)
             user = admin_user
-    # ---------------------------------------------------------
 
     if not user or not verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Usuario o contraseña incorrectos",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise HTTPException(status_code=401, detail="Credenciales inválidas")
     
+    # Decodificar permisos para el token
+    try:
+        perms = json.loads(user.permissions)
+    except:
+        perms = []
+
     access_token = create_access_token(
-        data={"sub": user.username, "role": user.role},
+        data={"sub": user.username, "role": user.role, "permissions": perms},
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
-    return {"access_token": access_token, "token_type": "bearer"}
-
-# --- 10. GESTIÓN DE USUARIOS (PROTEGIDO: SOLO ADMIN) ---
+    # Incluimos permisos en la respuesta JSON también
+    return {"access_token": access_token, "token_type": "bearer", "permissions": perms}
 
 @app.get("/users", response_model=List[UserResponse])
 async def get_users(db: AsyncSession = Depends(get_db), current_user: dict = Depends(verify_admin)):
     stmt = select(UserDB)
     result = await db.execute(stmt)
     users = result.scalars().all()
-    return users
+    # Mapeo manual para asegurar que permissions sea una lista
+    return [
+        UserResponse(
+            id=u.id, 
+            username=u.username, 
+            role=u.role, 
+            permissions=json.loads(u.permissions) if u.permissions else [], 
+            created_at=u.created_at
+        ) for u in users
+    ]
 
 @app.post("/auth/register")
 async def register_user(user: UserCreate, db: AsyncSession = Depends(get_db), current_user: dict = Depends(verify_admin)):
-    # Verificar existencia
     stmt = select(UserDB).where(UserDB.username == user.username)
     result = await db.execute(stmt)
-    existing_user = result.scalar_one_or_none()
-    
-    if existing_user:
+    if result.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="El usuario ya existe")
     
+    # Si es admin, le damos todo automáticamente, si no, lo que venga del frontend
+    final_permissions = user.permissions
+    if user.role == 'admin':
+        final_permissions = ["dashboard", "upload", "search", "manual", "users"]
+
     new_user = UserDB(
         username=user.username,
         hashed_password=get_password_hash(user.password),
         role=user.role,
+        permissions=json.dumps(final_permissions), # Guardar como JSON string
         created_at=datetime.now().isoformat()
     )
     db.add(new_user)
     await db.commit()
-    return {"message": "Usuario creado exitosamente"}
+    return {"message": "Usuario creado"}
 
 @app.delete("/users/{user_id}")
 async def delete_user(user_id: int, db: AsyncSession = Depends(get_db), current_user: dict = Depends(verify_admin)):
     stmt = select(UserDB).where(UserDB.id == user_id)
     result = await db.execute(stmt)
-    user_to_delete = result.scalar_one_or_none()
-    
-    if not user_to_delete:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
-        
-    if user_to_delete.username == "admin":
-         raise HTTPException(status_code=400, detail="No puedes eliminar al admin principal")
-         
-    await db.delete(user_to_delete)
+    user = result.scalar_one_or_none()
+    if not user: raise HTTPException(status_code=404)
+    if user.username == "admin": raise HTTPException(status_code=400)
+    await db.delete(user)
     await db.commit()
-    return {"message": "Usuario eliminado"}
+    return {"message": "Eliminado"}
 
-# --- 11. RUTAS DE FACTURAS (PROTEGIDAS: ADMIN Y USUARIOS) ---
-# Agregamos 'dependencies' para que solo usuarios logueados (Almacen o Admin) puedan usarlas.
-app.include_router(
-    invoices.router, 
-    prefix="/invoices", 
-    tags=["invoices"], 
-    dependencies=[Depends(get_current_user)] 
-)
-
-@app.get("/")
-def read_root():
-    return {"message": "Sistema Online 🚀"}
+app.include_router(invoices.router, prefix="/invoices", tags=["invoices"])
