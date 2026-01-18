@@ -4,7 +4,7 @@ from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import List, Dict, Optional
-from pydantic import BaseModel # Necesario para el formulario manual
+from pydantic import BaseModel
 from app.core.database import get_db
 from app.services.xml_service import XmlInvoiceParser
 from app.domain.models import Product, PriceHistory
@@ -133,7 +133,7 @@ async def upload_invoice(file: UploadFile = File(...), db: AsyncSession = Depend
 
     await db.commit()
     
-    # Ordenar por prioridad: Cambio Precio > Nuevos Dudosos > Nuevos > Normales
+    # Ordenar por prioridad
     def sort_priority(item):
         if item['status'] == 'price_changed': return 0
         if item['status'] == 'new' and item['suggestions']: return 1
@@ -183,17 +183,51 @@ async def get_products(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Product).order_by(Product.name))
     return [{"id": p.id, "sku": p.sku, "upc": p.upc or "", "name": p.name, "selling_price": p.selling_price, "stock": p.stock_quantity} for p in result.scalars().all()]
 
-# --- 4. ACTUALIZAR CÓDIGOS (UPC/SKU) ---
+# --- 4. ACTUALIZAR PRODUCTO INDIVIDUAL (SKU, UPC y PRECIO) ---
+# 🔥 AQUÍ ESTABA EL ERROR: Faltaba lógica para selling_price
 @router.put("/products/{product_id}")
-async def update_product_codes(product_id: int, data: dict = Body(...), db: AsyncSession = Depends(get_db)):
+async def update_product_single(product_id: int, data: dict = Body(...), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Product).where(Product.id == product_id))
     product = result.scalar_one_or_none()
-    if not product: raise HTTPException(404)
-    if "sku" in data: product.sku = data["sku"]
-    if "upc" in data: product.upc = data["upc"]
-    try: await db.commit()
-    except: raise HTTPException(400, "ID duplicado")
-    return {"msg": "Ok"}
+    
+    if not product: 
+        raise HTTPException(404, detail="Producto no encontrado")
+
+    # Actualizar SKU
+    if "sku" in data: 
+        product.sku = data["sku"]
+    
+    # Actualizar UPC
+    if "upc" in data: 
+        product.upc = data["upc"]
+
+    # ✅ Actualizar PRECIO DE VENTA (Corrección Agregada)
+    if "selling_price" in data:
+        try:
+            new_price = float(data["selling_price"])
+            old_price = product.selling_price or 0.0
+
+            # Si el precio cambia, lo actualizamos y guardamos historial
+            if abs(new_price - old_price) > 0.01:
+                product.selling_price = new_price
+                
+                # Registrar cambio en historial
+                db.add(PriceHistory(
+                    product_id=product.id,
+                    change_type="PRECIO",
+                    old_value=old_price,
+                    new_value=new_price
+                ))
+        except ValueError:
+            raise HTTPException(400, detail="El precio debe ser un número válido")
+
+    try: 
+        await db.commit()
+    except Exception as e: 
+        await db.rollback()
+        raise HTTPException(400, "Error al guardar (posible SKU duplicado)")
+    
+    return {"msg": "Actualizado correctamente", "id": product.id}
 
 # --- 5. FUSIONAR PRODUCTOS ---
 @router.post("/merge")
@@ -208,9 +242,7 @@ async def merge_products(data: dict = Body(...), db: AsyncSession = Depends(get_
 
     # Fusionar lógica
     keep_prod.stock_quantity += discard_prod.stock_quantity
-    keep_prod.price = discard_prod.price # Asumimos el precio del "nuevo" (xml) como el vigente
-    
-    # Opcional: Podrías migrar el historial del producto descartado al nuevo aquí si quisieras
+    keep_prod.price = discard_prod.price 
     
     await db.delete(discard_prod)
     await db.commit()
@@ -229,25 +261,21 @@ async def get_product_history(product_id: int, db: AsyncSession = Depends(get_db
         "new": h.new_value
     } for h in history]
 
-# --- 7. CREAR PRODUCTO MANUALMENTE (NUEVO) ---
+# --- 7. CREAR PRODUCTO MANUALMENTE ---
 @router.post("/products/manual")
 async def create_manual_product(item: ManualProductSchema, db: AsyncSession = Depends(get_db)):
-    # Validar nombre
     stmt = select(Product).where(Product.name == item.name)
     if (await db.execute(stmt)).scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Ya existe un producto con este nombre.")
 
-    # Generar SKU si falta
     final_sku = item.sku
     if not final_sku:
         final_sku = generate_unique_sku(item.name, "MANUAL")
     
-    # Validar SKU
     stmt_sku = select(Product).where(Product.sku == final_sku)
     if (await db.execute(stmt_sku)).scalar_one_or_none():
         raise HTTPException(status_code=400, detail=f"El SKU '{final_sku}' ya existe.")
 
-    # Crear
     new_product = Product(
         sku=final_sku,
         upc=item.upc,
@@ -259,7 +287,6 @@ async def create_manual_product(item: ManualProductSchema, db: AsyncSession = De
     db.add(new_product)
     await db.flush()
 
-    # Registrar historial inicial
     if item.price > 0:
         db.add(PriceHistory(product_id=new_product.id, change_type="COSTO", old_value=0, new_value=item.price))
     if item.selling_price > 0:
