@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Search, X, Save, Barcode, Hash, CheckCircle2, AlertTriangle, ArrowLeft, History, ArrowRight, Camera, Filter } from 'lucide-react';
+import { Search, X, Save, Barcode, Hash, CheckCircle2, AlertTriangle, ArrowLeft, History, ArrowRight, Camera, Filter, DollarSign, Edit3 } from 'lucide-react';
 import { BarcodeScanner } from './BarcodeScanner';
 import { API_URL } from '../config';
 
@@ -14,10 +14,14 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
     const [searchTerm, setSearchTerm] = useState("");
     const [loading, setLoading] = useState(true);
 
-    // Estados
+    // Estados de Edición y Visualización
     const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
+
+    // Campos editables
     const [editUpc, setEditUpc] = useState("");
     const [editSku, setEditSku] = useState("");
+    const [editPrice, setEditPrice] = useState(""); // <--- NUEVO: Precio editable
+
     const [saving, setSaving] = useState(false);
     const [showExitConfirm, setShowExitConfirm] = useState(false);
     const [history, setHistory] = useState<any[]>([]);
@@ -26,6 +30,10 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
     const [toast, setToast] = useState<{ show: boolean, message: string, type: 'success' | 'error' }>({ show: false, message: '', type: 'success' });
 
     const inputRef = useRef<HTMLInputElement>(null);
+
+    // OBTENER ROL DEL USUARIO
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const isAdmin = user.role === 'admin';
 
     useEffect(() => {
         fetchProducts();
@@ -51,6 +59,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
         setSelectedProduct(p);
         setEditUpc(p.upc ? String(p.upc) : "");
         setEditSku(p.sku ? String(p.sku) : "");
+        setEditPrice(p.selling_price ? String(p.selling_price) : ""); // Cargar precio
         setShowExitConfirm(false);
         setShowHistory(false);
         setHistory([]);
@@ -63,7 +72,13 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
     const handleAttemptClose = () => {
         if (!selectedProduct) return;
         const clean = (val: any) => String(val || "").trim();
-        if (clean(editUpc) !== clean(selectedProduct.upc) || clean(editSku) !== clean(selectedProduct.sku)) {
+
+        // Verificamos cambios en UPC, SKU o PRECIO
+        const priceChanged = parseFloat(editPrice || "0") !== parseFloat(selectedProduct.selling_price || "0");
+        const upcChanged = clean(editUpc) !== clean(selectedProduct.upc);
+        const skuChanged = clean(editSku) !== clean(selectedProduct.sku);
+
+        if (upcChanged || skuChanged || (isAdmin && priceChanged)) {
             setShowExitConfirm(true);
         } else {
             setSelectedProduct(null);
@@ -72,30 +87,50 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
 
     const handleDiscardChanges = () => { setShowExitConfirm(false); setSelectedProduct(null); };
 
-    const handleSaveField = async (field: 'upc' | 'sku') => {
+    // FUNCIÓN UNIFICADA PARA GUARDAR CAMBIOS (UPC, SKU o PRECIO)
+    const handleSaveField = async (field: 'upc' | 'sku' | 'price') => {
         if (!selectedProduct) return;
         setSaving(true);
         try {
-            const cleanValue = field === 'upc' ? editUpc.trim() : editSku.trim();
-            const payload = field === 'upc' ? { upc: cleanValue } : { sku: cleanValue };
+            let payload = {};
+            let cleanValue: any = "";
+
+            if (field === 'upc') {
+                cleanValue = editUpc.trim();
+                payload = { upc: cleanValue };
+            } else if (field === 'sku') {
+                cleanValue = editSku.trim();
+                payload = { sku: cleanValue };
+            } else if (field === 'price') {
+                cleanValue = parseFloat(editPrice) || 0;
+                payload = { selling_price: cleanValue };
+            }
+
+            // Enviar al backend
             await axios.put(`${API_URL}/invoices/products/${selectedProduct.id}`, payload);
+
+            // Actualizar estado local
             const updatedProducts = products.map(p => p.id === selectedProduct.id ? { ...p, ...payload } : p);
             setProducts(updatedProducts);
             setSelectedProduct((prev: any) => ({ ...prev, ...payload }));
+
             if (field === 'upc') setEditUpc(cleanValue);
             if (field === 'sku') setEditSku(cleanValue);
-            showToast(`${field === 'upc' ? 'CÓDIGO' : 'ID'} GUARDADO`);
-        } catch (error) { showToast("Error al guardar.", 'error'); } finally { setSaving(false); }
+            if (field === 'price') setEditPrice(String(cleanValue));
+
+            showToast(`${field.toUpperCase()} ACTUALIZADO`);
+        } catch (error) {
+            showToast("Error al guardar.", 'error');
+        } finally {
+            setSaving(false);
+        }
     };
 
-    // --- LÓGICA INTELIGENTE DEL ESCÁNER ---
     const handleScanSuccess = (code: string) => {
         if (selectedProduct) {
-            // Si hay un producto abierto, estamos EDITANDO su UPC
             setEditUpc(code);
             showToast("Código capturado para edición");
         } else {
-            // Si NO hay producto abierto, estamos BUSCANDO en la lista principal
             setSearchTerm(code);
             showToast("Buscando producto...");
         }
@@ -129,7 +164,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                 </div>
             </div>
 
-            {/* BUSCADOR + AVISO DE FILTRO */}
+            {/* BUSCADOR */}
             <div className="sticky top-0 z-10 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur pt-2 pb-4 space-y-2 transition-colors">
                 {initialFilter && (
                     <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl p-3 flex items-center justify-between animate-fade-in shadow-sm">
@@ -141,13 +176,11 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                     </div>
                 )}
 
-                {/* --- BARRA DE BÚSQUEDA --- */}
                 <div className="relative shadow-sm group">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                         <Search className="h-6 w-6 text-gray-400 dark:text-gray-500 group-focus-within:text-blue-500 transition-colors" />
                     </div>
 
-                    {/* Input con padding extra a la derecha para que quepan los botones */}
                     <input
                         ref={inputRef}
                         type="text"
@@ -157,24 +190,18 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
 
-                    {/* --- GRUPO DE BOTONES (CÁMARA + LIMPIAR) --- */}
                     <div className="absolute inset-y-0 right-2 flex items-center gap-1">
-
-                        {/* 1. Botón de Cámara (Siempre visible) */}
                         <button
                             onClick={() => setShowScanner(true)}
                             className="p-2 rounded-xl text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all active:scale-95"
-                            title="Escanear código de barras"
                         >
                             <Camera className="h-6 w-6" />
                         </button>
 
-                        {/* 2. Botón de Limpiar (Solo si hay texto) */}
                         {searchTerm && (
                             <button
                                 onClick={handleClearSearch}
                                 className="p-2 rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all active:scale-95"
-                                title="Borrar búsqueda"
                             >
                                 <X className="h-6 w-6" />
                             </button>
@@ -183,7 +210,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                 </div>
             </div>
 
-            {/* LISTA */}
+            {/* LISTA DE PRODUCTOS */}
             {loading ? (
                 <div className="text-center py-10 text-gray-400 dark:text-gray-500 flex flex-col items-center gap-3">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 dark:border-blue-400"></div>
@@ -219,17 +246,47 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                 </div>
             )}
 
-            {/* --- MODAL PRINCIPAL --- */}
+            {/* --- MODAL DE DETALLE (CON EDICIÓN DE PRECIO) --- */}
             {selectedProduct && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
                     <div className="absolute inset-0" onClick={handleAttemptClose}></div>
                     <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-scale-in relative z-10 flex flex-col max-h-[90vh] transition-colors">
 
-                        {/* HEADER DEL MODAL */}
+                        {/* HEADER DEL MODAL (AQUÍ ESTÁ LA EDICIÓN DE PRECIO) */}
                         <div className="bg-blue-600 dark:bg-blue-700 p-8 text-white relative text-center shrink-0">
                             <button onClick={handleAttemptClose} className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 p-2 rounded-full transition-colors active:scale-90"><X className="w-6 h-6 text-white" /></button>
-                            <p className="text-blue-200 text-xs font-bold uppercase tracking-widest mb-2">Precio de Venta</p>
-                            <h2 className="text-7xl font-black tracking-tighter drop-shadow-lg">${selectedProduct.selling_price?.toFixed(2)}</h2>
+
+                            <p className="text-blue-200 text-xs font-bold uppercase tracking-widest mb-2 flex items-center justify-center gap-2">
+                                Precio de Venta
+                                {isAdmin && <Edit3 className="w-3 h-3 opacity-50" />}
+                            </p>
+
+                            {/* SI ES ADMIN: INPUT EDITABLE */}
+                            {isAdmin ? (
+                                <div className="relative inline-block w-full max-w-[200px]">
+                                    <span className="absolute left-0 top-1/2 -translate-y-1/2 text-4xl font-black text-blue-300">$</span>
+                                    <input
+                                        type="number"
+                                        value={editPrice}
+                                        onChange={(e) => setEditPrice(e.target.value)}
+                                        className="w-full bg-transparent text-center text-7xl font-black tracking-tighter text-white placeholder-blue-300 focus:outline-none border-b-2 border-transparent focus:border-white/50 transition-all pl-6"
+                                        placeholder="0"
+                                    />
+                                    {/* Botón Guardar Precio (Solo aparece si cambia) */}
+                                    {parseFloat(editPrice || "0") !== parseFloat(selectedProduct.selling_price || "0") && (
+                                        <button
+                                            onClick={() => handleSaveField('price')}
+                                            disabled={saving}
+                                            className="absolute -right-12 top-1/2 -translate-y-1/2 bg-white text-blue-600 p-2 rounded-full shadow-lg hover:scale-110 transition-transform active:scale-90 animate-bounce-in"
+                                        >
+                                            <Save className="w-5 h-5" />
+                                        </button>
+                                    )}
+                                </div>
+                            ) : (
+                                /* SI NO ES ADMIN: TEXTO FIJO */
+                                <h2 className="text-7xl font-black tracking-tighter drop-shadow-lg">${selectedProduct.selling_price?.toFixed(2)}</h2>
+                            )}
                         </div>
 
                         {/* SWITCHER */}
@@ -247,21 +304,19 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                                         <p className="text-gray-800 dark:text-gray-100 font-medium text-sm leading-relaxed">{selectedProduct.name}</p>
                                     </div>
                                     <div className="space-y-4">
-                                        {/* SECCION UPC */}
+                                        {/* SECCION UPC (Editable para Admin y Almacen) */}
                                         <div className={`transition-all ${String(editUpc || "").trim() !== String(selectedProduct.upc || "").trim() ? 'bg-yellow-50 dark:bg-yellow-900/10 p-3 rounded-2xl border border-yellow-200 dark:border-yellow-800' : ''}`}>
                                             <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase mb-2 tracking-wide"><Barcode className="w-4 h-4 text-blue-500" /> UPC {String(editUpc || "").trim() !== String(selectedProduct.upc || "").trim() && <span className="text-yellow-600 dark:text-yellow-400 animate-pulse ml-auto text-[10px]">● Sin guardar</span>}</label>
                                             <div className="flex gap-2">
                                                 <input type="text" value={editUpc} onChange={(e) => setEditUpc(e.target.value)} className="flex-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white font-mono text-lg p-3 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:focus:ring-blue-500/20 outline-none transition-all" placeholder="Escanear..." />
-
                                                 <button onClick={() => setShowScanner(true)} className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 p-3 rounded-xl transition-colors active:scale-95" title="Escanear con cámara">
                                                     <Camera className="w-6 h-6" />
                                                 </button>
-
                                                 <button onClick={() => handleSaveField('upc')} disabled={saving || String(editUpc || "").trim() === String(selectedProduct.upc || "").trim()} className={`px-4 rounded-xl transition-all shadow-md flex items-center justify-center ${String(editUpc || "").trim() !== String(selectedProduct.upc || "").trim() ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-600 cursor-not-allowed'}`}><Save className="w-6 h-6" /></button>
                                             </div>
                                         </div>
 
-                                        {/* SECCION SKU */}
+                                        {/* SECCION SKU (Editable) */}
                                         <div className={`transition-all ${String(editSku || "").trim() !== String(selectedProduct.sku || "").trim() ? 'bg-yellow-50 dark:bg-yellow-900/10 p-3 rounded-2xl border border-yellow-200 dark:border-yellow-800' : ''}`}>
                                             <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase mb-2 tracking-wide"><Hash className="w-4 h-4 text-purple-500" /> ID Interno {String(editSku || "").trim() !== String(selectedProduct.sku || "").trim() && <span className="text-yellow-600 dark:text-yellow-400 animate-pulse ml-auto text-[10px]">● Sin guardar</span>}</label>
                                             <div className="flex gap-2">
@@ -307,13 +362,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                 </div>
             )}
 
-            {/* INTEGRACIÓN DEL COMPONENTE DE ESCÁNER */}
-            {showScanner && (
-                <BarcodeScanner
-                    onScan={handleScanSuccess}
-                    onClose={() => setShowScanner(false)}
-                />
-            )}
+            {showScanner && <BarcodeScanner onScan={handleScanSuccess} onClose={() => setShowScanner(false)} />}
         </div>
     );
 }
