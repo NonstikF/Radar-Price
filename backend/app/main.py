@@ -39,9 +39,8 @@ class Token(BaseModel):
     access_token: str
     token_type: str
     permissions: List[str]
-    # ✅ NUEVOS CAMPOS AGREGADOS:
-    username: str
-    role: str
+    username: str  # <--- IMPORTANTE: Enviamos quién es
+    role: str      # <--- IMPORTANTE: Enviamos qué rol tiene
 
 class UserCreate(BaseModel):
     username: str
@@ -79,7 +78,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-# --- 5. GESTIÓN DE BASE DE DATOS ASÍNCRONA ---
+# --- 5. GESTIÓN DE BASE DE DATOS ---
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 async def get_db():
@@ -104,33 +103,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- 8. AUTH ---
-async def get_current_user(token: str = Depends(oauth2_scheme)):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        role: str = payload.get("role")
-        permissions: List[str] = payload.get("permissions", [])
-        if username is None:
-            raise HTTPException(status_code=401)
-        return {"username": username, "role": role, "permissions": permissions}
-    except JWTError:
-        raise HTTPException(status_code=401)
-
-async def verify_admin(current_user: dict = Depends(get_current_user)):
-    if current_user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Requiere permisos de Administrador")
-    return current_user
-
-# --- 9. ENDPOINTS ---
-
-@app.post("/auth/token", response_model=Token) # ✅ Usa el modelo actualizado
+# --- 8. ENDPOINT DE LOGIN (LA CLAVE DEL PROBLEMA) ---
+@app.post("/auth/token", response_model=Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
+    # 1. Buscar usuario
     stmt = select(UserDB).where(UserDB.username == form_data.username)
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()
 
-    # Auto-crear Admin
+    # Auto-crear Admin si no existe y es "admin"
     if not user and form_data.username == "admin":
         stmt_count = select(UserDB)
         result_count = await db.execute(stmt_count)
@@ -148,26 +129,41 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
             user = admin_user
 
     if not user or not verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Credenciales inválidas")
+        raise HTTPException(status_code=401, detail="Credenciales incorrectas")
     
+    # 2. Decodificar permisos
     try:
         perms = json.loads(user.permissions)
     except:
         perms = []
 
+    # 3. Crear Token
     access_token = create_access_token(
         data={"sub": user.username, "role": user.role, "permissions": perms},
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     
-    # ✅ RETORNO CORREGIDO CON USERNAME Y ROLE
+    # 4. RESPUESTA EXPLÍCITA PARA EL FRONTEND
     return {
         "access_token": access_token, 
         "token_type": "bearer", 
         "permissions": perms,
         "username": user.username,
-        "role": user.role
+        "role": user.role # <--- Esto le dirá al frontend que NO eres admin
     }
+
+# --- 9. OTROS ENDPOINTS ---
+async def get_current_user(token: str = Depends(oauth2_scheme)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload
+    except JWTError:
+        raise HTTPException(status_code=401)
+
+async def verify_admin(current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Solo administradores")
+    return current_user
 
 @app.get("/users", response_model=List[UserResponse])
 async def get_users(db: AsyncSession = Depends(get_db), current_user: dict = Depends(verify_admin)):
@@ -189,17 +185,17 @@ async def register_user(user: UserCreate, db: AsyncSession = Depends(get_db), cu
     stmt = select(UserDB).where(UserDB.username == user.username)
     result = await db.execute(stmt)
     if result.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="El usuario ya existe")
+        raise HTTPException(status_code=400, detail="Usuario ya existe")
     
-    final_permissions = user.permissions
-    if user.role == 'admin':
-        final_permissions = ["dashboard", "upload", "search", "manual", "users"]
+    perms_str = json.dumps(user.permissions)
+    if user.role == 'admin': # Admin siempre tiene todo
+        perms_str = json.dumps(["dashboard", "upload", "search", "manual", "users"])
 
     new_user = UserDB(
         username=user.username,
         hashed_password=get_password_hash(user.password),
         role=user.role,
-        permissions=json.dumps(final_permissions),
+        permissions=perms_str,
         created_at=datetime.now().isoformat()
     )
     db.add(new_user)
@@ -212,7 +208,7 @@ async def delete_user(user_id: int, db: AsyncSession = Depends(get_db), current_
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()
     if not user: raise HTTPException(status_code=404)
-    if user.username == "admin": raise HTTPException(status_code=400)
+    if user.username == "admin": raise HTTPException(status_code=400, detail="No puedes borrar al admin principal")
     await db.delete(user)
     await db.commit()
     return {"message": "Eliminado"}
