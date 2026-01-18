@@ -7,7 +7,7 @@ import { Dashboard } from './components/Dashboard';
 import { AdminUsers } from './components/AdminUsers';
 import { Login } from './components/UserLogin';
 import { Logo } from './components/Logo';
-import { LayoutGrid, FileText, Search, PlusCircle, Sun, Users, LogOut } from 'lucide-react';
+import { LayoutGrid, FileText, Search, PlusCircle, Moon, Sun, Users, LogOut } from 'lucide-react';
 import { API_URL } from './config';
 
 function App() {
@@ -109,7 +109,13 @@ function App() {
 
             <div className="flex items-center gap-2 border-l border-gray-200 dark:border-gray-700 pl-4">
               <span className="hidden md:block text-sm font-bold text-gray-500 mr-2 capitalize">{user?.username}</span>
-              <button onClick={() => setDarkMode(!darkMode)} className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700"><Sun className="w-5 h-5" /></button>
+              <button
+                onClick={() => setDarkMode(!darkMode)}
+                className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-yellow-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
+                title="Cambiar tema"
+              >
+                {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              </button>
               <button onClick={handleLogout} className="p-2 rounded-full bg-red-50 hover:bg-red-100 text-red-500"><LogOut className="w-5 h-5" /></button>
             </div>
           </div>
