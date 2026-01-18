@@ -319,3 +319,33 @@ async def create_manual_product(item: ManualProductSchema, db: AsyncSession = De
 
     await db.commit()
     return {"message": "Producto creado", "sku": final_sku}
+
+    # ... (al final del archivo, después de create_manual_product) ...
+
+# --- 8. ELIMINAR PRODUCTO ---
+@router.delete("/products/{product_id}")
+async def delete_product(product_id: int, db: AsyncSession = Depends(get_db)):
+    # 1. Buscar producto
+    result = await db.execute(select(Product).where(Product.id == product_id))
+    product = result.scalar_one_or_none()
+    
+    if not product:
+        raise HTTPException(status_code=404, detail="Producto no encontrado")
+
+    try:
+        # 2. Borrar historial asociado primero (limpieza)
+        await db.execute(
+            select(PriceHistory).where(PriceHistory.product_id == product_id)
+        )
+        # Nota: Si tienes configurado CASCADE en tu modelo SQL, esto se hace solo.
+        # Si no, es bueno hacerlo manual o manejar la excepción.
+        
+        # 3. Borrar producto
+        await db.delete(product)
+        await db.commit()
+        
+        return {"message": "Producto eliminado correctamente"}
+        
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error al eliminar: {str(e)}")
