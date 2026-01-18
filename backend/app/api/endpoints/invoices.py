@@ -1,6 +1,6 @@
 import hashlib
 import difflib
-import logging # Para ver errores en los logs de Railway
+import logging
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -8,7 +8,6 @@ from typing import List, Dict, Optional
 from pydantic import BaseModel
 from app.core.database import get_db
 from app.services.xml_service import XmlInvoiceParser
-# Asegúrate de que estas importaciones coincidan con la ubicación real de tus modelos
 from app.domain.models import Product, PriceHistory
 
 # Configuración de logs
@@ -22,8 +21,8 @@ class ManualProductSchema(BaseModel):
     name: str
     sku: Optional[str] = None
     upc: Optional[str] = None
-    price: float = 0.0        # Costo
-    selling_price: float = 0.0 # Venta
+    price: float = 0.0        
+    selling_price: float = 0.0 
     stock: int = 0
 
 # --- UTILIDADES ---
@@ -178,10 +177,10 @@ async def get_products(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Product).order_by(Product.name))
     return [{"id": p.id, "sku": p.sku, "upc": p.upc or "", "name": p.name, "selling_price": p.selling_price, "stock": p.stock_quantity} for p in result.scalars().all()]
 
-# --- 4. ACTUALIZAR PRODUCTO INDIVIDUAL (SOLUCIÓN SEGURA) ---
+# --- 4. ACTUALIZAR PRODUCTO INDIVIDUAL (CON VALIDACIÓN DE DUPLICADOS) ---
 @router.put("/products/{product_id}")
 async def update_product_single(product_id: int, data: dict = Body(...), db: AsyncSession = Depends(get_db)):
-    # 1. Buscar producto
+    # Buscar producto
     result = await db.execute(select(Product).where(Product.id == product_id))
     product = result.scalar_one_or_none()
     
@@ -189,46 +188,55 @@ async def update_product_single(product_id: int, data: dict = Body(...), db: Asy
         raise HTTPException(status_code=404, detail="Producto no encontrado")
 
     try:
-        # 2. Actualizar SKU
+        # --- VALIDAR Y ACTUALIZAR SKU ---
         if "sku" in data and data["sku"]: 
             product.sku = data["sku"]
         
-        # 3. Actualizar UPC
-        if "upc" in data: 
-            product.upc = data["upc"]
+        # --- 🔍 VALIDACIÓN ANTI-DUPLICADOS PARA UPC ---
+        if "upc" in data and data["upc"]: 
+            new_upc = str(data["upc"]).strip()
+            
+            # Buscamos si existe OTRO producto con este mismo UPC
+            stmt_dup = select(Product).where(Product.upc == new_upc)
+            result_dup = await db.execute(stmt_dup)
+            duplicate = result_dup.scalar_one_or_none()
 
-        # 4. Actualizar PRECIO DE VENTA
+            # Si existe y NO es el mismo que estamos editando... ERROR
+            if duplicate and duplicate.id != product_id:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"El código '{new_upc}' ya está en uso por: {duplicate.name}"
+                )
+            
+            product.upc = new_upc
+
+        # --- ACTUALIZAR PRECIO DE VENTA ---
         if "selling_price" in data:
             new_price = float(data["selling_price"])
             old_price = product.selling_price or 0.0
 
-            # Solo si hay cambio real (> 1 centavo)
             if abs(new_price - old_price) > 0.01:
                 product.selling_price = new_price
-                
                 # Crear Historial
-                history_entry = PriceHistory(
+                db.add(PriceHistory(
                     product_id=product.id,
                     change_type="PRECIO",
                     old_value=old_price,
                     new_value=new_price
-                )
-                db.add(history_entry)
+                ))
 
-        # 5. Guardar en BD
         await db.commit()
         await db.refresh(product)
         
         return {"msg": "Actualizado correctamente", "id": product.id, "new_price": product.selling_price}
 
+    except HTTPException as he:
+        raise he # Re-lanzar error de duplicado para que el frontend lo vea
     except ValueError as e:
-        # Error de formato de número
-        raise HTTPException(status_code=400, detail=f"Formato de precio inválido: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Formato inválido: {str(e)}")
     except Exception as e:
-        # Error inesperado (Importante para depurar el 500)
         logger.error(f"Error crítico actualizando producto {product_id}: {str(e)}")
-        await db.rollback() # Revertir cambios si falla
-        # En lugar de 500 genérico, enviamos el detalle del error para que lo veas en el frontend si es necesario
+        await db.rollback()
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
 # --- 5. FUSIONAR PRODUCTOS ---
@@ -262,7 +270,7 @@ async def get_product_history(product_id: int, db: AsyncSession = Depends(get_db
         "new": h.new_value
     } for h in history]
 
-# --- 7. CREAR MANUAL ---
+# --- 7. CREAR MANUAL (CON VALIDACIÓN DE DUPLICADOS) ---
 @router.post("/products/manual")
 async def create_manual_product(item: ManualProductSchema, db: AsyncSession = Depends(get_db)):
     stmt = select(Product).where(Product.name == item.name)
@@ -273,9 +281,21 @@ async def create_manual_product(item: ManualProductSchema, db: AsyncSession = De
     if not final_sku:
         final_sku = generate_unique_sku(item.name, "MANUAL")
     
+    # Validar SKU único
     stmt_sku = select(Product).where(Product.sku == final_sku)
     if (await db.execute(stmt_sku)).scalar_one_or_none():
         raise HTTPException(status_code=400, detail=f"El SKU '{final_sku}' ya existe.")
+
+    # 🔍 VALIDACIÓN ANTI-DUPLICADOS PARA UPC (NUEVO PRODUCTO)
+    if item.upc:
+        clean_upc = item.upc.strip()
+        stmt_upc = select(Product).where(Product.upc == clean_upc)
+        duplicate = (await db.execute(stmt_upc)).scalar_one_or_none()
+        if duplicate:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"El código '{clean_upc}' ya está asignado a: {duplicate.name}"
+            )
 
     new_product = Product(
         sku=final_sku,
