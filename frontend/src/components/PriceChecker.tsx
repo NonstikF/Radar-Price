@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Search, X, Save, Barcode, Hash, CheckCircle2, AlertTriangle, ArrowLeft, History, ArrowRight, Camera, Filter, DollarSign, Edit3, PackageOpen } from 'lucide-react'; // <--- AGREGUÉ PackageOpen
+import { Search, X, Save, Barcode, Hash, CheckCircle2, AlertTriangle, ArrowLeft, History, ArrowRight, Camera, Filter, Edit3, PackageOpen, Trash2, Loader2 } from 'lucide-react'; // <--- AGREGUÉ Trash2 y Loader2
 import { BarcodeScanner } from './BarcodeScanner';
 import { API_URL } from '../config';
 
@@ -20,7 +20,12 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
     const [editPrice, setEditPrice] = useState("");
 
     const [saving, setSaving] = useState(false);
+    const [deleting, setDeleting] = useState(false); // <--- NUEVO ESTADO
+
+    // Control de modales de confirmación
     const [showExitConfirm, setShowExitConfirm] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false); // <--- NUEVO ESTADO
+
     const [history, setHistory] = useState<any[]>([]);
     const [showHistory, setShowHistory] = useState(false);
     const [showScanner, setShowScanner] = useState(false);
@@ -57,6 +62,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
         setEditSku(p.sku ? String(p.sku) : "");
         setEditPrice(p.selling_price ? String(p.selling_price) : "");
         setShowExitConfirm(false);
+        setShowDeleteConfirm(false); // Resetear al abrir
         setShowHistory(false);
         setHistory([]);
         try {
@@ -81,6 +87,26 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
     };
 
     const handleDiscardChanges = () => { setShowExitConfirm(false); setSelectedProduct(null); };
+
+    // --- LÓGICA DE ELIMINACIÓN ---
+    const handleDeleteProduct = async () => {
+        if (!selectedProduct) return;
+        setDeleting(true);
+        try {
+            await axios.delete(`${API_URL}/invoices/products/${selectedProduct.id}`);
+
+            // Actualizar lista local
+            setProducts(prev => prev.filter(p => p.id !== selectedProduct.id));
+
+            showToast("Producto eliminado correctamente");
+            setSelectedProduct(null); // Cerrar modal
+        } catch (error) {
+            showToast("Error al eliminar el producto", "error");
+        } finally {
+            setDeleting(false);
+            setShowDeleteConfirm(false);
+        }
+    };
 
     const handleSaveField = async (field: 'upc' | 'sku' | 'price') => {
         if (!selectedProduct) return;
@@ -204,7 +230,6 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
             ) : (
                 <div className="space-y-3">
                     {filteredProducts.length === 0 ? (
-                        /* --- MENSAJE PERSONALIZADO "NO ENCONTRADO" --- */
                         <div className="text-center py-16 flex flex-col items-center animate-fade-in px-4">
                             <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-full mb-4">
                                 <PackageOpen className="w-12 h-12 text-gray-300 dark:text-gray-600" />
@@ -244,7 +269,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                 </div>
             )}
 
-            {/* --- MODAL DE DETALLE (CON EDICIÓN DE PRECIO) --- */}
+            {/* --- MODAL DE DETALLE --- */}
             {selectedProduct && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
                     <div className="absolute inset-0" onClick={handleAttemptClose}></div>
@@ -252,7 +277,19 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
 
                         {/* HEADER DEL MODAL */}
                         <div className="bg-blue-600 dark:bg-blue-700 p-8 text-white relative text-center shrink-0">
+                            {/* Botón Cerrar */}
                             <button onClick={handleAttemptClose} className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 p-2 rounded-full transition-colors active:scale-90"><X className="w-6 h-6 text-white" /></button>
+
+                            {/* Botón ELIMINAR (Solo Admin) */}
+                            {isAdmin && (
+                                <button
+                                    onClick={() => setShowDeleteConfirm(true)}
+                                    className="absolute top-4 left-4 bg-red-500/20 hover:bg-red-500/40 p-2 rounded-full transition-colors active:scale-90 text-white border border-red-400/30"
+                                    title="Eliminar producto"
+                                >
+                                    <Trash2 className="w-6 h-6" />
+                                </button>
+                            )}
 
                             <p className="text-blue-200 text-xs font-bold uppercase tracking-widest mb-2 flex items-center justify-center gap-2">
                                 Precio de Venta
@@ -261,15 +298,12 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
 
                             {isAdmin ? (
                                 <div className="relative inline-block w-full max-w-[200px]">
-                                    {/* AQUI USAMOS EL ÍCONO EN VEZ DE TEXTO */}
-                                    <div className="absolute left-0 top-1/2 -translate-y-1/2 text-blue-300 pointer-events-none">
-                                        <DollarSign className="w-10 h-10" />
-                                    </div>
+                                    <span className="absolute left-0 top-1/2 -translate-y-1/2 text-4xl font-black text-blue-300">$</span>
                                     <input
                                         type="number"
                                         value={editPrice}
                                         onChange={(e) => setEditPrice(e.target.value)}
-                                        className="w-full bg-transparent text-center text-7xl font-black tracking-tighter text-white placeholder-blue-300 focus:outline-none border-b-2 border-transparent focus:border-white/50 transition-all pl-8"
+                                        className="w-full bg-transparent text-center text-7xl font-black tracking-tighter text-white placeholder-blue-300 focus:outline-none border-b-2 border-transparent focus:border-white/50 transition-all pl-6"
                                         placeholder="0"
                                     />
                                     {parseFloat(editPrice || "0") !== parseFloat(selectedProduct.selling_price || "0") && (
@@ -279,10 +313,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                                     )}
                                 </div>
                             ) : (
-                                <h2 className="text-7xl font-black tracking-tighter drop-shadow-lg flex items-center justify-center">
-                                    <span className="text-4xl align-top text-blue-300 mr-1">$</span>
-                                    {selectedProduct.selling_price?.toFixed(2)}
-                                </h2>
+                                <h2 className="text-7xl font-black tracking-tighter drop-shadow-lg">${selectedProduct.selling_price?.toFixed(2)}</h2>
                             )}
                         </div>
 
@@ -338,6 +369,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                             )}
                         </div>
 
+                        {/* OVERLAY DE SALIDA SIN GUARDAR */}
                         {showExitConfirm && (
                             <div className="absolute inset-0 z-20 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm flex flex-col items-center justify-center p-8 text-center animate-fade-in">
                                 <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-xl border border-gray-100 dark:border-gray-700 max-w-xs w-full">
@@ -351,6 +383,29 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                                 </div>
                             </div>
                         )}
+
+                        {/* OVERLAY DE CONFIRMACIÓN DE BORRADO */}
+                        {showDeleteConfirm && (
+                            <div className="absolute inset-0 z-30 bg-red-600/90 backdrop-blur-sm flex flex-col items-center justify-center p-8 text-center animate-fade-in">
+                                <div className="bg-white dark:bg-gray-900 p-6 rounded-3xl shadow-2xl max-w-xs w-full">
+                                    <div className="bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600"><Trash2 className="w-8 h-8" /></div>
+                                    <h3 className="text-xl font-black text-gray-900 dark:text-white mb-2">¿Eliminar Producto?</h3>
+                                    <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">Esta acción no se puede deshacer.</p>
+                                    <div className="space-y-3">
+                                        <button
+                                            onClick={handleDeleteProduct}
+                                            disabled={deleting}
+                                            className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-red-500/30"
+                                        >
+                                            {deleting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
+                                            {deleting ? "Eliminando..." : "Sí, Eliminar"}
+                                        </button>
+                                        <button onClick={() => setShowDeleteConfirm(false)} className="w-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold py-3 rounded-xl transition-colors">Cancelar</button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                     </div>
                 </div>
             )}
