@@ -273,20 +273,22 @@ async def get_product_history(product_id: int, db: AsyncSession = Depends(get_db
 # --- 7. CREAR MANUAL (CON VALIDACIÓN DE DUPLICADOS) ---
 @router.post("/products/manual")
 async def create_manual_product(item: ManualProductSchema, db: AsyncSession = Depends(get_db)):
+    # 1. Validar nombre duplicado
     stmt = select(Product).where(Product.name == item.name)
     if (await db.execute(stmt)).scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Ya existe un producto con este nombre.")
 
-    final_sku = item.sku
-    if not final_sku:
-        final_sku = generate_unique_sku(item.name, "MANUAL")
+    # 2. Manejo de SKU (ID Interno)
+    # CAMBIO: Ya no generamos ID aleatorio. Si viene vacío, se queda como None.
+    final_sku = item.sku.strip() if item.sku and item.sku.strip() else None
     
-    # Validar SKU único
-    stmt_sku = select(Product).where(Product.sku == final_sku)
-    if (await db.execute(stmt_sku)).scalar_one_or_none():
-        raise HTTPException(status_code=400, detail=f"El SKU '{final_sku}' ya existe.")
+    # Solo validamos duplicado si el usuario escribió un SKU
+    if final_sku:
+        stmt_sku = select(Product).where(Product.sku == final_sku)
+        if (await db.execute(stmt_sku)).scalar_one_or_none():
+            raise HTTPException(status_code=400, detail=f"El SKU '{final_sku}' ya existe.")
 
-    # 🔍 VALIDACIÓN ANTI-DUPLICADOS PARA UPC (NUEVO PRODUCTO)
+    # 3. Validar UPC duplicado
     if item.upc:
         clean_upc = item.upc.strip()
         stmt_upc = select(Product).where(Product.upc == clean_upc)
@@ -297,8 +299,9 @@ async def create_manual_product(item: ManualProductSchema, db: AsyncSession = De
                 detail=f"El código '{clean_upc}' ya está asignado a: {duplicate.name}"
             )
 
+    # 4. Guardar Producto
     new_product = Product(
-        sku=final_sku,
+        sku=final_sku, # Ahora puede ser None si no escribieron nada
         upc=item.upc,
         name=item.name,
         price=item.price,
@@ -308,6 +311,7 @@ async def create_manual_product(item: ManualProductSchema, db: AsyncSession = De
     db.add(new_product)
     await db.flush()
 
+    # 5. Historial
     if item.price > 0:
         db.add(PriceHistory(product_id=new_product.id, change_type="COSTO", old_value=0, new_value=item.price))
     if item.selling_price > 0:
