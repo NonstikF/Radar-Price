@@ -31,32 +31,34 @@ class UserDB(Base):
     username = Column(String, unique=True, index=True)
     hashed_password = Column(String)
     role = Column(String)
-    permissions = Column(String, default="[]") # <--- NUEVA COLUMNA (Guardaremos JSON como texto)
+    permissions = Column(String, default="[]") 
     created_at = Column(String)
 
 # --- 3. MODELOS PYDANTIC ---
 class Token(BaseModel):
     access_token: str
     token_type: str
-    permissions: List[str] # Enviamos permisos en el login
+    permissions: List[str]
+    # ✅ NUEVOS CAMPOS AGREGADOS:
+    username: str
+    role: str
 
 class UserCreate(BaseModel):
     username: str
     password: str
     role: str
-    permissions: List[str] = [] # Recibimos permisos al crear
+    permissions: List[str] = []
 
 class UserResponse(BaseModel):
     id: int
     username: str
     role: str
-    permissions: List[str] # Devolvemos permisos al listar
+    permissions: List[str]
     created_at: str
     
     class Config:
         from_attributes = True
         
-    # Helper para convertir el string JSON a lista real al responder
     @staticmethod
     def resolve_permissions(obj):
         try:
@@ -92,7 +94,7 @@ async def startup_event():
 app = FastAPI(on_startup=[startup_event])
 
 # --- 7. CORS ---
-origins = ["*"] # Ajusta esto a tus dominios en producción
+origins = ["*"] 
 
 app.add_middleware(
     CORSMiddleware,
@@ -122,13 +124,13 @@ async def verify_admin(current_user: dict = Depends(get_current_user)):
 
 # --- 9. ENDPOINTS ---
 
-@app.post("/auth/token")
+@app.post("/auth/token", response_model=Token) # ✅ Usa el modelo actualizado
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
     stmt = select(UserDB).where(UserDB.username == form_data.username)
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()
 
-    # Auto-crear Admin con TODOS los permisos
+    # Auto-crear Admin
     if not user and form_data.username == "admin":
         stmt_count = select(UserDB)
         result_count = await db.execute(stmt_count)
@@ -137,7 +139,7 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
                 username="admin",
                 hashed_password=get_password_hash("admin123"),
                 role="admin",
-                permissions=json.dumps(["dashboard", "upload", "search", "manual", "users"]), # Todo
+                permissions=json.dumps(["dashboard", "upload", "search", "manual", "users"]),
                 created_at=datetime.now().isoformat()
             )
             db.add(admin_user)
@@ -148,7 +150,6 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Credenciales inválidas")
     
-    # Decodificar permisos para el token
     try:
         perms = json.loads(user.permissions)
     except:
@@ -158,15 +159,21 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
         data={"sub": user.username, "role": user.role, "permissions": perms},
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
-    # Incluimos permisos en la respuesta JSON también
-    return {"access_token": access_token, "token_type": "bearer", "permissions": perms}
+    
+    # ✅ RETORNO CORREGIDO CON USERNAME Y ROLE
+    return {
+        "access_token": access_token, 
+        "token_type": "bearer", 
+        "permissions": perms,
+        "username": user.username,
+        "role": user.role
+    }
 
 @app.get("/users", response_model=List[UserResponse])
 async def get_users(db: AsyncSession = Depends(get_db), current_user: dict = Depends(verify_admin)):
     stmt = select(UserDB)
     result = await db.execute(stmt)
     users = result.scalars().all()
-    # Mapeo manual para asegurar que permissions sea una lista
     return [
         UserResponse(
             id=u.id, 
@@ -184,7 +191,6 @@ async def register_user(user: UserCreate, db: AsyncSession = Depends(get_db), cu
     if result.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="El usuario ya existe")
     
-    # Si es admin, le damos todo automáticamente, si no, lo que venga del frontend
     final_permissions = user.permissions
     if user.role == 'admin':
         final_permissions = ["dashboard", "upload", "search", "manual", "users"]
@@ -193,7 +199,7 @@ async def register_user(user: UserCreate, db: AsyncSession = Depends(get_db), cu
         username=user.username,
         hashed_password=get_password_hash(user.password),
         role=user.role,
-        permissions=json.dumps(final_permissions), # Guardar como JSON string
+        permissions=json.dumps(final_permissions),
         created_at=datetime.now().isoformat()
     )
     db.add(new_user)
