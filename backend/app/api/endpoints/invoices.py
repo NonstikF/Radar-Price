@@ -1,5 +1,6 @@
 import hashlib
 import difflib
+import logging # Para ver errores en los logs de Railway
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -7,7 +8,11 @@ from typing import List, Dict, Optional
 from pydantic import BaseModel
 from app.core.database import get_db
 from app.services.xml_service import XmlInvoiceParser
+# Asegúrate de que estas importaciones coincidan con la ubicación real de tus modelos
 from app.domain.models import Product, PriceHistory
+
+# Configuración de logs
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 parser = XmlInvoiceParser()
@@ -28,7 +33,7 @@ def generate_unique_sku(name: str, sat_code: str) -> str:
     prefix = "".join(filter(str.isalpha, name))[:3].upper() or "GEN"
     return f"{prefix}-{hex_dig[:6]}".upper()
 
-# --- 1. SUBIDA XML (INTELIGENTE + HISTORIAL) ---
+# --- 1. SUBIDA XML ---
 @router.post("/upload")
 async def upload_invoice(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
     if not (file.filename.endswith(".xml") or file.content_type in ["text/xml", "application/xml"]):
@@ -38,9 +43,9 @@ async def upload_invoice(file: UploadFile = File(...), db: AsyncSession = Depend
     try:
         extracted_items = await parser.extract_data(content, db)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error parseando XML: {e}")
+        raise HTTPException(status_code=500, detail=f"Error leyendo XML: {str(e)}")
 
-    # Cargar todos los productos para comparación rápida
     stmt = select(Product)
     result = await db.execute(stmt)
     all_db_products = result.scalars().all()
@@ -48,7 +53,6 @@ async def upload_invoice(file: UploadFile = File(...), db: AsyncSession = Depend
     db_product_map = {p.name.strip(): p for p in all_db_products}
     all_product_names = list(db_product_map.keys())
 
-    # Agrupar items del XML actual
     grouped_items = {}
     for item in extracted_items:
         clean_name = item['name'].strip()
@@ -79,10 +83,8 @@ async def upload_invoice(file: UploadFile = File(...), db: AsyncSession = Depend
             final_db_id = existing_product.id
             old_cost = existing_product.price
             
-            # Detectar cambio de costo (> 10 centavos)
             if abs(existing_product.price - data['cost']) > 0.1:
                 status = "price_changed"
-                # Registrar en Historial
                 db.add(PriceHistory(
                     product_id=existing_product.id,
                     change_type="COSTO",
@@ -90,31 +92,26 @@ async def upload_invoice(file: UploadFile = File(...), db: AsyncSession = Depend
                     new_value=data['cost']
                 ))
             
-            # Filtro: Ocultar si el precio no cambió y ya tiene precio de venta
             has_selling_price = (existing_product.selling_price or 0) > 0
             if status == "ok" and has_selling_price:
                 status = "hidden"
 
-            # Actualizar datos actuales
             existing_product.stock_quantity += data['qty']
             existing_product.price = data['cost']
 
         else:
             status = "new"
-            # Buscar coincidencias (Fuzzy Match)
             matches = difflib.get_close_matches(data['name'], all_product_names, n=3, cutoff=0.6)
             for match_name in matches:
                 match_prod = db_product_map[match_name]
                 suggestions.append({"id": match_prod.id, "name": match_prod.name, "price": match_prod.price})
 
-            # Crear nuevo producto
             unique_sku = generate_unique_sku(data['name'], data['sku'])
             new_product = Product(sku=unique_sku, name=data['name'], price=data['cost'], stock_quantity=data['qty'], selling_price=0.0)
             db.add(new_product)
             await db.flush()
             final_db_id = new_product.id
             
-            # Registrar costo inicial en historial
             db.add(PriceHistory(product_id=new_product.id, change_type="COSTO", old_value=0, new_value=data['cost']))
 
         if status != "hidden":
@@ -133,7 +130,6 @@ async def upload_invoice(file: UploadFile = File(...), db: AsyncSession = Depend
 
     await db.commit()
     
-    # Ordenar por prioridad
     def sort_priority(item):
         if item['status'] == 'price_changed': return 0
         if item['status'] == 'new' and item['suggestions']: return 1
@@ -148,7 +144,7 @@ async def upload_invoice(file: UploadFile = File(...), db: AsyncSession = Depend
         "hidden_count": len(grouped_items) - len(processed_data)
     }
 
-# --- 2. ACTUALIZAR PRECIOS DE VENTA (REGISTRA HISTORIAL) ---
+# --- 2. ACTUALIZAR PRECIOS (MASIVO) ---
 @router.post("/update-prices")
 async def update_prices(updates: List[Dict] = Body(...), db: AsyncSession = Depends(get_db)):
     count = 0
@@ -162,7 +158,6 @@ async def update_prices(updates: List[Dict] = Body(...), db: AsyncSession = Depe
                 new_price = float(item['selling_price'])
                 current_price = product.selling_price or 0.0
                 
-                # Solo guardar si el precio cambió realmente
                 if abs(current_price - new_price) > 0.1:
                     db.add(PriceHistory(
                         product_id=product.id,
@@ -177,57 +172,64 @@ async def update_prices(updates: List[Dict] = Body(...), db: AsyncSession = Depe
     await db.commit()
     return {"message": f"{count} precios guardados."}
 
-# --- 3. OBTENER PRODUCTOS (PARA BUSCADOR) ---
+# --- 3. OBTENER PRODUCTOS ---
 @router.get("/products")
 async def get_products(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Product).order_by(Product.name))
     return [{"id": p.id, "sku": p.sku, "upc": p.upc or "", "name": p.name, "selling_price": p.selling_price, "stock": p.stock_quantity} for p in result.scalars().all()]
 
-# --- 4. ACTUALIZAR PRODUCTO INDIVIDUAL (SKU, UPC y PRECIO) ---
-# 🔥 AQUÍ ESTABA EL ERROR: Faltaba lógica para selling_price
+# --- 4. ACTUALIZAR PRODUCTO INDIVIDUAL (SOLUCIÓN SEGURA) ---
 @router.put("/products/{product_id}")
 async def update_product_single(product_id: int, data: dict = Body(...), db: AsyncSession = Depends(get_db)):
+    # 1. Buscar producto
     result = await db.execute(select(Product).where(Product.id == product_id))
     product = result.scalar_one_or_none()
     
     if not product: 
-        raise HTTPException(404, detail="Producto no encontrado")
+        raise HTTPException(status_code=404, detail="Producto no encontrado")
 
-    # Actualizar SKU
-    if "sku" in data: 
-        product.sku = data["sku"]
-    
-    # Actualizar UPC
-    if "upc" in data: 
-        product.upc = data["upc"]
+    try:
+        # 2. Actualizar SKU
+        if "sku" in data and data["sku"]: 
+            product.sku = data["sku"]
+        
+        # 3. Actualizar UPC
+        if "upc" in data: 
+            product.upc = data["upc"]
 
-    # ✅ Actualizar PRECIO DE VENTA (Corrección Agregada)
-    if "selling_price" in data:
-        try:
+        # 4. Actualizar PRECIO DE VENTA
+        if "selling_price" in data:
             new_price = float(data["selling_price"])
             old_price = product.selling_price or 0.0
 
-            # Si el precio cambia, lo actualizamos y guardamos historial
+            # Solo si hay cambio real (> 1 centavo)
             if abs(new_price - old_price) > 0.01:
                 product.selling_price = new_price
                 
-                # Registrar cambio en historial
-                db.add(PriceHistory(
+                # Crear Historial
+                history_entry = PriceHistory(
                     product_id=product.id,
                     change_type="PRECIO",
                     old_value=old_price,
                     new_value=new_price
-                ))
-        except ValueError:
-            raise HTTPException(400, detail="El precio debe ser un número válido")
+                )
+                db.add(history_entry)
 
-    try: 
+        # 5. Guardar en BD
         await db.commit()
-    except Exception as e: 
-        await db.rollback()
-        raise HTTPException(400, "Error al guardar (posible SKU duplicado)")
-    
-    return {"msg": "Actualizado correctamente", "id": product.id}
+        await db.refresh(product)
+        
+        return {"msg": "Actualizado correctamente", "id": product.id, "new_price": product.selling_price}
+
+    except ValueError as e:
+        # Error de formato de número
+        raise HTTPException(status_code=400, detail=f"Formato de precio inválido: {str(e)}")
+    except Exception as e:
+        # Error inesperado (Importante para depurar el 500)
+        logger.error(f"Error crítico actualizando producto {product_id}: {str(e)}")
+        await db.rollback() # Revertir cambios si falla
+        # En lugar de 500 genérico, enviamos el detalle del error para que lo veas en el frontend si es necesario
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
 # --- 5. FUSIONAR PRODUCTOS ---
 @router.post("/merge")
@@ -240,7 +242,6 @@ async def merge_products(data: dict = Body(...), db: AsyncSession = Depends(get_
     
     if not keep_prod or not discard_prod: raise HTTPException(404, "Producto no encontrado")
 
-    # Fusionar lógica
     keep_prod.stock_quantity += discard_prod.stock_quantity
     keep_prod.price = discard_prod.price 
     
@@ -248,7 +249,7 @@ async def merge_products(data: dict = Body(...), db: AsyncSession = Depends(get_
     await db.commit()
     return {"message": "Fusionado"}
 
-# --- 6. OBTENER HISTORIAL DE UN PRODUCTO ---
+# --- 6. HISTORIAL ---
 @router.get("/products/{product_id}/history")
 async def get_product_history(product_id: int, db: AsyncSession = Depends(get_db)):
     stmt = select(PriceHistory).where(PriceHistory.product_id == product_id).order_by(PriceHistory.date.desc())
@@ -261,7 +262,7 @@ async def get_product_history(product_id: int, db: AsyncSession = Depends(get_db
         "new": h.new_value
     } for h in history]
 
-# --- 7. CREAR PRODUCTO MANUALMENTE ---
+# --- 7. CREAR MANUAL ---
 @router.post("/products/manual")
 async def create_manual_product(item: ManualProductSchema, db: AsyncSession = Depends(get_db)):
     stmt = select(Product).where(Product.name == item.name)
