@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import axios from 'axios';
-import { Save, Barcode, Hash, Tag, PlusCircle, CheckCircle2, Loader2, AlertCircle, Camera } from 'lucide-react';
+import { Save, Barcode, Hash, Tag, PlusCircle, CheckCircle2, Loader2, AlertCircle, Camera, Trash2 } from 'lucide-react'; // <--- AGREGAMOS TRASH2
 import { BarcodeScanner } from './BarcodeScanner';
 
 // IMPORTAMOS LA CONFIGURACIÓN CENTRALIZADA
@@ -10,23 +10,33 @@ export function ManualEntry() {
     const [loading, setLoading] = useState(false);
     const [successMsg, setSuccessMsg] = useState("");
     const [errorMsg, setErrorMsg] = useState("");
-    const [showScanner, setShowScanner] = useState(false); // Estado para la cámara
+    const [showScanner, setShowScanner] = useState(false);
 
-    // Formulario
-    const [formData, setFormData] = useState({
+    // 1. ESTADO INICIAL DEFINIDO
+    const initialState = {
         name: "",
         sku: "",
         upc: "",
         price: "",        // Costo
         selling_price: "", // Venta
         stock: ""
-    });
+    };
+
+    const [formData, setFormData] = useState(initialState);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+        setSuccessMsg(""); // Limpiar mensajes al escribir
+        setErrorMsg("");
     };
 
-    // Función que se ejecuta al escanear
+    // 2. FUNCIÓN PARA LIMPIAR TODO
+    const handleClearForm = () => {
+        setFormData(initialState);
+        setSuccessMsg("");
+        setErrorMsg("");
+    };
+
     const handleScanSuccess = (code: string) => {
         setFormData(prev => ({ ...prev, upc: code }));
         setShowScanner(false);
@@ -57,7 +67,7 @@ export function ManualEntry() {
             await axios.post(`${API_URL}/invoices/products/manual`, payload);
 
             setSuccessMsg(`Producto "${formData.name}" agregado con éxito.`);
-            setFormData({ name: "", sku: "", upc: "", price: "", selling_price: "", stock: "" });
+            setFormData(initialState); // Limpiar tras éxito
 
         } catch (error: any) {
             setErrorMsg(error.response?.data?.detail || "Error al guardar el producto.");
@@ -144,7 +154,7 @@ export function ManualEntry() {
                                 />
                             </div>
                             <button
-                                type="button" // Importante: type="button" para que no envíe el formulario
+                                type="button"
                                 onClick={() => setShowScanner(true)}
                                 className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 p-3 rounded-2xl transition-colors active:scale-95 border-2 border-transparent focus:border-blue-500"
                                 title="Escanear con cámara"
@@ -187,15 +197,27 @@ export function ManualEntry() {
                     </div>
                 </div>
 
-                {/* Botón Guardar */}
-                <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold py-4 rounded-2xl shadow-lg hover:bg-black dark:hover:bg-gray-200 active:scale-95 transition-all flex items-center justify-center gap-2 mt-4"
-                >
-                    {loading ? <Loader2 className="animate-spin w-5 h-5" /> : <Save className="w-5 h-5" />}
-                    Guardar Producto
-                </button>
+                {/* BOTONES DE ACCIÓN (LIMPIAR Y GUARDAR) */}
+                <div className="flex gap-3 pt-2">
+                    {/* 3. BOTÓN DE LIMPIEZA */}
+                    <button
+                        type="button"
+                        onClick={handleClearForm}
+                        className="px-4 py-4 rounded-2xl font-bold bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all flex items-center justify-center gap-2 border-2 border-transparent hover:border-gray-300 dark:hover:border-gray-500"
+                        title="Limpiar formulario"
+                    >
+                        <Trash2 className="w-5 h-5" />
+                    </button>
+
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className="flex-1 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold py-4 rounded-2xl shadow-lg hover:bg-black dark:hover:bg-gray-200 active:scale-95 transition-all flex items-center justify-center gap-2"
+                    >
+                        {loading ? <Loader2 className="animate-spin w-5 h-5" /> : <Save className="w-5 h-5" />}
+                        Guardar Producto
+                    </button>
+                </div>
 
             </form>
 

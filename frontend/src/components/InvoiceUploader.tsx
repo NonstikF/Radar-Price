@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react'; // <--- 1. AGREGAMOS useRef
 import axios from 'axios';
-import { Upload, Save, FileText, Loader2, DollarSign, Package, EyeOff, GitMerge, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Upload, Save, FileText, Loader2, DollarSign, Package, EyeOff, GitMerge, ArrowRight, CheckCircle2, Trash2 } from 'lucide-react'; // <--- 2. IMPORTAMOS Trash2
 
 // IMPORTAMOS LA CONFIGURACIÓN CENTRALIZADA
 import { API_URL } from '../config';
@@ -23,14 +23,30 @@ export function InvoiceUploader({ products, setProducts }: Props) {
     const [mergeMenuOpen, setMergeMenuOpen] = useState<number | null>(null);
     const [pendingMerge, setPendingMerge] = useState<{ discardIndex: number, keepId: number, targetName: string } | null>(null);
 
+    // 3. REFERENCIA AL INPUT (Para poder limpiarlo)
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) setFile(e.target.files[0]);
+    };
+
+    // 4. NUEVA FUNCIÓN: LIMPIAR TODO
+    const handleClearAll = () => {
+        setProducts([]);      // Borra la lista visual
+        setFile(null);        // Borra el archivo en memoria
+        setHiddenCount(0);
+        setSavedMessage("");
+
+        // Limpia el input HTML para permitir volver a subir el mismo archivo si es necesario
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
     };
 
     const handleUpload = async () => {
         if (!file) return;
         setLoading(true);
-        setProducts([]); // Limpiamos usando la función del padre
+        setProducts([]);
         setHiddenCount(0);
         setSavedMessage("");
 
@@ -41,7 +57,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
             const response = await axios.post(`${API_URL}/invoices/upload`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
-            setProducts(response.data.products); // Actualizamos al padre
+            setProducts(response.data.products);
             setHiddenCount(response.data.hidden_count || 0);
         } catch (error) {
             console.error(error);
@@ -57,7 +73,6 @@ export function InvoiceUploader({ products, setProducts }: Props) {
         setProducts(updatedProducts);
     };
 
-    // FUNCIÓN CORREGIDA: Borra la lista automáticamente
     const handleSavePrices = async () => {
         setLoading(true);
         try {
@@ -66,19 +81,11 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                 selling_price: p.selling_price || 0
             }));
 
-            // Enviamos al backend
             await axios.post(`${API_URL}/invoices/update-prices`, updates);
-
-            // Mostramos éxito
             setSavedMessage("¡Precios guardados correctamente! ✅");
 
-            // --- MAGIA AQUÍ ---
-            // Esperamos 1.5 segundos y limpiamos todo
             setTimeout(() => {
-                setProducts([]); // Borra la lista visual
-                setFile(null);   // Reinicia el archivo (variable interna)
-                setSavedMessage("");
-                setHiddenCount(0);
+                handleClearAll(); // Usamos la nueva función de limpieza aquí también
             }, 1500);
 
         } catch (error) {
@@ -88,7 +95,6 @@ export function InvoiceUploader({ products, setProducts }: Props) {
         }
     };
 
-    // 1. INICIAR FUSIÓN (Abre el modal)
     const initiateMerge = (discardProductIndex: number, keepDbId: number, targetName: string) => {
         setPendingMerge({
             discardIndex: discardProductIndex,
@@ -98,7 +104,6 @@ export function InvoiceUploader({ products, setProducts }: Props) {
         setMergeMenuOpen(null);
     };
 
-    // 2. EJECUTAR FUSIÓN (Llamada al backend)
     const executeMerge = async () => {
         if (!pendingMerge) return;
         setLoading(true);
@@ -110,7 +115,6 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                 discard_id: productToDiscard.id
             });
 
-            // Eliminar de la lista visual
             const newProducts = products.filter((_, i) => i !== pendingMerge.discardIndex);
             setProducts(newProducts);
             setPendingMerge(null);
@@ -133,6 +137,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                     <div className="flex-1 min-w-0">
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cargar XML (CFDI)</label>
                         <input
+                            ref={fileInputRef} // <--- 5. CONECTAMOS LA REF
                             type="file"
                             accept=".xml"
                             onChange={handleFileChange}
@@ -168,16 +173,28 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                             <span className="text-gray-400 dark:text-gray-500 text-xs md:hidden">({products.length} visibles)</span>
                         </div>
 
-                        {savedMessage ? (
-                            <span className="text-green-600 dark:text-green-400 font-bold px-4 py-2 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-900 animate-pulse text-sm">
-                                {savedMessage}
-                            </span>
-                        ) : (
-                            <button onClick={handleSavePrices} disabled={loading} className="bg-green-600 dark:bg-green-700 text-white px-4 py-2 md:px-6 rounded-xl font-bold hover:bg-green-700 dark:hover:bg-green-600 shadow-lg shadow-green-500/20 active:scale-95 transition-all flex items-center gap-2 text-sm md:text-base">
-                                <Save className="w-5 h-5" />
-                                <span>Guardar</span>
+                        <div className="flex items-center gap-2">
+                            {/* 6. BOTÓN LIMPIAR LISTA (PAPELERA) */}
+                            <button
+                                onClick={handleClearAll}
+                                title="Limpiar lista"
+                                className="bg-red-50 dark:bg-red-900/20 text-red-500 dark:text-red-400 p-2 md:px-4 md:py-2 rounded-xl font-bold hover:bg-red-100 dark:hover:bg-red-900/40 transition-all flex items-center gap-2"
+                            >
+                                <Trash2 className="w-5 h-5" />
+                                <span className="hidden md:inline">Limpiar</span>
                             </button>
-                        )}
+
+                            {savedMessage ? (
+                                <span className="text-green-600 dark:text-green-400 font-bold px-4 py-2 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-900 animate-pulse text-sm">
+                                    {savedMessage}
+                                </span>
+                            ) : (
+                                <button onClick={handleSavePrices} disabled={loading} className="bg-green-600 dark:bg-green-700 text-white px-4 py-2 md:px-6 rounded-xl font-bold hover:bg-green-700 dark:hover:bg-green-600 shadow-lg shadow-green-500/20 active:scale-95 transition-all flex items-center gap-2 text-sm md:text-base">
+                                    <Save className="w-5 h-5" />
+                                    <span>Guardar</span>
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     {/* --- VISTA MÓVIL (TARJETAS) --- */}

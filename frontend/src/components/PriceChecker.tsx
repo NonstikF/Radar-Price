@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react'; // <--- 1. AGREGAMOS useRef
 import axios from 'axios';
 import { Search, X, Save, Barcode, Hash, CheckCircle2, AlertTriangle, ArrowLeft, History, ArrowRight, Camera, Filter } from 'lucide-react';
 import { BarcodeScanner } from './BarcodeScanner';
@@ -24,6 +24,9 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
     const [showHistory, setShowHistory] = useState(false);
     const [showScanner, setShowScanner] = useState(false);
     const [toast, setToast] = useState<{ show: boolean, message: string, type: 'success' | 'error' }>({ show: false, message: '', type: 'success' });
+
+    // 2. REFERENCIA AL INPUT
+    const inputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         fetchProducts();
@@ -92,6 +95,12 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
         showToast("Código escaneado");
     };
 
+    // 3. FUNCIÓN PARA LIMPIAR BÚSQUEDA
+    const handleClearSearch = () => {
+        setSearchTerm("");
+        inputRef.current?.focus(); // Regresa el foco al input para seguir escribiendo
+    };
+
     const filteredProducts = products.filter(p => {
         const term = searchTerm.toLowerCase();
         const textMatch =
@@ -125,17 +134,32 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                         <button onClick={onClearFilter} className="text-xs bg-white dark:bg-gray-800 px-3 py-1.5 rounded-lg border border-orange-200 dark:border-orange-700 text-orange-600 dark:text-orange-400 font-bold hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors">Ver Todos</button>
                     </div>
                 )}
+
+                {/* 4. INPUT CON BOTÓN DE LIMPIEZA */}
                 <div className="relative shadow-sm group">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                         <Search className="h-6 w-6 text-gray-400 dark:text-gray-500 group-focus-within:text-blue-500 transition-colors" />
                     </div>
                     <input
+                        ref={inputRef} // Conectamos la referencia
                         type="text"
-                        className="block w-full pl-12 pr-4 py-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl text-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm transition-all"
+                        className="block w-full pl-12 pr-12 py-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl text-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm transition-all"
                         placeholder="Buscar por nombre, ID, UPC o Precio..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
+
+                    {/* BOTÓN X PARA LIMPIAR */}
+                    {searchTerm && (
+                        <button
+                            onClick={handleClearSearch}
+                            className="absolute inset-y-0 right-0 pr-4 flex items-center cursor-pointer text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                        >
+                            <div className="bg-gray-100 dark:bg-gray-700 rounded-full p-1">
+                                <X className="h-4 w-4" />
+                            </div>
+                        </button>
+                    )}
                 </div>
             </div>
 
