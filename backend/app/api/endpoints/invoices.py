@@ -1,6 +1,7 @@
 import hashlib
 import difflib
 import logging
+import xml.etree.ElementTree as ET # <--- IMPORTANTE: Agregado para leer el XML manualmente
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -32,7 +33,7 @@ def generate_unique_sku(name: str, sat_code: str) -> str:
     prefix = "".join(filter(str.isalpha, name))[:3].upper() or "GEN"
     return f"{prefix}-{hex_dig[:6]}".upper()
 
-# --- 1. SUBIDA XML ---
+# --- 1. SUBIDA XML ESTÁNDAR ---
 @router.post("/upload")
 async def upload_invoice(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
     if not (file.filename.endswith(".xml") or file.content_type in ["text/xml", "application/xml"]):
@@ -180,7 +181,6 @@ async def get_products(db: AsyncSession = Depends(get_db)):
 # --- 4. ACTUALIZAR PRODUCTO INDIVIDUAL (CON VALIDACIÓN DE DUPLICADOS) ---
 @router.put("/products/{product_id}")
 async def update_product_single(product_id: int, data: dict = Body(...), db: AsyncSession = Depends(get_db)):
-    # Buscar producto
     result = await db.execute(select(Product).where(Product.id == product_id))
     product = result.scalar_one_or_none()
     
@@ -188,36 +188,28 @@ async def update_product_single(product_id: int, data: dict = Body(...), db: Asy
         raise HTTPException(status_code=404, detail="Producto no encontrado")
 
     try:
-        # --- VALIDAR Y ACTUALIZAR SKU ---
         if "sku" in data and data["sku"]: 
             product.sku = data["sku"]
         
-        # --- 🔍 VALIDACIÓN ANTI-DUPLICADOS PARA UPC ---
         if "upc" in data and data["upc"]: 
             new_upc = str(data["upc"]).strip()
-            
-            # Buscamos si existe OTRO producto con este mismo UPC
             stmt_dup = select(Product).where(Product.upc == new_upc)
             result_dup = await db.execute(stmt_dup)
             duplicate = result_dup.scalar_one_or_none()
 
-            # Si existe y NO es el mismo que estamos editando... ERROR
             if duplicate and duplicate.id != product_id:
                 raise HTTPException(
                     status_code=400, 
                     detail=f"El código '{new_upc}' ya está en uso por: {duplicate.name}"
                 )
-            
             product.upc = new_upc
 
-        # --- ACTUALIZAR PRECIO DE VENTA ---
         if "selling_price" in data:
             new_price = float(data["selling_price"])
             old_price = product.selling_price or 0.0
 
             if abs(new_price - old_price) > 0.01:
                 product.selling_price = new_price
-                # Crear Historial
                 db.add(PriceHistory(
                     product_id=product.id,
                     change_type="PRECIO",
@@ -227,11 +219,10 @@ async def update_product_single(product_id: int, data: dict = Body(...), db: Asy
 
         await db.commit()
         await db.refresh(product)
-        
         return {"msg": "Actualizado correctamente", "id": product.id, "new_price": product.selling_price}
 
     except HTTPException as he:
-        raise he # Re-lanzar error de duplicado para que el frontend lo vea
+        raise he 
     except ValueError as e:
         raise HTTPException(status_code=400, detail=f"Formato inválido: {str(e)}")
     except Exception as e:
@@ -273,22 +264,17 @@ async def get_product_history(product_id: int, db: AsyncSession = Depends(get_db
 # --- 7. CREAR MANUAL (CON VALIDACIÓN DE DUPLICADOS) ---
 @router.post("/products/manual")
 async def create_manual_product(item: ManualProductSchema, db: AsyncSession = Depends(get_db)):
-    # 1. Validar nombre duplicado
     stmt = select(Product).where(Product.name == item.name)
     if (await db.execute(stmt)).scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Ya existe un producto con este nombre.")
 
-    # 2. Manejo de SKU (ID Interno)
-    # CAMBIO: Ya no generamos ID aleatorio. Si viene vacío, se queda como None.
     final_sku = item.sku.strip() if item.sku and item.sku.strip() else None
     
-    # Solo validamos duplicado si el usuario escribió un SKU
     if final_sku:
         stmt_sku = select(Product).where(Product.sku == final_sku)
         if (await db.execute(stmt_sku)).scalar_one_or_none():
             raise HTTPException(status_code=400, detail=f"El SKU '{final_sku}' ya existe.")
 
-    # 3. Validar UPC duplicado
     if item.upc:
         clean_upc = item.upc.strip()
         stmt_upc = select(Product).where(Product.upc == clean_upc)
@@ -299,9 +285,8 @@ async def create_manual_product(item: ManualProductSchema, db: AsyncSession = De
                 detail=f"El código '{clean_upc}' ya está asignado a: {duplicate.name}"
             )
 
-    # 4. Guardar Producto
     new_product = Product(
-        sku=final_sku, # Ahora puede ser None si no escribieron nada
+        sku=final_sku,
         upc=item.upc,
         name=item.name,
         price=item.price,
@@ -311,7 +296,6 @@ async def create_manual_product(item: ManualProductSchema, db: AsyncSession = De
     db.add(new_product)
     await db.flush()
 
-    # 5. Historial
     if item.price > 0:
         db.add(PriceHistory(product_id=new_product.id, change_type="COSTO", old_value=0, new_value=item.price))
     if item.selling_price > 0:
@@ -320,12 +304,9 @@ async def create_manual_product(item: ManualProductSchema, db: AsyncSession = De
     await db.commit()
     return {"message": "Producto creado", "sku": final_sku}
 
-    # ... (al final del archivo, después de create_manual_product) ...
-
 # --- 8. ELIMINAR PRODUCTO ---
 @router.delete("/products/{product_id}")
 async def delete_product(product_id: int, db: AsyncSession = Depends(get_db)):
-    # 1. Buscar producto
     result = await db.execute(select(Product).where(Product.id == product_id))
     product = result.scalar_one_or_none()
     
@@ -333,19 +314,100 @@ async def delete_product(product_id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Producto no encontrado")
 
     try:
-        # 2. Borrar historial asociado primero (limpieza)
-        await db.execute(
-            select(PriceHistory).where(PriceHistory.product_id == product_id)
-        )
-        # Nota: Si tienes configurado CASCADE en tu modelo SQL, esto se hace solo.
-        # Si no, es bueno hacerlo manual o manejar la excepción.
-        
-        # 3. Borrar producto
+        await db.execute(select(PriceHistory).where(PriceHistory.product_id == product_id))
         await db.delete(product)
         await db.commit()
-        
         return {"message": "Producto eliminado correctamente"}
-        
     except Exception as e:
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Error al eliminar: {str(e)}")
+
+# --- 9. IMPORTACIÓN ESPECIAL DE CATÁLOGO (TEMPORAL) ---
+@router.post("/upload-catalog")
+async def upload_special_catalog(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
+    if not (file.filename.endswith(".xml") or file.content_type in ["text/xml", "application/xml"]):
+        raise HTTPException(status_code=400, detail="El archivo debe ser un XML")
+
+    content = await file.read()
+    
+    try:
+        # Parseo manual directo para este caso específico
+        root = ET.fromstring(content)
+        namespaces = {
+            'cfdi': 'http://www.sat.gob.mx/cfd/4',
+            'cfdi3': 'http://www.sat.gob.mx/cfd/3' 
+        }
+        
+        conceptos = root.findall('.//cfdi:Concepto', namespaces)
+        if not conceptos:
+            conceptos = root.findall('.//cfdi3:Concepto', namespaces)
+
+        count_new = 0
+        count_updated = 0
+
+        for item in conceptos:
+            # --- MAPEO SOLICITADO ---
+            # ClaveProdServ -> UPC
+            xml_upc = item.get('ClaveProdServ', '').strip()
+            # NoIdentificacion -> SKU
+            xml_sku = item.get('NoIdentificacion', '').strip()
+            
+            description = item.get('Descripcion', '').strip()
+            try:
+                price_cost = float(item.get('ValorUnitario', 0))
+                qty = float(item.get('Cantidad', 0))
+            except:
+                price_cost = 0.0
+                qty = 0
+
+            # Solo procesamos si trae SKU (NoIdentificacion)
+            if not xml_sku:
+                continue 
+
+            # 1. Buscar si ya existe por SKU (NoIdentificacion)
+            stmt = select(Product).where(Product.sku == xml_sku)
+            result = await db.execute(stmt)
+            existing_prod = result.scalar_one_or_none()
+
+            if existing_prod:
+                # ACTUALIZAR
+                existing_prod.upc = xml_upc # Guardar ClaveProdServ en UPC
+                existing_prod.stock_quantity += int(qty)
+                
+                if abs(existing_prod.price - price_cost) > 0.1:
+                    db.add(PriceHistory(
+                        product_id=existing_prod.id,
+                        change_type="COSTO",
+                        old_value=existing_prod.price,
+                        new_value=price_cost
+                    ))
+                    existing_prod.price = price_cost
+                
+                count_updated += 1
+            else:
+                # CREAR NUEVO
+                new_prod = Product(
+                    sku=xml_sku,          # SKU = NoIdentificacion
+                    upc=xml_upc,          # UPC = ClaveProdServ
+                    name=description,
+                    price=price_cost,
+                    stock_quantity=int(qty),
+                    selling_price=0.0
+                )
+                db.add(new_prod)
+                await db.flush()
+                # Historial inicial
+                if price_cost > 0:
+                    db.add(PriceHistory(product_id=new_prod.id, change_type="COSTO", old_value=0, new_value=price_cost))
+                count_new += 1
+
+        await db.commit()
+        return {
+            "message": "Carga de catálogo completada",
+            "created": count_new,
+            "updated": count_updated
+        }
+
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error procesando catálogo: {str(e)}")
