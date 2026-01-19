@@ -1,11 +1,9 @@
 import { useState, useRef } from 'react';
 import axios from 'axios';
-import { Upload, Save, FileText, Loader2, DollarSign, Package, EyeOff, GitMerge, ArrowRight, CheckCircle2, Trash2, Database, AlertCircle } from 'lucide-react'; // <--- AGREGUÉ ICONOS
+import { Upload, Save, FileText, Loader2, DollarSign, Package, EyeOff, GitMerge, ArrowRight, CheckCircle2, Trash2, Database, AlertCircle, FileStack } from 'lucide-react'; // <--- AGREGUÉ FileStack
 
-// IMPORTAMOS LA CONFIGURACIÓN CENTRALIZADA
 import { API_URL } from '../config';
 
-// Definimos las propiedades que vienen del padre (App.tsx)
 interface Props {
     products: any[];
     setProducts: (products: any[]) => void;
@@ -19,9 +17,10 @@ export function InvoiceUploader({ products, setProducts }: Props) {
     const [savedMessage, setSavedMessage] = useState("");
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // --- ESTADOS CARGA CATÁLOGO ESPECIAL ---
-    const [catalogFile, setCatalogFile] = useState<File | null>(null);
+    // --- ESTADOS CARGA CATÁLOGO ESPECIAL (MASIVA) ---
+    const [catalogFiles, setCatalogFiles] = useState<File[]>([]); // <--- AHORA ES UN ARRAY
     const [catalogLoading, setCatalogLoading] = useState(false);
+    const [catalogProgress, setCatalogProgress] = useState({ current: 0, total: 0, successes: 0, errors: 0 }); // <--- PROGRESO
     const [catalogMsg, setCatalogMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const catalogInputRef = useRef<HTMLInputElement>(null);
 
@@ -67,41 +66,62 @@ export function InvoiceUploader({ products, setProducts }: Props) {
         }
     };
 
-    // --- HANDLERS CATÁLOGO ESPECIAL ---
+    // --- HANDLERS CATÁLOGO ESPECIAL (MASIVO) ---
     const handleCatalogChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            setCatalogFile(e.target.files[0]);
+        if (e.target.files && e.target.files.length > 0) {
+            // Convertimos FileList a Array
+            setCatalogFiles(Array.from(e.target.files));
             setCatalogMsg(null);
+            setCatalogProgress({ current: 0, total: 0, successes: 0, errors: 0 });
         }
     };
 
     const handleCatalogUpload = async () => {
-        if (!catalogFile) return;
+        if (catalogFiles.length === 0) return;
+
         setCatalogLoading(true);
         setCatalogMsg(null);
+        let createdTotal = 0;
+        let updatedTotal = 0;
+        let errorsCount = 0;
 
-        const formData = new FormData();
-        formData.append('file', catalogFile);
+        // Inicializamos progreso
+        setCatalogProgress({ current: 0, total: catalogFiles.length, successes: 0, errors: 0 });
 
-        try {
-            // LLAMADA AL NUEVO ENDPOINT
-            const response = await axios.post(`${API_URL}/invoices/upload-catalog`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
-            setCatalogMsg({
-                type: 'success',
-                text: `¡Éxito! Creados: ${response.data.created}, Actualizados: ${response.data.updated}`
-            });
-            setCatalogFile(null);
-            if (catalogInputRef.current) catalogInputRef.current.value = "";
-        } catch (error: any) {
-            setCatalogMsg({
-                type: 'error',
-                text: error.response?.data?.detail || "Error al procesar el catálogo."
-            });
-        } finally {
-            setCatalogLoading(false);
+        // Procesamos UNO POR UNO para no saturar el servidor (Cola secuencial)
+        for (let i = 0; i < catalogFiles.length; i++) {
+            const file = catalogFiles[i];
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                // Actualizamos UI: "Procesando archivo X..."
+                setCatalogProgress(prev => ({ ...prev, current: i + 1 }));
+
+                const response = await axios.post(`${API_URL}/invoices/upload-catalog`, formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+
+                createdTotal += response.data.created || 0;
+                updatedTotal += response.data.updated || 0;
+
+            } catch (error) {
+                console.error(`Error en archivo ${file.name}`, error);
+                errorsCount++;
+                setCatalogProgress(prev => ({ ...prev, errors: prev.errors + 1 }));
+            }
         }
+
+        // Resumen Final
+        setCatalogLoading(false);
+        setCatalogMsg({
+            type: errorsCount === catalogFiles.length ? 'error' : 'success',
+            text: `Proceso finalizado. ${createdTotal} creados, ${updatedTotal} actualizados. (${errorsCount} errores)`
+        });
+
+        // Limpiar
+        setCatalogFiles([]);
+        if (catalogInputRef.current) catalogInputRef.current.value = "";
     };
 
 
@@ -178,16 +198,16 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                 </div>
             </div>
 
-            {/* --- ZONA 2: CARGA ESPECIAL (CATÁLOGO TEMPORAL) --- */}
+            {/* --- ZONA 2: CARGA ESPECIAL MASIVA --- */}
             <div className="bg-purple-50 dark:bg-purple-900/10 rounded-2xl shadow-sm p-6 border border-purple-200 dark:border-purple-800 transition-colors">
                 <div className="flex items-center gap-4 mb-4">
                     <div className="bg-purple-100 dark:bg-purple-900/30 p-3 rounded-full">
                         <Database className="w-6 h-6 text-purple-600 dark:text-purple-400" />
                     </div>
                     <div>
-                        <h3 className="font-bold text-lg text-gray-900 dark:text-white">Importador Especial de Catálogo</h3>
+                        <h3 className="font-bold text-lg text-gray-900 dark:text-white">Importador Masivo de Catálogo</h3>
                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                            Reglas especiales:
+                            Soporta múltiples archivos. Reglas:
                             <span className="bg-white dark:bg-gray-800 px-2 py-0.5 rounded mx-1 font-mono text-xs border">ClaveProdServ ➔ UPC</span>
                             <span className="bg-white dark:bg-gray-800 px-2 py-0.5 rounded mx-1 font-mono text-xs border">NoIdentificacion ➔ SKU</span>
                         </p>
@@ -196,23 +216,37 @@ export function InvoiceUploader({ products, setProducts }: Props) {
 
                 <div className="flex flex-col md:flex-row items-center gap-4">
                     <div className="flex-1 w-full">
+                        {/* INPUT MÚLTIPLE */}
                         <input
                             ref={catalogInputRef}
                             type="file"
                             accept=".xml"
+                            multiple // <--- ESTO PERMITE SELECCIONAR LOS 64 ARCHIVOS
                             onChange={handleCatalogChange}
                             className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-100 file:text-purple-700 hover:file:bg-purple-200 dark:file:bg-purple-900/30 dark:file:text-purple-300 dark:hover:file:bg-purple-900/50"
                         />
+                        {catalogFiles.length > 0 && !catalogLoading && (
+                            <p className="mt-2 text-xs font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1">
+                                <FileStack className="w-4 h-4" /> {catalogFiles.length} archivos seleccionados
+                            </p>
+                        )}
                     </div>
-                    <button onClick={handleCatalogUpload} disabled={!catalogFile || catalogLoading} className="w-full md:w-auto bg-purple-600 dark:bg-purple-700 text-white px-6 py-3 rounded-xl font-bold hover:bg-purple-700 dark:hover:bg-purple-600 disabled:opacity-50 flex justify-center items-center gap-2 transition-colors">
+                    <button onClick={handleCatalogUpload} disabled={catalogFiles.length === 0 || catalogLoading} className="w-full md:w-auto bg-purple-600 dark:bg-purple-700 text-white px-6 py-3 rounded-xl font-bold hover:bg-purple-700 dark:hover:bg-purple-600 disabled:opacity-50 flex justify-center items-center gap-2 transition-colors">
                         {catalogLoading ? <Loader2 className="animate-spin w-4 h-4" /> : <Upload className="w-4 h-4" />}
-                        {catalogLoading ? 'Importando...' : 'Importar Catálogo'}
+                        {catalogLoading ? `Importando ${catalogProgress.current}/${catalogProgress.total}` : 'Importar Todo'}
                     </button>
                 </div>
 
+                {/* BARRA DE PROGRESO */}
+                {catalogLoading && (
+                    <div className="mt-4 w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 overflow-hidden">
+                        <div className="bg-purple-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${(catalogProgress.current / catalogProgress.total) * 100}%` }}></div>
+                    </div>
+                )}
+
                 {/* MENSAJES DEL CATÁLOGO */}
                 {catalogMsg && (
-                    <div className={`mt-4 p-3 rounded-xl flex items-center gap-3 text-sm font-medium ${catalogMsg.type === 'success' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'}`}>
+                    <div className={`mt-4 p-3 rounded-xl flex items-center gap-3 text-sm font-medium animate-fade-in ${catalogMsg.type === 'success' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'}`}>
                         {catalogMsg.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
                         {catalogMsg.text}
                     </div>
