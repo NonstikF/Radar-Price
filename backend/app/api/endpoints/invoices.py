@@ -2,6 +2,7 @@ import hashlib
 import difflib
 import logging
 import xml.etree.ElementTree as ET # <--- IMPORTANTE: Agregado para leer el XML manualmente
+from sqlalchemy import or_ #
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -10,6 +11,7 @@ from pydantic import BaseModel
 from app.core.database import get_db
 from app.services.xml_service import XmlInvoiceParser
 from app.domain.models import Product, PriceHistory
+
 
 # Configuración de logs
 logger = logging.getLogger(__name__)
@@ -174,10 +176,50 @@ async def update_prices(updates: List[Dict] = Body(...), db: AsyncSession = Depe
 
 # --- 3. OBTENER PRODUCTOS ---
 @router.get("/products")
-async def get_products(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Product).order_by(Product.name))
-    return [{"id": p.id, "sku": p.sku, "upc": p.upc or "", "name": p.name, "selling_price": p.selling_price, "stock": p.stock_quantity} for p in result.scalars().all()]
+async def get_products(
+    q: Optional[str] = None, 
+    missing_price: bool = False, 
+    limit: int = 50, 
+    db: AsyncSession = Depends(get_db)
+):
+    stmt = select(Product)
 
+    # Lógica de filtrado
+    if missing_price:
+        # Si se activa el filtro de "Sin Precio", traemos esos (con paginación simple)
+        stmt = stmt.where(or_(Product.selling_price == 0, Product.selling_price == None))
+    elif q:
+        # Búsqueda por texto (Nombre, SKU o UPC)
+        search_filter = f"%{q}%"
+        stmt = stmt.where(
+            or_(
+                Product.name.ilike(search_filter),
+                Product.sku.ilike(search_filter),
+                Product.upc.ilike(search_filter)
+            )
+        )
+    else:
+        # Si no hay búsqueda ni filtro, NO devolvemos nada (o devolvemos vacío)
+        # Esto hace que la carga inicial sea instantánea.
+        return []
+
+    # Ordenar y Limitar resultados
+    stmt = stmt.order_by(Product.name).limit(limit)
+    
+    result = await db.execute(stmt)
+    products = result.scalars().all()
+    
+    return [
+        {
+            "id": p.id, 
+            "sku": p.sku, 
+            "upc": p.upc or "", 
+            "name": p.name, 
+            "selling_price": p.selling_price, 
+            "stock": p.stock_quantity
+        } 
+        for p in products
+    ]
 # --- 4. ACTUALIZAR PRODUCTO INDIVIDUAL (CON VALIDACIÓN DE DUPLICADOS) ---
 @router.put("/products/{product_id}")
 async def update_product_single(product_id: int, data: dict = Body(...), db: AsyncSession = Depends(get_db)):
