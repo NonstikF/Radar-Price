@@ -5,8 +5,12 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   preview: {
-    // Aquí pegamos exactamente el dominio que te dio el error
-    allowedHosts: ['frontend-production-a0cf.up.railway.app'],
-    host: true, // Asegura que escuche en todas las IPs (0.0.0.0)
+    host: true,
+    port: 4173,
+    allowedHosts: [
+      'frontend-production-a0cf.up.railway.app', // Tu Producción (Ya estaba)
+      'frontend-staging-0a8e.up.railway.app',    // Tu Staging (NUEVO)
+      'localhost'                                 // Opcional, para local
+    ]
   }
 })
