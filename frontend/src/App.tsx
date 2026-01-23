@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+
+// --- COMPONENTES ---
 import { InvoiceUploader } from './components/InvoiceUploader';
 import { ManualEntry } from './components/ManualEntry';
 import { PriceChecker } from './components/PriceChecker';
@@ -7,8 +9,11 @@ import { Dashboard } from './components/Dashboard';
 import { AdminUsers } from './components/AdminUsers';
 import { Login } from './components/UserLogin';
 import { Logo } from './components/Logo';
+import { History } from './components/History'; // <--- IMPORTADO NUEVO
+
+// --- UTILIDADES E ICONOS ---
 import { LayoutGrid, FileText, Search, PlusCircle, Moon, Sun, Users, LogOut } from 'lucide-react';
-import { API_URL } from './config';
+import { API_URL } from './config'; // <--- CORREGIDO (Normalmente está en config.ts)
 
 function App() {
   // Estado inicial
@@ -33,8 +38,13 @@ function App() {
     if (user.role === 'admin') return true;
 
     // 2. Usuario Mortal: Revisar lista de permisos
-    // Nos aseguramos de que permissions sea un array real
     const userPerms = Array.isArray(user.permissions) ? user.permissions : [];
+
+    // CASO ESPECIAL: 'history' se permite si tienes acceso a 'dashboard' o 'upload'
+    if (viewName === 'history') {
+      return userPerms.includes('dashboard') || userPerms.includes('upload');
+    }
+
     return userPerms.includes(viewName);
   };
 
@@ -53,18 +63,15 @@ function App() {
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
         // REDIRECCIÓN DE SEGURIDAD AL RECARGAR
-        // Si estoy en Dashboard pero NO soy admin y NO tengo permiso de dashboard...
         if (parsedUser.role !== 'admin' && !parsedUser.permissions?.includes('dashboard')) {
-          console.log("🚫 Redirigiendo a Buscador por falta de permisos");
-          setCurrentView('search');
+          if (currentView === 'dashboard') setCurrentView('search');
         } else if (parsedUser.role === 'admin') {
-          // Si soy admin, por defecto al Dashboard
           if (currentView === 'search') setCurrentView('dashboard');
         }
 
       } catch (e) {
         console.error("Error al leer usuario guardado", e);
-        handleLogout(); // Si hay error en los datos, cerramos sesión por seguridad
+        handleLogout();
       }
     }
   }, []);
@@ -80,10 +87,9 @@ function App() {
   }, [darkMode]);
 
   const handleLoginSuccess = (userData: any) => {
-    console.log("✅ Login Exitoso. Datos recibidos:", userData); // DEBUG
+    console.log("✅ Login Exitoso. Datos recibidos:", userData);
 
     localStorage.setItem('token', userData.token);
-    // Guardamos el objeto completo que viene del Backend (username, role, permissions)
     localStorage.setItem('user', JSON.stringify(userData));
 
     axios.defaults.headers.common['Authorization'] = `Bearer ${userData.token}`;
@@ -94,7 +100,6 @@ function App() {
     if (userData.role === 'admin' || userData.permissions?.includes('dashboard')) {
       setCurrentView('dashboard');
     } else {
-      // Si no tiene dashboard, lo mandamos directo al buscador
       setCurrentView('search');
     }
   };
@@ -127,7 +132,7 @@ function App() {
 
           <div className="flex items-center gap-4">
 
-            {/* --- MENÚ DE NAVEGACIÓN (Solo botones permitidos) --- */}
+            {/* --- MENÚ DE NAVEGACIÓN --- */}
             <nav className="hidden md:flex gap-1">
 
               {canAccess('dashboard') && (
@@ -146,7 +151,7 @@ function App() {
                 <NavButton active={currentView === 'manual'} onClick={() => handleNavigate('manual')} icon={<PlusCircle className="w-4 h-4" />} label="Manual" />
               )}
 
-              {/* Usuarios: ESTRICTAMENTE SOLO PARA ROL ADMIN */}
+              {/* Usuarios: SOLO ADMIN */}
               {user?.role === 'admin' && (
                 <NavButton active={currentView === 'admin'} onClick={() => handleNavigate('admin')} icon={<Users className="w-4 h-4" />} label="Usuarios" />
               )}
@@ -170,6 +175,10 @@ function App() {
       {/* --- CONTENIDO PRINCIPAL (Protegido) --- */}
       <main className="animate-fade-in">
         {currentView === 'dashboard' && canAccess('dashboard') && <Dashboard onNavigate={handleNavigate} />}
+
+        {/* --- NUEVO: Vista de Historial (Accesible desde Dashboard) --- */}
+        {currentView === 'history' && <History onBack={() => handleNavigate('dashboard')} />}
+
         {currentView === 'upload' && canAccess('upload') && <InvoiceUploader products={products} setProducts={setProducts} />}
         {currentView === 'search' && canAccess('search') && <PriceChecker initialFilter={filterMissing} onClearFilter={() => setFilterMissing(false)} />}
         {currentView === 'manual' && canAccess('manual') && <ManualEntry />}
@@ -178,7 +187,7 @@ function App() {
         {currentView === 'admin' && user?.role === 'admin' && <AdminUsers />}
       </main>
 
-      {/* --- MENÚ MÓVIL (También protegido) --- */}
+      {/* --- MENÚ MÓVIL --- */}
       <div className="md:hidden fixed bottom-4 left-4 right-4 bg-gray-900/90 dark:bg-gray-800/90 text-white p-2 rounded-2xl flex justify-around shadow-2xl z-50 overflow-x-auto border border-white/10 backdrop-blur-md">
         {canAccess('dashboard') && <MobileNavBtn onClick={() => handleNavigate('dashboard')} icon={<LayoutGrid className="w-5 h-5" />} active={currentView === 'dashboard'} />}
         {canAccess('upload') && <MobileNavBtn onClick={() => handleNavigate('upload')} icon={<FileText className="w-5 h-5" />} active={currentView === 'upload'} />}

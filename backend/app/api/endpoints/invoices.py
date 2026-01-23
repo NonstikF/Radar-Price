@@ -1,17 +1,17 @@
 import hashlib
 import difflib
 import logging
-import xml.etree.ElementTree as ET # <--- IMPORTANTE: Agregado para leer el XML manualmente
-from sqlalchemy import or_ #
+import xml.etree.ElementTree as ET
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import or_ 
 from typing import List, Dict, Optional
 from pydantic import BaseModel
 from app.core.database import get_db
 from app.services.xml_service import XmlInvoiceParser
-from app.domain.models import Product, PriceHistory
-
+# --- IMPORTANTE: Agregamos los modelos nuevos ---
+from app.domain.models import Product, PriceHistory, ImportBatch, ImportBatchItem 
 
 # Configuración de logs
 logger = logging.getLogger(__name__)
@@ -35,7 +35,7 @@ def generate_unique_sku(name: str, sat_code: str) -> str:
     prefix = "".join(filter(str.isalpha, name))[:3].upper() or "GEN"
     return f"{prefix}-{hex_dig[:6]}".upper()
 
-# --- 1. SUBIDA XML ESTÁNDAR ---
+# --- 1. SUBIDA XML ESTÁNDAR (CON REGISTRO DE LOTE) ---
 @router.post("/upload")
 async def upload_invoice(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
     if not (file.filename.endswith(".xml") or file.content_type in ["text/xml", "application/xml"]):
@@ -47,6 +47,11 @@ async def upload_invoice(file: UploadFile = File(...), db: AsyncSession = Depend
     except Exception as e:
         logger.error(f"Error parseando XML: {e}")
         raise HTTPException(status_code=500, detail=f"Error leyendo XML: {str(e)}")
+
+    # --- NUEVO: CREAR EL REGISTRO DEL LOTE ---
+    new_batch = ImportBatch(filename=file.filename)
+    db.add(new_batch)
+    await db.flush() # Obtenemos el ID del batch
 
     stmt = select(Product)
     result = await db.execute(stmt)
@@ -116,6 +121,11 @@ async def upload_invoice(file: UploadFile = File(...), db: AsyncSession = Depend
             
             db.add(PriceHistory(product_id=new_product.id, change_type="COSTO", old_value=0, new_value=data['cost']))
 
+        # --- NUEVO: VINCULAR PRODUCTO AL LOTE ---
+        if final_db_id:
+            batch_item = ImportBatchItem(batch_id=new_batch.id, product_id=final_db_id)
+            db.add(batch_item)
+
         if status != "hidden":
             processed_data.append({
                 "id": final_db_id,
@@ -184,12 +194,9 @@ async def get_products(
 ):
     stmt = select(Product)
 
-    # Lógica de filtrado
     if missing_price:
-        # Si se activa el filtro de "Sin Precio", traemos esos (con paginación simple)
         stmt = stmt.where(or_(Product.selling_price == 0, Product.selling_price == None))
     elif q:
-        # Búsqueda por texto (Nombre, SKU o UPC)
         search_filter = f"%{q}%"
         stmt = stmt.where(
             or_(
@@ -199,11 +206,8 @@ async def get_products(
             )
         )
     else:
-        # Si no hay búsqueda ni filtro, NO devolvemos nada (o devolvemos vacío)
-        # Esto hace que la carga inicial sea instantánea.
         return []
 
-    # Ordenar y Limitar resultados
     stmt = stmt.order_by(Product.name).limit(limit)
     
     result = await db.execute(stmt)
@@ -220,7 +224,8 @@ async def get_products(
         } 
         for p in products
     ]
-# --- 4. ACTUALIZAR PRODUCTO INDIVIDUAL (CON VALIDACIÓN DE DUPLICADOS) ---
+
+# --- 4. ACTUALIZAR PRODUCTO INDIVIDUAL ---
 @router.put("/products/{product_id}")
 async def update_product_single(product_id: int, data: dict = Body(...), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Product).where(Product.id == product_id))
@@ -290,7 +295,7 @@ async def merge_products(data: dict = Body(...), db: AsyncSession = Depends(get_
     await db.commit()
     return {"message": "Fusionado"}
 
-# --- 6. HISTORIAL ---
+# --- 6. HISTORIAL DE PRECIOS ---
 @router.get("/products/{product_id}/history")
 async def get_product_history(product_id: int, db: AsyncSession = Depends(get_db)):
     stmt = select(PriceHistory).where(PriceHistory.product_id == product_id).order_by(PriceHistory.date.desc())
@@ -303,7 +308,7 @@ async def get_product_history(product_id: int, db: AsyncSession = Depends(get_db
         "new": h.new_value
     } for h in history]
 
-# --- 7. CREAR MANUAL (CON VALIDACIÓN DE DUPLICADOS) ---
+# --- 7. CREAR MANUAL ---
 @router.post("/products/manual")
 async def create_manual_product(item: ManualProductSchema, db: AsyncSession = Depends(get_db)):
     stmt = select(Product).where(Product.name == item.name)
@@ -364,7 +369,7 @@ async def delete_product(product_id: int, db: AsyncSession = Depends(get_db)):
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Error al eliminar: {str(e)}")
 
-# --- 9. IMPORTACIÓN ESPECIAL DE CATÁLOGO (TEMPORAL) ---
+# --- 9. IMPORTACIÓN ESPECIAL DE CATÁLOGO ---
 @router.post("/upload-catalog")
 async def upload_special_catalog(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
     if not (file.filename.endswith(".xml") or file.content_type in ["text/xml", "application/xml"]):
@@ -372,8 +377,12 @@ async def upload_special_catalog(file: UploadFile = File(...), db: AsyncSession 
 
     content = await file.read()
     
+    # --- NUEVO: CREAR LOTE PARA CATALOGO TAMBIÉN ---
+    new_batch = ImportBatch(filename=f"CATALOGO-{file.filename}")
+    db.add(new_batch)
+    await db.flush()
+
     try:
-        # Parseo manual directo para este caso específico
         root = ET.fromstring(content)
         namespaces = {
             'cfdi': 'http://www.sat.gob.mx/cfd/4',
@@ -388,12 +397,8 @@ async def upload_special_catalog(file: UploadFile = File(...), db: AsyncSession 
         count_updated = 0
 
         for item in conceptos:
-            # --- MAPEO SOLICITADO ---
-            # ClaveProdServ -> UPC
             xml_upc = item.get('ClaveProdServ', '').strip()
-            # NoIdentificacion -> SKU
             xml_sku = item.get('NoIdentificacion', '').strip()
-            
             description = item.get('Descripcion', '').strip()
             try:
                 price_cost = float(item.get('ValorUnitario', 0))
@@ -402,18 +407,18 @@ async def upload_special_catalog(file: UploadFile = File(...), db: AsyncSession 
                 price_cost = 0.0
                 qty = 0
 
-            # Solo procesamos si trae SKU (NoIdentificacion)
             if not xml_sku:
                 continue 
 
-            # 1. Buscar si ya existe por SKU (NoIdentificacion)
             stmt = select(Product).where(Product.sku == xml_sku)
             result = await db.execute(stmt)
             existing_prod = result.scalar_one_or_none()
+            
+            final_prod_id = None
 
             if existing_prod:
-                # ACTUALIZAR
-                existing_prod.upc = xml_upc # Guardar ClaveProdServ en UPC
+                final_prod_id = existing_prod.id
+                existing_prod.upc = xml_upc 
                 existing_prod.stock_quantity += int(qty)
                 
                 if abs(existing_prod.price - price_cost) > 0.1:
@@ -424,13 +429,11 @@ async def upload_special_catalog(file: UploadFile = File(...), db: AsyncSession 
                         new_value=price_cost
                     ))
                     existing_prod.price = price_cost
-                
                 count_updated += 1
             else:
-                # CREAR NUEVO
                 new_prod = Product(
-                    sku=xml_sku,          # SKU = NoIdentificacion
-                    upc=xml_upc,          # UPC = ClaveProdServ
+                    sku=xml_sku,
+                    upc=xml_upc,
                     name=description,
                     price=price_cost,
                     stock_quantity=int(qty),
@@ -438,10 +441,14 @@ async def upload_special_catalog(file: UploadFile = File(...), db: AsyncSession 
                 )
                 db.add(new_prod)
                 await db.flush()
-                # Historial inicial
+                final_prod_id = new_prod.id
                 if price_cost > 0:
                     db.add(PriceHistory(product_id=new_prod.id, change_type="COSTO", old_value=0, new_value=price_cost))
                 count_new += 1
+            
+            # --- GUARDAR EN LOTE ---
+            if final_prod_id:
+                db.add(ImportBatchItem(batch_id=new_batch.id, product_id=final_prod_id))
 
         await db.commit()
         return {
@@ -453,3 +460,61 @@ async def upload_special_catalog(file: UploadFile = File(...), db: AsyncSession 
     except Exception as e:
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Error procesando catálogo: {str(e)}")
+
+# --- 10. NUEVOS ENDPOINTS: HISTORIAL DE CARGAS (BATCHES) ---
+@router.get("/batches")
+async def get_import_history(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(ImportBatch).order_by(ImportBatch.created_at.desc()).limit(20))
+    batches = result.scalars().all()
+    
+    history_data = []
+    for batch in batches:
+        stmt_items = select(ImportBatchItem).where(ImportBatchItem.batch_id == batch.id)
+        items_result = await db.execute(stmt_items)
+        items = items_result.scalars().all()
+        
+        total_items = len(items)
+        
+        missing_price = 0
+        for item in items:
+            prod = await db.get(Product, item.product_id)
+            if prod and (not prod.selling_price or prod.selling_price <= 0):
+                missing_price += 1
+                
+        history_data.append({
+            "id": batch.id,
+            "date": batch.created_at,
+            "filename": batch.filename,
+            "total": total_items,
+            "pending": missing_price
+        })
+        
+    return history_data
+
+@router.get("/batches/{batch_id}/products")
+async def get_batch_products(batch_id: int, db: AsyncSession = Depends(get_db)):
+    stmt = select(ImportBatchItem).where(ImportBatchItem.batch_id == batch_id)
+    result = await db.execute(stmt)
+    batch_items = result.scalars().all()
+    
+    product_ids = [item.product_id for item in batch_items]
+    
+    if not product_ids:
+        return []
+
+    stmt_prod = select(Product).where(Product.id.in_(product_ids))
+    result_prod = await db.execute(stmt_prod)
+    products = result_prod.scalars().all()
+    
+    return [
+        {
+            "id": p.id, 
+            "sku": p.sku, 
+            "upc": p.upc or "", 
+            "name": p.name, 
+            "selling_price": p.selling_price, 
+            "stock": p.stock_quantity,
+            "missing_price": True if (not p.selling_price or p.selling_price <= 0) else False
+        } 
+        for p in products
+    ]

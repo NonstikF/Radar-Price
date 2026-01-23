@@ -34,3 +34,23 @@ class PriceHistory(Base):
     date = Column(DateTime, default=datetime.utcnow) # Fecha del cambio
 
     product = relationship("Product", back_populates="history")
+
+class ImportBatch(Base):
+    __tablename__ = "import_batches"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    filename = Column(String) # Nombre del archivo XML o "Carga Masiva"
+    
+    # Relación para borrar en cascada si borras el historial
+    items = relationship("ImportBatchItem", back_populates="batch", cascade="all, delete-orphan")
+
+class ImportBatchItem(Base):
+    __tablename__ = "import_batch_items"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    batch_id = Column(Integer, ForeignKey("import_batches.id"))
+    product_id = Column(Integer, ForeignKey("products.id"))
+    
+    batch = relationship("ImportBatch", back_populates="items")
+    product = relationship("Product") # Para poder acceder a los datos del producto
