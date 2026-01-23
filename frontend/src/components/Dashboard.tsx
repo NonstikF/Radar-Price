@@ -1,40 +1,18 @@
-import { useEffect, useState } from 'react';
-import axios from 'axios';
-import { FileText, Search, PlusCircle, AlertCircle, Package, ArrowRight, Loader2 } from 'lucide-react';
-import { API_URL } from '../config';
+import { FileText, Search, PlusCircle, ArrowRight } from 'lucide-react';
 
 interface Props {
     onNavigate: (view: string, filterMissing?: boolean) => void;
 }
 
 export function Dashboard({ onNavigate }: Props) {
-    const [stats, setStats] = useState({ total: 0, missingPrice: 0 });
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        const fetchStats = async () => {
-            try {
-                const response = await axios.get(`${API_URL}/invoices/products`);
-                const allProducts = response.data;
-                const total = allProducts.length;
-                const missing = allProducts.filter((p: any) => !p.selling_price || parseFloat(p.selling_price) <= 0).length;
-                setStats({ total, missingPrice: missing });
-            } catch (error) {
-                console.error("Error cargando estadísticas", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchStats();
-    }, []);
-
     return (
         <div className="max-w-6xl mx-auto p-6 space-y-8 animate-fade-in pb-24">
 
-            <div className="flex justify-between items-end">
+            {/* Encabezado */}
+            <div className="flex justify-between items-end mb-8">
                 <div>
                     <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">Panel Principal</h1>
-                    <p className="text-gray-500 dark:text-gray-400 mt-1">Bienvenido a Radar Price. Aquí tienes un resumen de tu inventario.</p>
+                    <p className="text-gray-500 dark:text-gray-400 mt-1">Bienvenido a Radar Price. Selecciona una herramienta para comenzar.</p>
                 </div>
                 <div className="text-right hidden md:block">
                     <span className="block text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Fecha</span>
@@ -42,50 +20,9 @@ export function Dashboard({ onNavigate }: Props) {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Sección de Herramientas */}
+            <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Herramientas Rápidas</h2>
 
-                {/* Tarjeta 1: Total Productos */}
-                <div
-                    onClick={() => onNavigate('search')}
-                    className="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-between relative overflow-hidden group hover:shadow-md transition-all cursor-pointer"
-                >
-                    <div className="relative z-10">
-                        <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Total Productos</p>
-                        {loading ? (
-                            <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-                        ) : (
-                            <p className="text-5xl font-black text-blue-600 dark:text-blue-400 tracking-tighter">{stats.total}</p>
-                        )}
-                    </div>
-                    <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl group-hover:scale-110 transition-transform">
-                        <Package className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-                    </div>
-                </div>
-
-                {/* Tarjeta 2: Pendientes */}
-                <div
-                    onClick={() => onNavigate('search', true)}
-                    className="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-between relative overflow-hidden group hover:shadow-md transition-all cursor-pointer ring-2 ring-transparent hover:ring-orange-100 dark:hover:ring-orange-900/30"
-                >
-                    <div className="relative z-10">
-                        <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Sin Precio Venta</p>
-                        {loading ? (
-                            <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
-                        ) : (
-                            <p className="text-5xl font-black text-orange-500 tracking-tighter">{stats.missingPrice}</p>
-                        )}
-                    </div>
-                    <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-2xl group-hover:scale-110 transition-transform">
-                        <AlertCircle className="w-8 h-8 text-orange-500" />
-                    </div>
-                    <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity text-orange-500 text-xs font-bold flex items-center gap-1">
-                        Ver lista <ArrowRight className="w-3 h-3" />
-                    </div>
-                </div>
-
-            </div>
-
-            <h2 className="text-xl font-bold text-gray-800 dark:text-white mt-8 mb-4">Herramientas</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
                 {/* Botón Cargar XML */}
@@ -103,7 +40,7 @@ export function Dashboard({ onNavigate }: Props) {
                 <button onClick={() => onNavigate('search')} className="group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6 rounded-3xl shadow-sm hover:shadow-xl hover:border-blue-300 dark:hover:border-blue-500 transition-all text-left">
                     <div className="bg-purple-50 dark:bg-purple-900/20 w-12 h-12 rounded-xl flex items-center justify-center mb-4"><Search className="w-6 h-6 text-purple-600 dark:text-purple-400" /></div>
                     <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-1">Buscador</h3>
-                    <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">Consulta precios.</p>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">Consulta y edita precios.</p>
                     <span className="text-blue-600 dark:text-blue-400 text-xs font-bold flex items-center gap-1 group-hover:translate-x-1 transition-transform">Entrar <ArrowRight className="w-3 h-3" /></span>
                 </button>
 
@@ -111,7 +48,7 @@ export function Dashboard({ onNavigate }: Props) {
                 <button onClick={() => onNavigate('manual')} className="group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6 rounded-3xl shadow-sm hover:shadow-xl hover:border-green-300 dark:hover:border-green-500 transition-all text-left">
                     <div className="bg-green-50 dark:bg-green-900/20 w-12 h-12 rounded-xl flex items-center justify-center mb-4"><PlusCircle className="w-6 h-6 text-green-600 dark:text-green-400" /></div>
                     <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-1">Manual</h3>
-                    <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">Registro manual.</p>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">Registro manual unitario.</p>
                     <span className="text-green-600 dark:text-green-400 text-xs font-bold flex items-center gap-1 group-hover:translate-x-1 transition-transform">Entrar <ArrowRight className="w-3 h-3" /></span>
                 </button>
 
