@@ -102,7 +102,12 @@ async def startup_event():
 app = FastAPI(on_startup=[startup_event])
 
 # --- 7. CORS ---
-origins = ["*"] 
+origins = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "https://frontend-staging-0a8e.up.railway.app",
+    "https://frontend-production-a0cf.up.railway.app",
+] 
 
 app.add_middleware(
     CORSMiddleware,
