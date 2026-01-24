@@ -17,10 +17,13 @@ export function Logo({ variant = 'full', className = "" }: Props) {
                     <DollarSign className="w-5 h-5 font-bold z-10 relative" />
                 </div>
                 <div className="flex flex-col">
-                    <h1 className="text-xl font-black text-gray-900 leading-none tracking-tight">
-                        RADAR<span className="text-blue-600">PRICE</span>
+                    {/* 👇 AQUÍ ESTÁ EL CAMBIO PRINCIPAL: dark:text-white */}
+                    <h1 className="text-xl font-black text-gray-900 dark:text-white leading-none tracking-tight transition-colors">
+                        RADAR
+                        {/* 👇 Ajusté el azul para que brille más en modo oscuro */}
+                        <span className="text-blue-600 dark:text-blue-400">PRICE</span>
                     </h1>
-                    <span className="text-[10px] text-gray-400 font-bold tracking-widest uppercase">
+                    <span className="text-[10px] text-gray-400 dark:text-gray-500 font-bold tracking-widest uppercase transition-colors">
                         Inteligencia de Costos
                     </span>
                 </div>
@@ -28,15 +31,17 @@ export function Logo({ variant = 'full', className = "" }: Props) {
         );
     }
 
-    // OPCIÓN 2: El Escáner (Ideal si enfocas en XML)
+    // OPCIÓN 2: El Escáner
     if (variant === 'scanner') {
         return (
             <div className={`flex items-center gap-2 ${className}`}>
-                <div className="bg-gray-900 p-2 rounded-lg text-green-400 border border-green-500/30">
+                {/* Ajuste de fondo para dark mode */}
+                <div className="bg-gray-900 dark:bg-gray-800 p-2 rounded-lg text-green-400 border border-green-500/30 transition-colors">
                     <ScanLine className="w-6 h-6" />
                 </div>
-                <span className="text-lg font-bold text-gray-800 tracking-tighter">
-                    Radar<span className="text-green-600">Price</span>_
+                {/* 👇 CAMBIO: dark:text-white */}
+                <span className="text-lg font-bold text-gray-800 dark:text-white tracking-tighter transition-colors">
+                    Radar<span className="text-green-600 dark:text-green-400">Price</span>_
                 </span>
             </div>
         );
