@@ -1,4 +1,4 @@
-import { FileText, Search, PlusCircle, ArrowRight } from 'lucide-react';
+import { FileText, Search, PlusCircle, ArrowRight, Calendar } from 'lucide-react'; // <--- Agregué Calendar
 
 interface Props {
     onNavigate: (view: string, filterMissing?: boolean) => void;
@@ -6,7 +6,7 @@ interface Props {
 
 export function Dashboard({ onNavigate }: Props) {
     return (
-        <div className="max-w-6xl mx-auto p-6 space-y-8 animate-fade-in pb-24">
+        <div className="max-w-7xl mx-auto p-6 space-y-8 animate-fade-in pb-24">
 
             {/* Encabezado */}
             <div className="flex justify-between items-end mb-8">
@@ -23,7 +23,8 @@ export function Dashboard({ onNavigate }: Props) {
             {/* Sección de Herramientas */}
             <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Herramientas Rápidas</h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* AHORA LA GRILLA SE ADAPTA A 4 ELEMENTOS (2x2 o 4 en fila) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
 
                 {/* Botón Cargar XML */}
                 <button onClick={() => onNavigate('upload')} className="group bg-gradient-to-br from-blue-600 to-blue-700 text-white p-6 rounded-3xl shadow-lg hover:shadow-blue-500/30 transition-all text-left relative overflow-hidden">
@@ -34,6 +35,14 @@ export function Dashboard({ onNavigate }: Props) {
                         <p className="text-blue-100 text-sm mb-4 opacity-90">Importa facturas masivamente.</p>
                         <div className="flex items-center gap-2 text-xs font-bold bg-white/20 w-fit px-3 py-1.5 rounded-lg backdrop-blur-sm group-hover:bg-white group-hover:text-blue-600 transition-colors">Ir ahora <ArrowRight className="w-3 h-3" /></div>
                     </div>
+                </button>
+
+                {/* Botón Historial (NUEVO) */}
+                <button onClick={() => onNavigate('history')} className="group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6 rounded-3xl shadow-sm hover:shadow-xl hover:border-yellow-300 dark:hover:border-yellow-500 transition-all text-left">
+                    <div className="bg-yellow-50 dark:bg-yellow-900/20 w-12 h-12 rounded-xl flex items-center justify-center mb-4"><Calendar className="w-6 h-6 text-yellow-600 dark:text-yellow-400" /></div>
+                    <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-1">Historial</h3>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">Ver cargas anteriores.</p>
+                    <span className="text-yellow-600 dark:text-yellow-400 text-xs font-bold flex items-center gap-1 group-hover:translate-x-1 transition-transform">Ver <ArrowRight className="w-3 h-3" /></span>
                 </button>
 
                 {/* Botón Buscador */}
