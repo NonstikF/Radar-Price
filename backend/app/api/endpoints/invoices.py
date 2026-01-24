@@ -512,6 +512,7 @@ async def get_batch_products(batch_id: int, db: AsyncSession = Depends(get_db)):
             "sku": p.sku, 
             "upc": p.upc or "", 
             "name": p.name, 
+            "price": p.price,
             "selling_price": p.selling_price, 
             "stock": p.stock_quantity,
             "missing_price": True if (not p.selling_price or p.selling_price <= 0) else False
