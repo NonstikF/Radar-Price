@@ -1,7 +1,6 @@
 import { useState, useRef } from 'react';
 import axios from 'axios';
-import { Upload, Save, FileText, Loader2, DollarSign, Package, EyeOff, GitMerge, ArrowRight, CheckCircle2, Trash2, Database, AlertCircle, FileStack } from 'lucide-react'; // <--- AGREGUÉ FileStack
-
+import { Upload, Save, FileText, Loader2, DollarSign, Package, EyeOff, GitMerge, ArrowRight, CheckCircle2, Trash2, Database, AlertCircle, FileStack } from 'lucide-react';
 import { API_URL } from '../config';
 
 interface Props {
@@ -10,7 +9,7 @@ interface Props {
 }
 
 export function InvoiceUploader({ products, setProducts }: Props) {
-    // --- ESTADOS CARGA NORMAL ---
+    // --- ESTADOS CARGA NORMAL (FACTURAS) ---
     const [file, setFile] = useState<File | null>(null);
     const [loading, setLoading] = useState(false);
     const [hiddenCount, setHiddenCount] = useState(0);
@@ -18,9 +17,9 @@ export function InvoiceUploader({ products, setProducts }: Props) {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // --- ESTADOS CARGA CATÁLOGO ESPECIAL (MASIVA) ---
-    const [catalogFiles, setCatalogFiles] = useState<File[]>([]); // <--- AHORA ES UN ARRAY
+    const [catalogFiles, setCatalogFiles] = useState<File[]>([]);
     const [catalogLoading, setCatalogLoading] = useState(false);
-    const [catalogProgress, setCatalogProgress] = useState({ current: 0, total: 0, successes: 0, errors: 0 }); // <--- PROGRESO
+    const [catalogProgress, setCatalogProgress] = useState({ current: 0, total: 0, successes: 0, errors: 0 });
     const [catalogMsg, setCatalogMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const catalogInputRef = useRef<HTMLInputElement>(null);
 
@@ -29,7 +28,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
     const [pendingMerge, setPendingMerge] = useState<{ discardIndex: number, keepId: number, targetName: string } | null>(null);
 
 
-    // --- HANDLERS NORMALES ---
+    // --- HANDLERS NORMALES (CARGA DE FACTURA) ---
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) setFile(e.target.files[0]);
     };
@@ -53,6 +52,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
         formData.append('file', file);
 
         try {
+            // Este endpoint guarda automáticamente en el historial (ImportBatch)
             const response = await axios.post(`${API_URL}/invoices/upload`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
@@ -66,10 +66,10 @@ export function InvoiceUploader({ products, setProducts }: Props) {
         }
     };
 
-    // --- HANDLERS CATÁLOGO ESPECIAL (MASIVO) ---
+    // --- HANDLERS CATÁLOGO ESPECIAL (MASIVO - MÚLTIPLES ARCHIVOS) ---
     const handleCatalogChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
-            // Convertimos FileList a Array
+            // Convertimos FileList a Array real para poder iterar
             setCatalogFiles(Array.from(e.target.files));
             setCatalogMsg(null);
             setCatalogProgress({ current: 0, total: 0, successes: 0, errors: 0 });
@@ -81,6 +81,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
 
         setCatalogLoading(true);
         setCatalogMsg(null);
+
         let createdTotal = 0;
         let updatedTotal = 0;
         let errorsCount = 0;
@@ -98,6 +99,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                 // Actualizamos UI: "Procesando archivo X..."
                 setCatalogProgress(prev => ({ ...prev, current: i + 1 }));
 
+                // Este endpoint TAMBIÉN guarda historial
                 const response = await axios.post(`${API_URL}/invoices/upload-catalog`, formData, {
                     headers: { 'Content-Type': 'multipart/form-data' }
                 });
@@ -116,10 +118,10 @@ export function InvoiceUploader({ products, setProducts }: Props) {
         setCatalogLoading(false);
         setCatalogMsg({
             type: errorsCount === catalogFiles.length ? 'error' : 'success',
-            text: `Proceso finalizado. ${createdTotal} creados, ${updatedTotal} actualizados. (${errorsCount} errores)`
+            text: `Proceso finalizado. ${createdTotal} creados, ${updatedTotal} actualizados. (${errorsCount} errores). Revisa el Historial.`
         });
 
-        // Limpiar
+        // Limpiar inputs
         setCatalogFiles([]);
         if (catalogInputRef.current) catalogInputRef.current.value = "";
     };
@@ -167,7 +169,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
     };
 
     return (
-        <div className="w-full max-w-7xl mx-auto p-4 md:p-6 pb-24 relative space-y-8">
+        <div className="w-full max-w-7xl mx-auto p-4 md:p-6 pb-24 relative space-y-8 animate-fade-in">
 
             {/* --- ZONA 1: CARGA NORMAL (FACTURAS) --- */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6 border border-gray-200 dark:border-gray-700 transition-colors">
@@ -191,7 +193,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                             className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900/30 dark:file:text-blue-300 dark:hover:file:bg-blue-900/50"
                         />
                     </div>
-                    <button onClick={handleUpload} disabled={!file || loading} className="w-full md:w-auto bg-blue-600 dark:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 flex justify-center items-center gap-2 transition-colors">
+                    <button onClick={handleUpload} disabled={!file || loading} className="w-full md:w-auto bg-blue-600 dark:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 flex justify-center items-center gap-2 transition-colors shadow-lg shadow-blue-500/20 active:scale-95">
                         {loading ? <Loader2 className="animate-spin w-4 h-4" /> : <FileText className="w-4 h-4" />}
                         {loading ? 'Procesando...' : 'Cargar Lista'}
                     </button>
@@ -208,8 +210,8 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                         <h3 className="font-bold text-lg text-gray-900 dark:text-white">Importador Masivo de Catálogo</h3>
                         <p className="text-sm text-gray-500 dark:text-gray-400">
                             Soporta múltiples archivos. Reglas:
-                            <span className="bg-white dark:bg-gray-800 px-2 py-0.5 rounded mx-1 font-mono text-xs border">ClaveProdServ ➔ UPC</span>
-                            <span className="bg-white dark:bg-gray-800 px-2 py-0.5 rounded mx-1 font-mono text-xs border">NoIdentificacion ➔ SKU</span>
+                            <span className="bg-white dark:bg-gray-800 px-2 py-0.5 rounded mx-1 font-mono text-xs border border-gray-200 dark:border-gray-700">ClaveProdServ ➔ UPC</span>
+                            <span className="bg-white dark:bg-gray-800 px-2 py-0.5 rounded mx-1 font-mono text-xs border border-gray-200 dark:border-gray-700">NoIdentificacion ➔ SKU</span>
                         </p>
                     </div>
                 </div>
@@ -226,12 +228,12 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                             className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-100 file:text-purple-700 hover:file:bg-purple-200 dark:file:bg-purple-900/30 dark:file:text-purple-300 dark:hover:file:bg-purple-900/50"
                         />
                         {catalogFiles.length > 0 && !catalogLoading && (
-                            <p className="mt-2 text-xs font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1">
+                            <p className="mt-2 text-xs font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1 animate-fade-in">
                                 <FileStack className="w-4 h-4" /> {catalogFiles.length} archivos seleccionados
                             </p>
                         )}
                     </div>
-                    <button onClick={handleCatalogUpload} disabled={catalogFiles.length === 0 || catalogLoading} className="w-full md:w-auto bg-purple-600 dark:bg-purple-700 text-white px-6 py-3 rounded-xl font-bold hover:bg-purple-700 dark:hover:bg-purple-600 disabled:opacity-50 flex justify-center items-center gap-2 transition-colors">
+                    <button onClick={handleCatalogUpload} disabled={catalogFiles.length === 0 || catalogLoading} className="w-full md:w-auto bg-purple-600 dark:bg-purple-700 text-white px-6 py-3 rounded-xl font-bold hover:bg-purple-700 dark:hover:bg-purple-600 disabled:opacity-50 flex justify-center items-center gap-2 transition-colors shadow-lg shadow-purple-500/20 active:scale-95">
                         {catalogLoading ? <Loader2 className="animate-spin w-4 h-4" /> : <Upload className="w-4 h-4" />}
                         {catalogLoading ? `Importando ${catalogProgress.current}/${catalogProgress.total}` : 'Importar Todo'}
                     </button>
@@ -239,7 +241,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
 
                 {/* BARRA DE PROGRESO */}
                 {catalogLoading && (
-                    <div className="mt-4 w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 overflow-hidden">
+                    <div className="mt-4 w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 overflow-hidden animate-fade-in">
                         <div className="bg-purple-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${(catalogProgress.current / catalogProgress.total) * 100}%` }}></div>
                     </div>
                 )}
@@ -255,7 +257,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
 
             {/* MENSAJE DE OCULTOS (NORMAL) */}
             {hiddenCount > 0 && (
-                <div className="mb-4 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-4 py-3 rounded-xl text-xs md:text-sm flex items-center gap-2 border border-gray-200 dark:border-gray-700">
+                <div className="mb-4 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-4 py-3 rounded-xl text-xs md:text-sm flex items-center gap-2 border border-gray-200 dark:border-gray-700 animate-fade-in">
                     <EyeOff className="w-4 h-4 shrink-0" />
                     <span>Se ocultaron <b>{hiddenCount} productos</b> sin cambios de precio y con precio de venta ya asignado.</span>
                 </div>
@@ -309,7 +311,6 @@ export function InvoiceUploader({ products, setProducts }: Props) {
 
                             return (
                                 <div key={i} className={`p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 relative overflow-hidden transition-colors ${isPriceChanged ? 'bg-yellow-50/50 dark:bg-yellow-900/10' : 'bg-white dark:bg-gray-800'}`}>
-                                    {/* (Resto de la tarjeta móvil igual que antes) */}
                                     <div className="flex gap-2 mb-2 flex-wrap">
                                         {isPriceChanged && <span className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400 text-[10px] font-bold px-2 py-1 rounded-md border border-yellow-200 dark:border-yellow-800">⚠️ Costo Cambió</span>}
                                         {p.status === 'new' && <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] font-bold px-2 py-1 rounded-md border border-blue-200 dark:border-blue-800">NUEVO</span>}
@@ -322,14 +323,14 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                                     </div>
                                     {isNewWithSuggestions && (
                                         <div className="mb-3">
-                                            <button onClick={() => setMergeMenuOpen(mergeMenuOpen === i ? null : i)} className="w-full bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 text-orange-800 dark:text-orange-300 text-xs font-bold py-2 rounded-lg flex items-center justify-center gap-2 active:bg-orange-100 dark:active:bg-orange-900/40">
+                                            <button onClick={() => setMergeMenuOpen(mergeMenuOpen === i ? null : i)} className="w-full bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 text-orange-800 dark:text-orange-300 text-xs font-bold py-2 rounded-lg flex items-center justify-center gap-2 active:bg-orange-100 dark:active:bg-orange-900/40 transition-colors">
                                                 <GitMerge className="w-4 h-4" />
                                                 {mergeMenuOpen === i ? 'Cerrar sugerencias' : '¿Es duplicado? Ver opciones'}
                                             </button>
                                             {mergeMenuOpen === i && (
                                                 <div className="mt-2 space-y-2 animate-scale-in">
                                                     {p.suggestions.map((s: any) => (
-                                                        <button key={s.id} onClick={() => initiateMerge(i, s.id, s.name)} className="w-full text-left p-3 bg-white dark:bg-gray-800 border border-orange-200 dark:border-orange-800 rounded-lg shadow-sm active:bg-orange-50 dark:active:bg-gray-700">
+                                                        <button key={s.id} onClick={() => initiateMerge(i, s.id, s.name)} className="w-full text-left p-3 bg-white dark:bg-gray-800 border border-orange-200 dark:border-orange-800 rounded-lg shadow-sm active:bg-orange-50 dark:active:bg-gray-700 transition-colors">
                                                             <div className="text-xs font-bold text-gray-800 dark:text-white mb-1">Fusionar con: {s.name}</div>
                                                             <div className="text-[10px] text-gray-500 dark:text-gray-400 flex justify-between">
                                                                 <span>Costo BD: ${s.price}</span>
