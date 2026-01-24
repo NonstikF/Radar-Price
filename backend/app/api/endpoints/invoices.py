@@ -5,7 +5,7 @@ import xml.etree.ElementTree as ET
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import or_ 
+from sqlalchemy import or_, func 
 from typing import List, Dict, Optional
 from pydantic import BaseModel
 from app.core.database import get_db
@@ -189,26 +189,53 @@ async def update_prices(updates: List[Dict] = Body(...), db: AsyncSession = Depe
 async def get_products(
     q: Optional[str] = None, 
     missing_price: bool = False, 
-    limit: int = 50, 
+    min_price: Optional[float] = None,
+    max_price: Optional[float] = None,
+    min_stock: Optional[int] = None,
+    sort_by: str = "name", # opciones: name, price, stock
+    sort_order: str = "asc", # opciones: asc, desc
+    limit: int = 100, 
     db: AsyncSession = Depends(get_db)
 ):
     stmt = select(Product)
 
-    if missing_price:
-        stmt = stmt.where(or_(Product.selling_price == 0, Product.selling_price == None))
-    elif q:
+    # 1. Filtros de Texto (Nombre, SKU, UPC)
+    if q:
         search_filter = f"%{q}%"
         stmt = stmt.where(
             or_(
-                Product.name.ilike(search_filter),
+                func.unaccent(Product.name).ilike(func.unaccent(search_filter)),
                 Product.sku.ilike(search_filter),
                 Product.upc.ilike(search_filter)
             )
         )
-    else:
-        return []
 
-    stmt = stmt.order_by(Product.name).limit(limit)
+    # 2. Filtro Rápido: Sin Precio
+    if missing_price:
+        stmt = stmt.where(or_(Product.selling_price == 0, Product.selling_price == None))
+
+    # 3. Filtros Numéricos (Rangos)
+    if min_price is not None:
+        stmt = stmt.where(Product.selling_price >= min_price)
+    if max_price is not None:
+        stmt = stmt.where(Product.selling_price <= max_price)
+    if min_stock is not None:
+        stmt = stmt.where(Product.stock_quantity <= min_stock) # Útil para ver stock bajo
+
+    # 4. Ordenamiento Dinámico
+    sort_column = Product.name
+    if sort_by == "price":
+        sort_column = Product.selling_price
+    elif sort_by == "stock":
+        sort_column = Product.stock_quantity
+    
+    if sort_order == "desc":
+        stmt = stmt.order_by(sort_column.desc())
+    else:
+        stmt = stmt.order_by(sort_column.asc())
+
+    # Límite y Ejecución
+    stmt = stmt.limit(limit)
     
     result = await db.execute(stmt)
     products = result.scalars().all()
@@ -219,6 +246,7 @@ async def get_products(
             "sku": p.sku, 
             "upc": p.upc or "", 
             "name": p.name, 
+            "price": p.price, # Costo
             "selling_price": p.selling_price, 
             "stock": p.stock_quantity
         } 

@@ -86,8 +86,17 @@ async def get_db():
         yield session
 
 # --- 6. INICIALIZACIÓN ---
+from sqlalchemy import Column, Integer, String, select, text
+
+# ... (imports)
+
 async def startup_event():
     async with engine.begin() as conn:
+        try:
+            await conn.execute(text("CREATE EXTENSION IF NOT EXISTS unaccent"))
+        except Exception:
+            pass # Si falla (ej: SQLite), continuamos sin unaccent
+        
         await conn.run_sync(Base.metadata.create_all)
 
 app = FastAPI(on_startup=[startup_event])
