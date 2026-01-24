@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Calendar, FileText, ArrowRight, CheckCircle2, AlertCircle, ChevronLeft, Loader2, Save, DollarSign } from 'lucide-react';
+import { Calendar, FileText, ArrowRight, CheckCircle2, AlertCircle, ChevronLeft, Loader2, Save } from 'lucide-react';
 import { API_URL } from '../config';
 
 interface Props {
