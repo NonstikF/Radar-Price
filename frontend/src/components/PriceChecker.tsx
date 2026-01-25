@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Search, X, Save, Barcode, Hash, CheckCircle2, AlertTriangle, ChevronLeft, History, ArrowRight, Camera, Filter, Edit3, PackageOpen, Trash2, Loader2, ArrowUpDown } from 'lucide-react';
+import { Search, X, Save, Barcode, Hash, CheckCircle2, AlertTriangle, ChevronLeft, History, ArrowRight, Camera, Filter, Edit3, PackageOpen, Trash2, Loader2, ArrowDownAZ, ArrowUpAZ } from 'lucide-react';
 import { BarcodeScanner } from './BarcodeScanner';
 import { API_URL } from '../config';
 
@@ -22,8 +22,8 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
         maxPrice: "",
         minStock: "",
         missingPrice: initialFilter,
-        sortBy: "name", // name, price, stock
-        sortOrder: "asc" // asc, desc
+        sortBy: "updated_at", // Valores corregidos: selling_price, stock_quantity
+        sortOrder: "desc" // asc, desc
     });
 
     // --- ESTADOS DE SELECCIÓN Y EDICIÓN ---
@@ -52,18 +52,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
 
     // --- 1. EFECTO DE BÚSQUEDA INTELIGENTE ---
     useEffect(() => {
-        if (filters.missingPrice || filters.minPrice || filters.maxPrice || filters.sortBy || filters.sortOrder !== 'asc') {
-            fetchProducts();
-            return;
-        }
-
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
-
-        if (!searchTerm && !filters.missingPrice && !filters.minPrice && !filters.maxPrice && !filters.minStock) {
-            setProducts([]);
-            setLoading(false);
-            return;
-        }
 
         timeoutRef.current = setTimeout(() => {
             fetchProducts();
@@ -270,13 +259,15 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                     <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-400 uppercase">Ordenar por</label>
                         <div className="flex gap-2">
+                            {/* 🔥 CORRECCIÓN: Nombres de columnas correctos para Backend */}
                             <select value={filters.sortBy} onChange={(e) => setFilters({ ...filters, sortBy: e.target.value })} className="w-full p-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none dark:text-white">
+                                <option value="updated_at">Últimos Actualizados</option>
                                 <option value="name">Nombre (A-Z)</option>
-                                <option value="price">Precio Venta</option>
-                                <option value="stock">Stock</option>
+                                <option value="selling_price">Precio Venta</option>
                             </select>
-                            <button onClick={() => setFilters({ ...filters, sortOrder: filters.sortOrder === 'asc' ? 'desc' : 'asc' })} className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
-                                <ArrowUpDown className="w-4 h-4 dark:text-white" />
+                            <button onClick={() => setFilters({ ...filters, sortOrder: filters.sortOrder === 'asc' ? 'desc' : 'asc' })} className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-1 w-24 justify-center" title={filters.sortOrder === 'asc' ? 'Ascendente' : 'Descendente'}>
+                                {filters.sortOrder === 'asc' ? <ArrowDownAZ className="w-4 h-4 dark:text-white" /> : <ArrowUpAZ className="w-4 h-4 dark:text-white" />}
+                                <span className="text-xs font-bold dark:text-white">{filters.sortOrder === 'asc' ? 'ASC' : 'DESC'}</span>
                             </button>
                         </div>
                     </div>

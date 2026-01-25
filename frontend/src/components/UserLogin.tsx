@@ -1,116 +1,114 @@
 import { useState } from 'react';
 import axios from 'axios';
-import { LogIn, Loader2, AlertCircle, Lock, User } from 'lucide-react';
+import { User, Lock, Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { API_URL } from '../config';
-import { Logo } from './Logo';
 
 interface Props {
     onLoginSuccess: (userData: any) => void;
 }
 
 export function Login({ onLoginSuccess }: Props) {
-    const [credentials, setCredentials] = useState({ username: 'admin', password: 'admin123' });
+    const [username, setUsername] = useState('');
+    const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setCredentials({ ...credentials, [e.target.name]: e.target.value });
-    };
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         setError('');
 
+        const formData = new FormData();
+        formData.append('username', username);
+        formData.append('password', password);
+
         try {
-            // Ajusta este endpoint a tu backend real. 
-            // Si aún no tienes backend de auth, esto fallará.
-            // Para probar visualmente, puedes descomentar la línea de abajo simulada:
-
-            // SIMULACIÓN (Borrar cuando tengas backend):
-            // await new Promise(r => setTimeout(r, 1000));
-            // onLoginSuccess({ username: credentials.username, role: 'admin', token: 'fake-jwt-token' }); return;
-
-            const formData = new FormData();
-            formData.append('username', credentials.username);
-            formData.append('password', credentials.password);
-
+            // 1. Petición al Backend
             const response = await axios.post(`${API_URL}/auth/token`, formData);
 
-            // Asumiendo que el backend devuelve { access_token, user_data }
-            const userData = {
-                username: credentials.username,
-                token: response.data.access_token,
-                role: 'admin' // Esto debería venir del backend
-            };
+            // 2. DEBUG: Ver qué llega realmente del servidor (Míralo en la consola F12)
+            console.log("RESPUESTA SERVIDOR (RAW):", response.data);
 
-            onLoginSuccess(userData);
+            // 3. Pasar los datos LIMPIOS a la App
+            // IMPORTANTE: No agregamos ni modificamos nada aquí manualmente
+            onLoginSuccess(response.data);
 
         } catch (err: any) {
             console.error(err);
-            setError('Credenciales inválidas o error de conexión.');
+            if (err.response?.status === 401) {
+                setError('Usuario o contraseña incorrectos.');
+            } else {
+                setError('Error de conexión con el servidor.');
+            }
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4 transition-colors duration-300">
-            <div className="bg-white dark:bg-gray-800 w-full max-w-md rounded-3xl shadow-2xl p-8 border border-gray-100 dark:border-gray-700">
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4 transition-colors">
+            <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-xl w-full max-w-sm border border-gray-100 dark:border-gray-700 animate-scale-in">
 
-                <div className="flex justify-center mb-8">
-                    <Logo variant="full" />
+                <div className="text-center mb-8">
+                    <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/30">
+                        <User className="w-8 h-8 text-white" />
+                    </div>
+                    <h1 className="text-2xl font-black text-gray-900 dark:text-white">Bienvenido</h1>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Inicia sesión para continuar</p>
                 </div>
 
-                <h2 className="text-2xl font-black text-gray-900 dark:text-white text-center mb-2">Bienvenido</h2>
-                <p className="text-gray-500 dark:text-gray-400 text-center mb-8 text-sm">Ingresa tus credenciales para acceder</p>
+                {error && (
+                    <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 text-red-600 dark:text-red-400 text-sm p-3 rounded-xl flex items-center gap-2 font-medium">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        {error}
+                    </div>
+                )}
 
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    {error && (
-                        <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-xl flex items-center gap-3 text-sm font-bold border border-red-100 dark:border-red-800 animate-fade-in">
-                            <AlertCircle className="w-5 h-5 shrink-0" />
-                            {error}
-                        </div>
-                    )}
-
-                    <div className="space-y-2">
+                <form onSubmit={handleSubmit} className="space-y-5">
+                    <div className="space-y-1.5">
                         <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase ml-1">Usuario</label>
-                        <div className="relative">
-                            <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                        <div className="relative group">
+                            <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
                             <input
                                 type="text"
-                                name="username"
-                                value={credentials.username}
-                                onChange={handleChange}
-                                className="w-full pl-12 pr-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-100 dark:border-gray-600 rounded-xl focus:bg-white dark:focus:bg-gray-600 focus:border-blue-500 dark:focus:border-blue-500 outline-none transition-all text-gray-900 dark:text-white font-medium"
-                                placeholder="usuario"
-                                autoFocus
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                className="w-full pl-12 pr-4 py-3.5 bg-gray-50 dark:bg-[#25262b] border-2 border-transparent focus:border-blue-500 hover:bg-gray-100 dark:hover:bg-[#2c2e33] rounded-xl outline-none font-bold text-gray-900 dark:text-white transition-all placeholder:font-normal"
+                                placeholder="Ingresa tu usuario"
+                                required
                             />
                         </div>
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                         <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase ml-1">Contraseña</label>
-                        <div className="relative">
-                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                        <div className="relative group">
+                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
                             <input
-                                type="password"
-                                name="password"
-                                value={credentials.password}
-                                onChange={handleChange}
-                                className="w-full pl-12 pr-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-100 dark:border-gray-600 rounded-xl focus:bg-white dark:focus:bg-gray-600 focus:border-blue-500 dark:focus:border-blue-500 outline-none transition-all text-gray-900 dark:text-white font-medium"
-                                placeholder="••••••"
+                                type={showPassword ? "text" : "password"}
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="w-full pl-12 pr-12 py-3.5 bg-gray-50 dark:bg-[#25262b] border-2 border-transparent focus:border-blue-500 hover:bg-gray-100 dark:hover:bg-[#2c2e33] rounded-xl outline-none font-bold text-gray-900 dark:text-white transition-all placeholder:font-normal"
+                                placeholder="••••••••"
+                                required
                             />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                            >
+                                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                            </button>
                         </div>
                     </div>
 
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full bg-blue-600 dark:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-500/30 hover:bg-blue-700 dark:hover:bg-blue-600 active:scale-95 transition-all flex items-center justify-center gap-2"
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-500/30 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed mt-2"
                     >
-                        {loading ? <Loader2 className="animate-spin w-5 h-5" /> : <LogIn className="w-5 h-5" />}
-                        Ingresar al Sistema
+                        {loading ? <Loader2 className="animate-spin w-5 h-5" /> : "Iniciar Sesión"}
                     </button>
                 </form>
             </div>

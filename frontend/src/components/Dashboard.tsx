@@ -1,65 +1,123 @@
-import { FileText, Search, PlusCircle, ArrowRight, Calendar } from 'lucide-react'; // <--- Agregué Calendar
+import { FileText, Search, PlusCircle, Users, History, ArrowRight } from 'lucide-react';
 
 interface Props {
-    onNavigate: (view: string, filterMissing?: boolean) => void;
+    onNavigate: (view: string) => void;
 }
 
 export function Dashboard({ onNavigate }: Props) {
-    return (
-        <div className="max-w-7xl mx-auto p-6 space-y-8 animate-fade-in pb-24">
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const isAdmin = user.role === 'admin';
+    const perms = user.permissions || [];
 
-            {/* Encabezado */}
-            <div className="flex justify-between items-end mb-8">
-                <div>
-                    <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">Panel Principal</h1>
-                    <p className="text-gray-500 dark:text-gray-400 mt-1">Bienvenido a Radar Price. Selecciona una herramienta para comenzar.</p>
-                </div>
-                <div className="text-right hidden md:block">
-                    <span className="block text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Fecha</span>
-                    <span className="font-medium text-gray-700 dark:text-gray-300">{new Date().toLocaleDateString()}</span>
-                </div>
+    const can = (module: string) => isAdmin || perms.includes(module);
+
+    return (
+        <div className="w-full max-w-5xl mx-auto p-4 animate-fade-in">
+
+            {/* TÍTULO PEQUEÑO */}
+            <div className="mb-4">
+                <h1 className="text-xl font-black text-gray-900 dark:text-white">Panel Principal</h1>
             </div>
 
-            {/* Sección de Herramientas */}
-            <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Herramientas Rápidas</h2>
+            {/* GRID PRINCIPAL */}
+            <div className="grid grid-cols-2 gap-3">
 
-            {/* AHORA LA GRILLA SE ADAPTA A 4 ELEMENTOS (2x2 o 4 en fila) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {/* 1. CARGAR XML (BANNER HORIZONTAL) 
+                    Ocupa las 2 columnas (col-span-2) pero es bajito (h-20) */}
+                {can('upload') && (
+                    <button
+                        onClick={() => onNavigate('upload')}
+                        className="col-span-2 bg-blue-600 hover:bg-blue-700 text-white h-20 px-5 rounded-2xl shadow-lg shadow-blue-500/20 active:scale-95 flex items-center justify-between group overflow-hidden relative"
+                    >
+                        <div className="flex items-center gap-3 relative z-10">
+                            <div className="bg-white/20 p-2 rounded-lg">
+                                <FileText className="w-6 h-6 text-white" />
+                            </div>
+                            <div className="text-left">
+                                <h3 className="font-bold text-lg leading-none">Cargar XML</h3>
+                                <p className="text-blue-100 text-xs mt-0.5">Importar facturas</p>
+                            </div>
+                        </div>
+                        <ArrowRight className="w-5 h-5 text-white/70 group-hover:translate-x-1 transition-transform relative z-10" />
 
-                {/* Botón Cargar XML */}
-                <button onClick={() => onNavigate('upload')} className="group bg-gradient-to-br from-blue-600 to-blue-700 text-white p-6 rounded-3xl shadow-lg hover:shadow-blue-500/30 transition-all text-left relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-32 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-                    <div className="relative z-10">
-                        <div className="bg-white/20 w-12 h-12 rounded-xl flex items-center justify-center mb-4 backdrop-blur-sm"><FileText className="w-6 h-6 text-white" /></div>
-                        <h3 className="text-xl font-bold mb-1">Cargar XML</h3>
-                        <p className="text-blue-100 text-sm mb-4 opacity-90">Importa facturas masivamente.</p>
-                        <div className="flex items-center gap-2 text-xs font-bold bg-white/20 w-fit px-3 py-1.5 rounded-lg backdrop-blur-sm group-hover:bg-white group-hover:text-blue-600 transition-colors">Ir ahora <ArrowRight className="w-3 h-3" /></div>
-                    </div>
-                </button>
+                        {/* Decoración fondo */}
+                        <div className="absolute right-0 top-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-16 pointer-events-none"></div>
+                    </button>
+                )}
 
-                {/* Botón Historial (NUEVO) */}
-                <button onClick={() => onNavigate('history')} className="group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6 rounded-3xl shadow-sm hover:shadow-xl hover:border-yellow-300 dark:hover:border-yellow-500 transition-all text-left">
-                    <div className="bg-yellow-50 dark:bg-yellow-900/20 w-12 h-12 rounded-xl flex items-center justify-center mb-4"><Calendar className="w-6 h-6 text-yellow-600 dark:text-yellow-400" /></div>
-                    <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-1">Historial</h3>
-                    <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">Ver cargas anteriores.</p>
-                    <span className="text-yellow-600 dark:text-yellow-400 text-xs font-bold flex items-center gap-1 group-hover:translate-x-1 transition-transform">Ver <ArrowRight className="w-3 h-3" /></span>
-                </button>
+                {/* 2. HISTORIAL (CUADRADO) */}
+                {(can('history') || can('dashboard')) && (
+                    <button
+                        onClick={() => onNavigate('history')}
+                        className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 h-28 p-3 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm active:scale-95 flex flex-col justify-between text-left group"
+                    >
+                        <div className="bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400 p-2 rounded-xl w-fit">
+                            <History className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-gray-900 dark:text-white text-sm">Historial</h3>
+                            <span className="text-[10px] text-gray-400 group-hover:text-yellow-600 transition-colors flex items-center gap-1">
+                                Ver anterior <ArrowRight className="w-2 h-2" />
+                            </span>
+                        </div>
+                    </button>
+                )}
 
-                {/* Botón Buscador */}
-                <button onClick={() => onNavigate('search')} className="group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6 rounded-3xl shadow-sm hover:shadow-xl hover:border-blue-300 dark:hover:border-blue-500 transition-all text-left">
-                    <div className="bg-purple-50 dark:bg-purple-900/20 w-12 h-12 rounded-xl flex items-center justify-center mb-4"><Search className="w-6 h-6 text-purple-600 dark:text-purple-400" /></div>
-                    <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-1">Buscador</h3>
-                    <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">Consulta y edita precios.</p>
-                    <span className="text-blue-600 dark:text-blue-400 text-xs font-bold flex items-center gap-1 group-hover:translate-x-1 transition-transform">Entrar <ArrowRight className="w-3 h-3" /></span>
-                </button>
+                {/* 3. BUSCADOR (CUADRADO) */}
+                {can('search') && (
+                    <button
+                        onClick={() => onNavigate('search')}
+                        className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 h-28 p-3 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm active:scale-95 flex flex-col justify-between text-left group"
+                    >
+                        <div className="bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 p-2 rounded-xl w-fit">
+                            <Search className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-gray-900 dark:text-white text-sm">Buscador</h3>
+                            <span className="text-[10px] text-gray-400 group-hover:text-purple-600 transition-colors flex items-center gap-1">
+                                Consultar <ArrowRight className="w-2 h-2" />
+                            </span>
+                        </div>
+                    </button>
+                )}
 
-                {/* Botón Manual */}
-                <button onClick={() => onNavigate('manual')} className="group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6 rounded-3xl shadow-sm hover:shadow-xl hover:border-green-300 dark:hover:border-green-500 transition-all text-left">
-                    <div className="bg-green-50 dark:bg-green-900/20 w-12 h-12 rounded-xl flex items-center justify-center mb-4"><PlusCircle className="w-6 h-6 text-green-600 dark:text-green-400" /></div>
-                    <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-1">Manual</h3>
-                    <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">Registro manual unitario.</p>
-                    <span className="text-green-600 dark:text-green-400 text-xs font-bold flex items-center gap-1 group-hover:translate-x-1 transition-transform">Entrar <ArrowRight className="w-3 h-3" /></span>
-                </button>
+                {/* 4. MANUAL (CUADRADO) */}
+                {can('manual') && (
+                    <button
+                        onClick={() => onNavigate('manual')}
+                        className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 h-28 p-3 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm active:scale-95 flex flex-col justify-between text-left group"
+                    >
+                        <div className="bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 p-2 rounded-xl w-fit">
+                            <PlusCircle className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-gray-900 dark:text-white text-sm">Manual</h3>
+                            <span className="text-[10px] text-gray-400 group-hover:text-green-600 transition-colors flex items-center gap-1">
+                                Registrar <ArrowRight className="w-2 h-2" />
+                            </span>
+                        </div>
+                    </button>
+                )}
+
+                {/* 5. USUARIOS (SOLO ADMIN - CUADRADO) */}
+                {isAdmin && (
+                    <button
+                        onClick={() => onNavigate('admin')}
+                        className="bg-[#1a1b1e] dark:bg-gray-700 hover:bg-black dark:hover:bg-gray-600 h-28 p-3 rounded-2xl shadow-lg active:scale-95 flex flex-col justify-between text-left group relative overflow-hidden"
+                    >
+                        <div className="bg-white/10 p-2 rounded-xl w-fit relative z-10">
+                            <Users className="w-6 h-6 text-white" />
+                        </div>
+                        <div className="relative z-10">
+                            <h3 className="font-bold text-white text-sm">Usuarios</h3>
+                            <span className="text-[10px] text-gray-400 group-hover:text-white transition-colors flex items-center gap-1">
+                                Gestionar <ArrowRight className="w-2 h-2" />
+                            </span>
+                        </div>
+                        {/* Decoración */}
+                        <div className="absolute right-0 top-0 w-20 h-20 bg-white/5 rounded-full blur-xl -mr-5 -mt-5 pointer-events-none"></div>
+                    </button>
+                )}
 
             </div>
         </div>

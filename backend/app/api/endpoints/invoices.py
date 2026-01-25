@@ -403,16 +403,20 @@ async def get_products(
     db: AsyncSession = Depends(get_db),
 ):
     stmt = select(Product)
+
+    # --- 2. LÓGICA DE BÚSQUEDA SIN ACENTOS ---
     if q:
-        search_filter = f"%{q}%"
+        # Usamos func.unaccent() tanto en la columna de la BD como en el texto de búsqueda
+        # para que "blister" coincida con "Blíster".
         stmt = stmt.where(
             or_(
-                Product.name.ilike(search_filter),
-                Product.sku.ilike(search_filter),
-                Product.upc.ilike(search_filter),
+                func.unaccent(Product.name).ilike(func.unaccent(f"%{q}%")),
+                Product.sku.ilike(f"%{q}%"),  # SKU y UPC no suelen llevar acentos
+                Product.upc.ilike(f"%{q}%"),
             )
         )
 
+    # --- Filtros Restantes ---
     if missing_price:
         stmt = stmt.where(
             or_(Product.selling_price == 0, Product.selling_price == None)
@@ -424,6 +428,7 @@ async def get_products(
     if min_stock is not None:
         stmt = stmt.where(Product.stock_quantity <= min_stock)
 
+    # --- Ordenamiento ---
     sort_col = getattr(Product, sort_by, None)
     if sort_col is None:
         sort_col = Product.id
@@ -431,7 +436,10 @@ async def get_products(
     stmt = stmt.order_by(
         sort_col.desc() if sort_order == "desc" else sort_col.asc()
     ).limit(limit)
+
+    # --- Ejecución ---
     result = await db.execute(stmt)
+
     return [
         {
             "id": p.id,

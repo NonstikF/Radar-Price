@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom'; // <--- IMPORTANTE
+import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 
 // --- COMPONENTES ---
 import { InvoiceUploader } from './components/InvoiceUploader';
@@ -11,7 +11,8 @@ import { AdminUsers } from './components/AdminUsers';
 import { Login } from './components/UserLogin';
 import { Logo } from './components/Logo';
 import { History } from './components/History';
-import { BatchDetails } from './pages/BatchDetails'; // <--- LA NUEVA PÁGINA
+import { BatchDetails } from './pages/BatchDetails';
+import { ProtectedRoute } from './components/ProtectedRoute';
 
 // --- UTILIDADES ---
 import { LayoutGrid, FileText, Search, PlusCircle, Moon, Sun, Users, LogOut } from 'lucide-react';
@@ -21,47 +22,45 @@ function App() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Estados Globales
-  const [products, setProducts] = useState<any[]>([]);
-  const [filterMissing, setFilterMissing] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState<{ username: string, role: string, permissions: string[] } | null>(null);
+  // --- 1. ESTADOS ---
+  const [isAuthenticated, setIsAuthenticated] = useState(() => !!localStorage.getItem('token'));
 
-  const [darkMode, setDarkMode] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('theme') === 'dark';
-    return false;
+  const [user, setUser] = useState<{ username: string, role: string, permissions: string[] } | null>(() => {
+    const saved = localStorage.getItem('user');
+    return saved ? JSON.parse(saved) : null;
   });
 
-  // --- SEGURIDAD ---
-  const canAccess = (viewName: string) => {
+  const [products, setProducts] = useState<any[]>([]);
+  const [filterMissing, setFilterMissing] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
+
+  // --- 2. CONFIGURACIÓN AXIOS ---
+  if (isAuthenticated && user) {
+    const token = localStorage.getItem('token');
+    // IMPORTANTE: Asegurar que el token no sea "undefined" string
+    if (token && token !== 'undefined') {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    }
+    axios.defaults.baseURL = API_URL;
+  }
+
+  // --- 3. LÓGICA DE PERMISOS ---
+  const isAdmin = user?.role === 'admin';
+
+  const checkPermission = (requiredModule: string) => {
     if (!user) return false;
-    if (user.role === 'admin') return true;
+    if (isAdmin) return true;
+
     const userPerms = Array.isArray(user.permissions) ? user.permissions : [];
 
-    // Permisos especiales
-    if (viewName === 'history') return userPerms.includes('dashboard') || userPerms.includes('upload');
+    if (requiredModule === 'history') {
+      return userPerms.includes('dashboard') || userPerms.includes('upload');
+    }
 
-    return userPerms.includes(viewName);
+    return userPerms.includes(requiredModule);
   };
 
   // --- EFECTOS ---
-  useEffect(() => {
-    axios.defaults.baseURL = API_URL;
-    const token = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-
-    if (token && storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        setIsAuthenticated(true);
-        setUser(parsedUser);
-        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      } catch (e) {
-        handleLogout();
-      }
-    }
-  }, []);
-
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');
@@ -74,13 +73,18 @@ function App() {
 
   // --- HANDLERS ---
   const handleLoginSuccess = (userData: any) => {
-    localStorage.setItem('token', userData.token);
+    // 🔥 CORRECCIÓN AQUÍ: El backend envía 'access_token', no 'token'
+    const token = userData.access_token || userData.token;
+
+    localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(userData));
-    axios.defaults.headers.common['Authorization'] = `Bearer ${userData.token}`;
+
+    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
     setIsAuthenticated(true);
     setUser(userData);
 
-    // Redirección inteligente
+    // Redirección
     if (userData.role === 'admin' || userData.permissions?.includes('dashboard')) {
       navigate('/dashboard');
     } else {
@@ -96,8 +100,9 @@ function App() {
     navigate('/');
   };
 
-  // --- RENDER ---
-  if (!isAuthenticated) return <div className={darkMode ? 'dark' : ''}><Login onLoginSuccess={handleLoginSuccess} /></div>;
+  if (!isAuthenticated) {
+    return <div className={darkMode ? 'dark' : ''}><Login onLoginSuccess={handleLoginSuccess} /></div>;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50/50 dark:bg-gray-900 font-sans text-gray-900 dark:text-gray-100 transition-colors duration-300">
@@ -105,21 +110,27 @@ function App() {
       {/* HEADER */}
       <header className="bg-white/90 dark:bg-gray-900/90 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-40 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
-          <div className="cursor-pointer" onClick={() => navigate('/dashboard')}>
+          <div className="cursor-pointer" onClick={() => navigate(isAdmin ? '/dashboard' : '/search')}>
             <Logo variant="full" />
           </div>
 
           <div className="flex items-center gap-4">
             <nav className="hidden md:flex gap-1">
-              {canAccess('dashboard') && <NavButton active={location.pathname === '/dashboard'} onClick={() => navigate('/dashboard')} icon={<LayoutGrid className="w-4 h-4" />} label="Panel" />}
-              {canAccess('upload') && <NavButton active={location.pathname === '/upload'} onClick={() => navigate('/upload')} icon={<FileText className="w-4 h-4" />} label="Cargar XML" />}
-              {canAccess('search') && <NavButton active={location.pathname === '/search'} onClick={() => navigate('/search')} icon={<Search className="w-4 h-4" />} label="Buscador" />}
-              {canAccess('manual') && <NavButton active={location.pathname === '/manual'} onClick={() => navigate('/manual')} icon={<PlusCircle className="w-4 h-4" />} label="Manual" />}
-              {user?.role === 'admin' && <NavButton active={location.pathname === '/admin'} onClick={() => navigate('/admin')} icon={<Users className="w-4 h-4" />} label="Usuarios" />}
+              {checkPermission('dashboard') && <NavButton active={location.pathname === '/dashboard'} onClick={() => navigate('/dashboard')} icon={<LayoutGrid className="w-4 h-4" />} label="Panel" />}
+              {checkPermission('upload') && <NavButton active={location.pathname === '/upload'} onClick={() => navigate('/upload')} icon={<FileText className="w-4 h-4" />} label="Cargar XML" />}
+              {checkPermission('search') && <NavButton active={location.pathname === '/search'} onClick={() => navigate('/search')} icon={<Search className="w-4 h-4" />} label="Buscador" />}
+              {checkPermission('manual') && <NavButton active={location.pathname === '/manual'} onClick={() => navigate('/manual')} icon={<PlusCircle className="w-4 h-4" />} label="Manual" />}
+
+              {isAdmin && <NavButton active={location.pathname === '/admin'} onClick={() => navigate('/admin')} icon={<Users className="w-4 h-4" />} label="Usuarios" />}
             </nav>
 
             <div className="flex items-center gap-2 border-l border-gray-200 dark:border-gray-700 pl-4">
-              <span className="hidden md:block text-sm font-bold text-gray-500 mr-2 capitalize">{user?.username}</span>
+              <div className="flex flex-col items-end mr-2">
+                <span className="text-sm font-bold text-gray-700 dark:text-gray-200 capitalize leading-none">{user?.username}</span>
+                <span className={`text-[10px] font-bold uppercase tracking-wider ${isAdmin ? 'text-blue-600' : 'text-gray-400'}`}>
+                  {isAdmin ? 'Administrador' : 'Usuario'}
+                </span>
+              </div>
               <button onClick={() => setDarkMode(!darkMode)} className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700">
                 {darkMode ? <Sun className="w-5 h-5 text-yellow-400" /> : <Moon className="w-5 h-5 text-gray-600" />}
               </button>
@@ -131,40 +142,48 @@ function App() {
         </div>
       </header>
 
-      {/* CONTENIDO (RUTAS) */}
+      {/* RUTAS */}
       <main className="animate-fade-in">
         <Routes>
-          {/* Ruta por defecto */}
-          <Route path="/" element={<Navigate to={user?.role === 'admin' ? "/dashboard" : "/search"} replace />} />
+          <Route path="/" element={<Navigate to={isAdmin ? "/dashboard" : "/search"} replace />} />
 
-          {/* Rutas protegidas */}
-          <Route path="/dashboard" element={canAccess('dashboard') ? <Dashboard onNavigate={(view) => navigate('/' + view)} /> : <Navigate to="/" />} />
+          <Route element={<ProtectedRoute isAllowed={checkPermission('dashboard')} />}>
+            <Route path="/dashboard" element={<Dashboard onNavigate={(view) => navigate('/' + view)} />} />
+          </Route>
 
-          <Route path="/history" element={canAccess('history') ? <History onBack={() => navigate('/dashboard')} /> : <Navigate to="/" />} />
+          <Route element={<ProtectedRoute isAllowed={checkPermission('history')} />}>
+            <Route path="/history" element={<History onBack={() => navigate('/dashboard')} />} />
+            <Route path="/history/:id" element={<BatchDetails />} />
+            <Route path="/batches/:id" element={<BatchDetails />} />
+          </Route>
 
-          {/* 🚀 LA RUTA MAGICA: Detalle de Lote */}
-          <Route path="/history/:id" element={canAccess('history') ? <BatchDetails /> : <Navigate to="/" />} />
+          <Route element={<ProtectedRoute isAllowed={checkPermission('upload')} />}>
+            <Route path="/upload" element={<InvoiceUploader products={products} setProducts={setProducts} />} />
+          </Route>
 
-          {/* Alias para que funcione si InvoiceUploader usa /batches/ID */}
-          <Route path="/batches/:id" element={canAccess('history') ? <BatchDetails /> : <Navigate to="/" />} />
+          <Route element={<ProtectedRoute isAllowed={checkPermission('search')} />}>
+            <Route path="/search" element={<PriceChecker initialFilter={filterMissing} onClearFilter={() => setFilterMissing(false)} />} />
+          </Route>
 
-          <Route path="/upload" element={canAccess('upload') ? <InvoiceUploader products={products} setProducts={setProducts} /> : <Navigate to="/" />} />
+          <Route element={<ProtectedRoute isAllowed={checkPermission('manual')} />}>
+            <Route path="/manual" element={<ManualEntry />} />
+          </Route>
 
-          <Route path="/search" element={canAccess('search') ? <PriceChecker initialFilter={filterMissing} onClearFilter={() => setFilterMissing(false)} /> : <Navigate to="/" />} />
+          <Route element={<ProtectedRoute isAllowed={isAdmin} />}>
+            <Route path="/admin" element={<AdminUsers />} />
+          </Route>
 
-          <Route path="/manual" element={canAccess('manual') ? <ManualEntry /> : <Navigate to="/" />} />
-
-          <Route path="/admin" element={user?.role === 'admin' ? <AdminUsers /> : <Navigate to="/" />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
 
       {/* MENÚ MÓVIL */}
       <div className="md:hidden fixed bottom-4 left-4 right-4 bg-gray-900/90 dark:bg-gray-800/90 text-white p-2 rounded-2xl flex justify-around shadow-2xl z-50 border border-white/10 backdrop-blur-md">
-        {canAccess('dashboard') && <MobileNavBtn onClick={() => navigate('/dashboard')} icon={<LayoutGrid className="w-5 h-5" />} active={location.pathname === '/dashboard'} />}
-        {canAccess('upload') && <MobileNavBtn onClick={() => navigate('/upload')} icon={<FileText className="w-5 h-5" />} active={location.pathname === '/upload'} />}
-        {canAccess('search') && <MobileNavBtn onClick={() => navigate('/search')} icon={<Search className="w-5 h-5" />} active={location.pathname === '/search'} />}
-        {canAccess('manual') && <MobileNavBtn onClick={() => navigate('/manual')} icon={<PlusCircle className="w-5 h-5" />} active={location.pathname === '/manual'} />}
-        {user?.role === 'admin' && <MobileNavBtn onClick={() => navigate('/admin')} icon={<Users className="w-5 h-5" />} active={location.pathname === '/admin'} />}
+        {checkPermission('dashboard') && <MobileNavBtn onClick={() => navigate('/dashboard')} icon={<LayoutGrid className="w-5 h-5" />} active={location.pathname === '/dashboard'} />}
+        {checkPermission('upload') && <MobileNavBtn onClick={() => navigate('/upload')} icon={<FileText className="w-5 h-5" />} active={location.pathname === '/upload'} />}
+        {checkPermission('search') && <MobileNavBtn onClick={() => navigate('/search')} icon={<Search className="w-5 h-5" />} active={location.pathname === '/search'} />}
+        {checkPermission('manual') && <MobileNavBtn onClick={() => navigate('/manual')} icon={<PlusCircle className="w-5 h-5" />} active={location.pathname === '/manual'} />}
+        {isAdmin && <MobileNavBtn onClick={() => navigate('/admin')} icon={<Users className="w-5 h-5" />} active={location.pathname === '/admin'} />}
       </div>
     </div>
   );
