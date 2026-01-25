@@ -10,33 +10,29 @@ interface Props {
 }
 
 export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
-    // --- ESTADOS DE DATOS ---
     const [products, setProducts] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
 
-    // --- ESTADOS DE FILTROS AVANZADOS ---
     const [searchTerm, setSearchTerm] = useState("");
     const [showFilters, setShowFilters] = useState(false);
+
+    // Configuración inicial de filtros
     const [filters, setFilters] = useState({
         minPrice: "",
         maxPrice: "",
-        minStock: "",
         missingPrice: initialFilter,
-        sortBy: "updated_at", // Valores corregidos: selling_price, stock_quantity
-        sortOrder: "desc" // asc, desc
+        sortBy: "updated_at", // Orden por defecto: Recientes
+        sortOrder: "desc"
     });
 
-    // --- ESTADOS DE SELECCIÓN Y EDICIÓN ---
     const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
     const [editUpc, setEditUpc] = useState("");
     const [editSku, setEditSku] = useState("");
     const [editPrice, setEditPrice] = useState("");
 
-    // --- ESTADOS DE ACCIÓN ---
     const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState(false);
 
-    // --- MODALES Y ALERTA ---
     const [showExitConfirm, setShowExitConfirm] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [history, setHistory] = useState<any[]>([]);
@@ -44,13 +40,12 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
     const [showScanner, setShowScanner] = useState(false);
     const [toast, setToast] = useState<{ show: boolean, message: string, type: 'success' | 'error' }>({ show: false, message: '', type: 'success' });
 
-    // --- REFS Y ROL ---
     const inputRef = useRef<HTMLInputElement>(null);
     const timeoutRef = useRef<any>(null);
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     const isAdmin = user.role === 'admin';
 
-    // --- 1. EFECTO DE BÚSQUEDA INTELIGENTE ---
+    // --- EFECTO DE BÚSQUEDA ---
     useEffect(() => {
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
 
@@ -61,7 +56,6 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
         return () => clearTimeout(timeoutRef.current);
     }, [searchTerm, filters]);
 
-    // --- 2. FUNCIÓN PARA LLAMAR AL BACKEND ---
     const fetchProducts = async () => {
         setLoading(true);
         try {
@@ -70,7 +64,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                 missing_price: filters.missingPrice,
                 sort_by: filters.sortBy,
                 sort_order: filters.sortOrder,
-                limit: 100
+                limit: 100 // Cargar suficientes para scroll
             };
 
             if (filters.minPrice) params.min_price = filters.minPrice;
@@ -96,15 +90,13 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
         setFilters({
             minPrice: "",
             maxPrice: "",
-            minStock: "",
             missingPrice: false,
-            sortBy: "name",
-            sortOrder: "asc"
+            sortBy: "updated_at",
+            sortOrder: "desc"
         });
         if (onClearFilter) onClearFilter();
     };
 
-    // --- 3. ABRIR PRODUCTO ---
     const handleProductClick = async (p: any) => {
         setSelectedProduct(p);
         setEditUpc(p.upc ? String(p.upc) : "");
@@ -120,7 +112,6 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
         } catch (err) { console.error("Error historial"); }
     };
 
-    // --- 4. VALIDAR CIERRE ---
     const handleAttemptClose = () => {
         if (!selectedProduct) return;
         const clean = (val: any) => String(val || "").trim();
@@ -137,7 +128,6 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
 
     const handleDiscardChanges = () => { setShowExitConfirm(false); setSelectedProduct(null); };
 
-    // --- 5. ELIMINAR PRODUCTO ---
     const handleDeleteProduct = async () => {
         if (!selectedProduct) return;
         setDeleting(true);
@@ -154,7 +144,6 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
         }
     };
 
-    // --- 6. GUARDAR CAMBIOS ---
     const handleSaveField = async (field: 'upc' | 'sku' | 'price') => {
         if (!selectedProduct) return;
         setSaving(true);
@@ -184,7 +173,6 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
         }
     };
 
-    // --- 7. ESCÁNER ---
     const handleScanSuccess = (code: string) => {
         if (selectedProduct) {
             setEditUpc(code);
@@ -197,9 +185,9 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
     };
 
     return (
-        <div className="w-full max-w-7xl mx-auto p-4 md:p-6 pb-24 relative animate-fade-in">
+        <div className="w-full max-w-7xl mx-auto p-2 md:p-6 pb-24 relative animate-fade-in">
 
-            {/* TOAST */}
+            {/* TOAST ALERTA */}
             <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[70] transition-all duration-300 transform ${toast.show ? 'translate-y-0 opacity-100' : '-translate-y-10 opacity-0 pointer-events-none'}`}>
                 <div className={`flex items-center gap-3 px-6 py-4 rounded-full shadow-2xl border ${toast.type === 'success' ? 'bg-gray-900 text-green-400 border-green-500/30' : 'bg-red-50 text-red-600 border-red-200'}`}>
                     {toast.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
@@ -207,61 +195,63 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                 </div>
             </div>
 
-            {/* HEADER */}
-            <div className="flex flex-col md:flex-row justify-between items-end md:items-center mb-6 gap-4">
-                <div>
-                    <h1 className="text-3xl font-black text-gray-900 dark:text-white">Buscador De Precios</h1>
-                </div>
+            {/* HEADER COMPACTO */}
+            <div className="mb-2 md:mb-6">
+                <h1 className="text-xl md:text-3xl font-black text-gray-900 dark:text-white px-2">Buscador</h1>
             </div>
 
             {/* BARRA DE BÚSQUEDA Y FILTROS */}
-            <div className="sticky top-0 z-40 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur pt-2 pb-4 transition-colors">
+            <div className="sticky top-0 z-40 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur pt-2 pb-2 md:pb-4 transition-colors px-2 md:px-0">
+                <div className="bg-white dark:bg-gray-800 p-2 md:p-4 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
+                    <div className="flex flex-col md:flex-row gap-2 md:gap-3">
+                        {/* INPUT BÚSQUEDA */}
+                        <div className="relative flex-1 w-full">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                            <input
+                                ref={inputRef}
+                                type="text"
+                                placeholder="Buscar..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full pl-10 pr-12 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium text-gray-900 dark:text-white text-sm md:text-base"
+                            />
+                            <div className="absolute inset-y-0 right-2 flex items-center gap-1">
+                                <button onClick={() => setShowScanner(true)} className="p-2 rounded-xl text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all active:scale-95" title="Escanear">
+                                    <Camera className="h-5 w-5" />
+                                </button>
+                            </div>
+                        </div>
 
-                <div className="flex flex-col md:flex-row gap-3 bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
-                    <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                        <input
-                            ref={inputRef}
-                            type="text"
-                            placeholder="Buscar por nombre, SKU o código..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-12 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium text-gray-900 dark:text-white"
-                        />
-                        <div className="absolute inset-y-0 right-2 flex items-center gap-1">
-                            <button onClick={() => setShowScanner(true)} className="p-2 rounded-xl text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all active:scale-95" title="Escanear">
-                                <Camera className="h-5 w-5" />
+                        {/* BOTONES FILTRO (En fila en móvil) */}
+                        <div className="flex gap-2 w-full md:w-auto">
+                            <button
+                                onClick={() => setShowFilters(!showFilters)}
+                                className={`flex-1 md:flex-none px-4 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all border text-sm md:text-base ${showFilters || filters.minPrice || filters.missingPrice ? 'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-400' : 'bg-gray-50 border-gray-200 text-gray-600 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-300'}`}
+                            >
+                                <Filter className="w-4 h-4 md:w-5 md:h-5" />
+                                <span>Filtros</span>
+                                {(filters.minPrice || filters.missingPrice) && <div className="w-2 h-2 bg-blue-500 rounded-full"></div>}
                             </button>
+
+                            {(searchTerm || filters.minPrice || filters.missingPrice || filters.maxPrice) && (
+                                <button onClick={clearAllFilters} className="px-4 py-3 rounded-xl font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all flex items-center justify-center gap-1 border border-gray-200 dark:border-gray-700 hover:border-red-100 bg-white dark:bg-gray-900">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            )}
                         </div>
                     </div>
-
-                    <button
-                        onClick={() => setShowFilters(!showFilters)}
-                        className={`px-4 py-3 rounded-xl font-bold flex items-center gap-2 transition-all border ${showFilters || filters.minPrice || filters.missingPrice ? 'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-400' : 'bg-gray-50 border-gray-200 text-gray-600 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-300'}`}
-                    >
-                        <Filter className="w-5 h-5" />
-                        <span className="hidden md:inline">Filtros</span>
-                        {(filters.minPrice || filters.missingPrice || filters.minStock) && <div className="w-2 h-2 bg-blue-500 rounded-full"></div>}
-                    </button>
-
-                    {(searchTerm || filters.minPrice || filters.missingPrice || filters.minStock) && (
-                        <button onClick={clearAllFilters} className="px-4 py-3 rounded-xl font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all flex items-center gap-1 border border-transparent hover:border-red-100">
-                            <X className="w-5 h-5" />
-                        </button>
-                    )}
                 </div>
             </div>
 
             {/* PANEL DE FILTROS */}
             {showFilters && (
-                <div className="mb-6 p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-blue-100 dark:border-blue-900/30 grid grid-cols-1 md:grid-cols-4 gap-6 animate-scale-in">
-                    {/* Ordenar */}
+                <div className="mb-4 mx-2 md:mx-0 p-4 md:p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-blue-100 dark:border-blue-900/30 grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6 animate-scale-in">
+
                     <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-400 uppercase">Ordenar por</label>
                         <div className="flex gap-2">
-                            {/* 🔥 CORRECCIÓN: Nombres de columnas correctos para Backend */}
-                            <select value={filters.sortBy} onChange={(e) => setFilters({ ...filters, sortBy: e.target.value })} className="w-full p-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none dark:text-white">
-                                <option value="updated_at">Últimos Actualizados</option>
+                            <select value={filters.sortBy} onChange={(e) => setFilters({ ...filters, sortBy: e.target.value })} className="w-full p-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none dark:text-white cursor-pointer">
+                                <option value="updated_at">Últimos (Fecha)</option>
                                 <option value="name">Nombre (A-Z)</option>
                                 <option value="selling_price">Precio Venta</option>
                             </select>
@@ -271,7 +261,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                             </button>
                         </div>
                     </div>
-                    {/* Rango Precio */}
+
                     <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-400 uppercase">Precio Venta ($)</label>
                         <div className="flex gap-2 items-center">
@@ -281,7 +271,6 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                         </div>
                     </div>
 
-                    {/* Checkbox */}
                     <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-400 uppercase">Estado</label>
                         <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border border-transparent hover:border-gray-200 dark:hover:border-gray-600">
@@ -299,7 +288,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                     <p>Cargando productos...</p>
                 </div>
             ) : (
-                <div className="space-y-3">
+                <div className="space-y-3 px-2 md:px-0">
                     {!searchTerm && !filters.missingPrice && !filters.minPrice && products.length === 0 && (
                         <div className="text-center py-20 opacity-50 flex flex-col items-center">
                             <Search className="w-16 h-16 mb-4 text-gray-300" />
@@ -307,7 +296,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                         </div>
                     )}
 
-                    {(searchTerm || filters.missingPrice) && products.length === 0 && (
+                    {(searchTerm || filters.missingPrice || filters.minPrice || filters.maxPrice) && products.length === 0 && (
                         <div className="text-center py-16 flex flex-col items-center">
                             <PackageOpen className="w-12 h-12 text-gray-300 mb-4" />
                             <h3 className="text-lg font-bold text-gray-700 dark:text-gray-300">No se encontraron productos</h3>
@@ -316,19 +305,19 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                     )}
 
                     {products.map((p, i) => (
-                        <div key={i} onClick={() => handleProductClick(p)} className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex justify-between items-center active:bg-blue-50 dark:active:bg-gray-700 active:scale-[0.99] transition-all cursor-pointer hover:shadow-md group">
-                            <div className="flex-1 min-w-0 pr-4">
-                                <h3 className="font-bold text-gray-800 dark:text-gray-100 text-base leading-tight mb-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{p.name}</h3>
-                                <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-                                    <span className="bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded text-gray-600 dark:text-gray-300 font-mono">ID: {p.sku || 'N/A'}</span>
-                                    {(!p.selling_price || p.selling_price <= 0) && <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded flex items-center gap-1 font-bold"><AlertTriangle className="w-3 h-3" /> Sin precio</span>}
+                        <div key={i} onClick={() => handleProductClick(p)} className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex justify-between items-center active:bg-blue-50 dark:active:bg-gray-700 active:scale-[0.99] transition-all cursor-pointer hover:shadow-md group">
+                            <div className="flex-1 min-w-0 pr-3">
+                                <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm md:text-base leading-tight mb-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-2">{p.name}</h3>
+                                <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                    <span className="bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded text-gray-600 dark:text-gray-300 font-mono text-[10px] md:text-xs">ID: {p.sku || 'N/A'}</span>
+                                    {(!p.selling_price || p.selling_price <= 0) && <span className="text-[10px] bg-orange-100 text-orange-700 px-2 py-0.5 rounded flex items-center gap-1 font-bold whitespace-nowrap"><AlertTriangle className="w-3 h-3" /> Sin precio</span>}
                                 </div>
                             </div>
                             <div className="text-right shrink-0">
                                 {(!p.selling_price || p.selling_price === 0) ? (
-                                    <span className="bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 px-2 py-1 rounded-lg text-xs font-bold">Sin Precio</span>
+                                    <span className="bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 px-2 py-1 rounded-lg text-xs font-bold whitespace-nowrap">Sin Precio</span>
                                 ) : (
-                                    <div className="text-2xl font-black text-blue-600 dark:text-blue-400 tracking-tight">${p.selling_price?.toFixed(2)}</div>
+                                    <div className="text-xl md:text-2xl font-black text-blue-600 dark:text-blue-400 tracking-tight">${p.selling_price?.toFixed(2)}</div>
                                 )}
                             </div>
                         </div>
@@ -336,27 +325,27 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                 </div>
             )}
 
-            {/* --- MODAL DETALLE / EDICIÓN --- */}
+            {/* MODAL DETALLE / EDICIÓN */}
             {selectedProduct && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
                     <div className="absolute inset-0" onClick={handleAttemptClose}></div>
                     <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-scale-in relative z-10 flex flex-col max-h-[90vh]">
-                        <div className="bg-blue-600 dark:bg-blue-700 p-8 text-white relative text-center shrink-0">
-                            <button onClick={handleAttemptClose} className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 p-2 rounded-full transition-colors active:scale-90"><X className="w-6 h-6 text-white" /></button>
+                        <div className="bg-blue-600 dark:bg-blue-700 p-6 md:p-8 text-white relative text-center shrink-0">
+                            <button onClick={handleAttemptClose} className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 p-2 rounded-full transition-colors active:scale-90"><X className="w-5 h-5 text-white" /></button>
                             {isAdmin && (
-                                <button onClick={() => setShowDeleteConfirm(true)} className="absolute top-4 left-4 bg-red-500/20 hover:bg-red-500/40 p-2 rounded-full transition-colors active:scale-90 text-white border border-red-400/30"><Trash2 className="w-6 h-6" /></button>
+                                <button onClick={() => setShowDeleteConfirm(true)} className="absolute top-4 left-4 bg-red-500/20 hover:bg-red-500/40 p-2 rounded-full transition-colors active:scale-90 text-white border border-red-400/30"><Trash2 className="w-5 h-5" /></button>
                             )}
                             <p className="text-blue-200 text-xs font-bold uppercase tracking-widest mb-2 flex items-center justify-center gap-2">Precio de Venta {isAdmin && <Edit3 className="w-3 h-3 opacity-50" />}</p>
                             {isAdmin ? (
                                 <div className="relative inline-block w-full max-w-[200px]">
-                                    <span className="absolute left-0 top-1/2 -translate-y-1/2 text-4xl font-black text-blue-300">$</span>
-                                    <input type="number" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} className="w-full bg-transparent text-center text-7xl font-black tracking-tighter text-white placeholder-blue-300 focus:outline-none border-b-2 border-transparent focus:border-white/50 transition-all pl-6" placeholder="0" />
+                                    <span className="absolute left-0 top-1/2 -translate-y-1/2 text-3xl md:text-4xl font-black text-blue-300">$</span>
+                                    <input type="number" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} className="w-full bg-transparent text-center text-6xl md:text-7xl font-black tracking-tighter text-white placeholder-blue-300 focus:outline-none border-b-2 border-transparent focus:border-white/50 transition-all pl-6" placeholder="0" />
                                     {parseFloat(editPrice || "0") !== parseFloat(selectedProduct.selling_price || "0") && (
-                                        <button onClick={() => handleSaveField('price')} disabled={saving} className="absolute -right-12 top-1/2 -translate-y-1/2 bg-white text-blue-600 p-2 rounded-full shadow-lg hover:scale-110 transition-transform active:scale-90 animate-bounce-in"><Save className="w-5 h-5" /></button>
+                                        <button onClick={() => handleSaveField('price')} disabled={saving} className="absolute -right-10 md:-right-12 top-1/2 -translate-y-1/2 bg-white text-blue-600 p-2 rounded-full shadow-lg hover:scale-110 transition-transform active:scale-90 animate-bounce-in"><Save className="w-5 h-5" /></button>
                                     )}
                                 </div>
                             ) : (
-                                <h2 className="text-7xl font-black tracking-tighter drop-shadow-lg">${selectedProduct.selling_price?.toFixed(2)}</h2>
+                                <h2 className="text-6xl md:text-7xl font-black tracking-tighter drop-shadow-lg">${selectedProduct.selling_price?.toFixed(2)}</h2>
                             )}
                         </div>
 
@@ -365,7 +354,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                             <button onClick={() => setShowHistory(true)} className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase tracking-wide transition-all ${showHistory ? 'bg-white dark:bg-gray-700 text-blue-700 dark:text-white shadow-sm' : 'text-gray-400 dark:text-gray-500'} flex items-center justify-center gap-1`}><History className="w-3 h-3" /> Historial</button>
                         </div>
 
-                        <div className="p-6 space-y-6 bg-white dark:bg-gray-800 overflow-y-auto">
+                        <div className="p-4 md:p-6 space-y-6 bg-white dark:bg-gray-800 overflow-y-auto">
                             {!showHistory ? (
                                 <>
                                     <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-700">
@@ -376,23 +365,23 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                                         <div className={`transition-all ${String(editUpc || "").trim() !== String(selectedProduct.upc || "").trim() ? 'bg-yellow-50 p-3 rounded-2xl border border-yellow-200' : ''}`}>
                                             <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase mb-2"><Barcode className="w-4 h-4 text-blue-500" /> UPC {String(editUpc || "").trim() !== String(selectedProduct.upc || "").trim() && <span className="text-yellow-600 animate-pulse ml-auto text-[10px]">● Sin guardar</span>}</label>
                                             <div className="flex gap-2">
-                                                <input type="text" value={editUpc} onChange={(e) => setEditUpc(e.target.value)} className="flex-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 p-3 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white" placeholder="Escanear..." />
-                                                <button onClick={() => setShowScanner(true)} className="bg-gray-100 dark:bg-gray-700 p-3 rounded-xl"><Camera className="w-6 h-6 dark:text-gray-300" /></button>
-                                                <button onClick={() => handleSaveField('upc')} disabled={saving || String(editUpc || "").trim() === String(selectedProduct.upc || "").trim()} className={`px-4 rounded-xl flex items-center justify-center ${String(editUpc || "").trim() !== String(selectedProduct.upc || "").trim() ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-400'}`}><Save className="w-6 h-6" /></button>
+                                                <input type="text" value={editUpc} onChange={(e) => setEditUpc(e.target.value)} className="flex-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 p-3 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white text-sm" placeholder="Escanear..." />
+                                                <button onClick={() => setShowScanner(true)} className="bg-gray-100 dark:bg-gray-700 p-3 rounded-xl"><Camera className="w-5 h-5 dark:text-gray-300" /></button>
+                                                <button onClick={() => handleSaveField('upc')} disabled={saving || String(editUpc || "").trim() === String(selectedProduct.upc || "").trim()} className={`px-4 rounded-xl flex items-center justify-center ${String(editUpc || "").trim() !== String(selectedProduct.upc || "").trim() ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-400'}`}><Save className="w-5 h-5" /></button>
                                             </div>
                                         </div>
                                         <div className={`transition-all ${String(editSku || "").trim() !== String(selectedProduct.sku || "").trim() ? 'bg-yellow-50 p-3 rounded-2xl border border-yellow-200' : ''}`}>
                                             <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase mb-2"><Hash className="w-4 h-4 text-purple-500" /> ID Interno {String(editSku || "").trim() !== String(selectedProduct.sku || "").trim() && <span className="text-yellow-600 animate-pulse ml-auto text-[10px]">● Sin guardar</span>}</label>
                                             <div className="flex gap-2">
-                                                <input type="text" value={editSku} onChange={(e) => setEditSku(e.target.value)} className="flex-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 p-3 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none dark:text-white" placeholder="Clave..." />
-                                                <button onClick={() => handleSaveField('sku')} disabled={saving || String(editSku || "").trim() === String(selectedProduct.sku || "").trim()} className={`px-4 rounded-xl flex items-center justify-center ${String(editSku || "").trim() !== String(selectedProduct.sku || "").trim() ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-400'}`}><Save className="w-6 h-6" /></button>
+                                                <input type="text" value={editSku} onChange={(e) => setEditSku(e.target.value)} className="flex-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 p-3 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none dark:text-white text-sm" placeholder="Clave..." />
+                                                <button onClick={() => handleSaveField('sku')} disabled={saving || String(editSku || "").trim() === String(selectedProduct.sku || "").trim()} className={`px-4 rounded-xl flex items-center justify-center ${String(editSku || "").trim() !== String(selectedProduct.sku || "").trim() ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-400'}`}><Save className="w-5 h-5" /></button>
                                             </div>
                                         </div>
                                     </div>
                                 </>
                             ) : (
                                 <div className="space-y-4">
-                                    {history.length === 0 ? <p className="text-center text-gray-400 py-10 italic">No hay historial.</p> :
+                                    {history.length === 0 ? <p className="text-center text-gray-400 py-10 italic text-sm">No hay historial.</p> :
                                         <div className="relative border-l-2 border-gray-200 dark:border-gray-700 ml-3 space-y-6 pb-4">
                                             {history.map((h, i) => (
                                                 <div key={i} className="relative pl-6">
