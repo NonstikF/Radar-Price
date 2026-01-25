@@ -3,7 +3,7 @@ import axios from 'axios';
 import {
     Upload, Save, FileText, Loader2, DollarSign, EyeOff,
     GitMerge, ArrowRight, CheckCircle2, Trash2, Database, AlertCircle,
-    FileStack, History, X
+    FileStack, History, X, Link
 } from 'lucide-react';
 import { API_URL } from '../config';
 
@@ -12,13 +12,12 @@ interface Props {
     setProducts: (products: any[]) => void;
 }
 
-// Interfaz para el estado del modal
 interface DuplicateModalState {
     isOpen: boolean;
     filename: string;
     date: string;
     batchId: number;
-    resolve: ((value: boolean) => void) | null; // La magia para esperar la respuesta
+    resolve: ((value: boolean) => void) | null;
 }
 
 export function InvoiceUploader({ products, setProducts }: Props) {
@@ -40,16 +39,12 @@ export function InvoiceUploader({ products, setProducts }: Props) {
     const [mergeMenuOpen, setMergeMenuOpen] = useState<number | null>(null);
     const [pendingMerge, setPendingMerge] = useState<{ discardIndex: number, keepId: number, targetName: string } | null>(null);
 
-    // NUEVO: ESTADO PARA EL MODAL DE DUPLICADOS 
+    // --- ESTADO MODAL DUPLICADOS ---
     const [duplicateModal, setDuplicateModal] = useState<DuplicateModalState>({
-        isOpen: false,
-        filename: '',
-        date: '',
-        batchId: 0,
-        resolve: null
+        isOpen: false, filename: '', date: '', batchId: 0, resolve: null
     });
 
-    // --- HANDLERS NORMALES ---
+    // --- HANDLERS ---
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) setFile(e.target.files[0]);
     };
@@ -62,25 +57,15 @@ export function InvoiceUploader({ products, setProducts }: Props) {
         if (fileInputRef.current) fileInputRef.current.value = "";
     };
 
-    // FUNCIÓN MAGICA: Abre el modal y espera la respuesta del usuario (Reemplaza window.confirm)
     const askUserAboutDuplicate = (filename: string, date: string, batchId: number) => {
         return new Promise<boolean>((resolve) => {
-            setDuplicateModal({
-                isOpen: true,
-                filename,
-                date,
-                batchId,
-                resolve // Guardamos la función 'resolve' para llamarla cuando el usuario haga clic en un botón
-            });
+            setDuplicateModal({ isOpen: true, filename, date, batchId, resolve });
         });
     };
 
-    // Handler de botones del Modal
     const handleDuplicateResponse = (goToHistory: boolean) => {
-        if (duplicateModal.resolve) {
-            duplicateModal.resolve(goToHistory); // Resolvemos la promesa
-        }
-        setDuplicateModal({ ...duplicateModal, isOpen: false, resolve: null }); // Cerramos modal
+        if (duplicateModal.resolve) duplicateModal.resolve(goToHistory);
+        setDuplicateModal({ ...duplicateModal, isOpen: false, resolve: null });
     };
 
     const handleUpload = async () => {
@@ -97,27 +82,14 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
 
-            // 1. DETECTAR SI ES DUPLICADO (AHORA CON MODAL BONITO)
             if (response.data.status === "exists") {
                 setLoading(false);
-
                 const fechaLegible = new Date(response.data.uploaded_at).toLocaleString();
-
-                // Esperamos a que el usuario decida en el modal bonito
-                const quiereIrAlHistorial = await askUserAboutDuplicate(
-                    response.data.filename,
-                    fechaLegible,
-                    response.data.batch_id
-                );
-
-                if (quiereIrAlHistorial) {
-                    // Asegúrate de que tu ruta en App.tsx sea '/history/:id' o '/batches/:id'
-                    window.location.href = `/history/${response.data.batch_id}`;
-                }
-                return; // Detenemos aquí
+                const quiereIrAlHistorial = await askUserAboutDuplicate(response.data.filename, fechaLegible, response.data.batch_id);
+                if (quiereIrAlHistorial) window.location.href = `/history/${response.data.batch_id}`;
+                return;
             }
 
-            // 2. SI ES NUEVO
             setProducts(response.data.products || []);
             setHiddenCount(response.data.hidden_count || 0);
 
@@ -130,8 +102,6 @@ export function InvoiceUploader({ products, setProducts }: Props) {
         }
     };
 
-    // ... (El resto de tus handlers de Catálogo, Precios y Fusión siguen IGUAL) ...
-    // Solo los oculto aquí para ahorrar espacio, pero TÚ DÉJALOS IGUAL.
     const handleCatalogChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
             setCatalogFiles(Array.from(e.target.files));
@@ -139,6 +109,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
             setCatalogProgress({ current: 0, total: 0, successes: 0, errors: 0 });
         }
     };
+
     const handleCatalogUpload = async () => {
         if (catalogFiles.length === 0) return;
         setCatalogLoading(true);
@@ -167,25 +138,27 @@ export function InvoiceUploader({ products, setProducts }: Props) {
         setCatalogLoading(false);
         setCatalogMsg({
             type: errorsCount === catalogFiles.length ? 'error' : 'success',
-            text: `Proceso finalizado. ${createdTotal} creados, ${updatedTotal} actualizados. (${errorsCount} errores). Revisa el Historial.`
+            text: `Finalizado. ${createdTotal} creados, ${updatedTotal} actualizados. (${errorsCount} errores).`
         });
         setCatalogFiles([]);
         if (catalogInputRef.current) catalogInputRef.current.value = "";
     };
+
     const handlePriceChange = (index: number, newPrice: string) => {
         const updatedProducts = [...products];
         updatedProducts[index].selling_price = newPrice;
         setProducts(updatedProducts);
     };
+
     const handleSavePrices = async () => {
         setLoading(true);
         try {
             const updates = products.map(p => ({
                 name: p.name,
-                selling_price: p.selling_price || 0
+                selling_price: parseFloat(p.selling_price) || 0
             }));
             await axios.post(`${API_URL}/invoices/update-prices`, updates);
-            setSavedMessage("¡Precios guardados correctamente! ");
+            setSavedMessage("¡Precios guardados! ✅");
             setTimeout(() => { handleClearAll(); }, 1500);
         } catch (error) {
             alert("Error al guardar precios");
@@ -193,20 +166,36 @@ export function InvoiceUploader({ products, setProducts }: Props) {
             setLoading(false);
         }
     };
+
     const initiateMerge = (discardProductIndex: number, keepDbId: number, targetName: string) => {
         setPendingMerge({ discardIndex: discardProductIndex, keepId: keepDbId, targetName: targetName });
         setMergeMenuOpen(null);
     };
+
     const executeMerge = async () => {
         if (!pendingMerge) return;
         setLoading(true);
         const productToDiscard = products[pendingMerge.discardIndex];
         try {
             await axios.post(`${API_URL}/invoices/merge`, { keep_id: pendingMerge.keepId, discard_id: productToDiscard.id });
-            const newProducts = products.filter((_, i) => i !== pendingMerge.discardIndex);
-            setProducts(newProducts);
+
+            // --- CAMBIO: EN LUGAR DE BORRAR, ACTUALIZAMOS EL ESTADO ---
+            const updatedProducts = [...products];
+            updatedProducts[pendingMerge.discardIndex] = {
+                ...updatedProducts[pendingMerge.discardIndex],
+                id: pendingMerge.keepId, // Ahora apunta al ID ganador
+                name: pendingMerge.targetName, // Toma el nombre del ganador
+                status: 'merged', // ✨ ESTADO NUEVO PARA RESALTAR
+                suggestions: [] // Limpiamos sugerencias
+            };
+
+            setProducts(updatedProducts);
             setPendingMerge(null);
-        } catch (error) { alert("Error al fusionar."); } finally { setLoading(false); }
+        } catch (error) {
+            alert("Error al fusionar.");
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -220,7 +209,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                     </div>
                     <div>
                         <h3 className="font-bold text-lg text-gray-900 dark:text-white">Cargar Factura (Actualizar Precios)</h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Sube tu XML para detectar cambios de costo y ajustar precios.</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Sube tu XML para detectar cambios.</p>
                     </div>
                 </div>
 
@@ -241,7 +230,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                 </div>
             </div>
 
-            {/* --- ZONA 2: CARGA ESPECIAL MASIVA --- */}
+            {/* --- ZONA 2: CARGA MASIVA --- */}
             <div className="bg-purple-50 dark:bg-purple-900/10 rounded-2xl shadow-sm p-6 border border-purple-200 dark:border-purple-800 transition-colors">
                 <div className="flex items-center gap-4 mb-4">
                     <div className="bg-purple-100 dark:bg-purple-900/30 p-3 rounded-full">
@@ -250,7 +239,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                     <div>
                         <h3 className="font-bold text-lg text-gray-900 dark:text-white">Importador Masivo de Catálogo</h3>
                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                            Soporta múltiples archivos. Reglas: <span className="bg-white dark:bg-gray-800 px-2 py-0.5 rounded mx-1 font-mono text-xs border border-gray-200 dark:border-gray-700">ClaveProdServ ➔ UPC</span>
+                            Soporta múltiples archivos. <span className="bg-white dark:bg-gray-800 px-2 py-0.5 rounded mx-1 font-mono text-xs border border-gray-200 dark:border-gray-700">ClaveProdServ ➔ UPC</span>
                         </p>
                     </div>
                 </div>
@@ -300,7 +289,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
             {/* --- LISTA DE PRODUCTOS --- */}
             {products.length > 0 && (
                 <div className="animate-fade-in pt-4 border-t border-gray-200 dark:border-gray-700">
-                    <div className="sticky top-2 z-20 bg-white/95 dark:bg-gray-900/95 backdrop-blur shadow-md rounded-xl p-3 md:p-4 mb-4 border border-gray-200 dark:border-gray-700 flex justify-between items-center gap-3 transition-colors">
+                    <div className="sticky top-16 z-20 bg-white/95 dark:bg-gray-900/95 backdrop-blur shadow-md rounded-xl p-3 md:p-4 mb-4 border border-gray-200 dark:border-gray-700 flex justify-between items-center gap-3 transition-colors">
                         <div className="flex flex-col">
                             <h3 className="font-bold text-gray-700 dark:text-gray-200 flex items-center gap-2 text-base md:text-lg">
                                 <DollarSign className="w-5 h-5 text-green-600 dark:text-green-400" />
@@ -326,7 +315,71 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                         </div>
                     </div>
 
-                    {/* VISTA ESCRITORIO TABLA */}
+                    {/* --- VISTA MÓVIL (TARJETAS) --- */}
+                    <div className="md:hidden space-y-4">
+                        {products.map((p, i) => {
+                            const costo = p.cost_with_tax || 0;
+                            const venta = parseFloat(p.selling_price) || 0;
+                            const margen = venta > 0 ? ((venta - costo) / venta * 100) : 0;
+                            const isPriceChanged = p.status === 'price_changed';
+                            const isMerged = p.status === 'merged'; // ✨ DETECTAR FUSIÓN
+
+                            // Estilos dinámicos
+                            let cardClass = "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-sm";
+                            if (isMerged) cardClass = "bg-purple-50 dark:bg-purple-900/20 border-purple-300 dark:border-purple-700";
+                            else if (venta > 0) cardClass = "bg-green-50/50 dark:bg-green-900/10 border-green-200 dark:border-green-800";
+
+                            const inputClass = venta > 0
+                                ? "text-green-700 dark:text-green-300 border-green-200 focus:ring-green-500 bg-white dark:bg-gray-900"
+                                : "text-red-700 dark:text-red-300 border-red-300 focus:ring-red-500 bg-white dark:bg-gray-900 ring-1 ring-red-100 dark:ring-red-900/30";
+
+                            return (
+                                <div key={i} className={`p-4 rounded-xl border transition-all ${cardClass}`}>
+                                    {/* Cabecera Tarjeta */}
+                                    <div className="mb-3">
+                                        <div className="flex justify-between items-start gap-2">
+                                            <h3 className="text-sm font-bold text-gray-900 dark:text-white leading-snug w-[85%]">
+                                                {p.name}
+                                            </h3>
+                                            {isPriceChanged && <span className="bg-yellow-100 text-yellow-800 text-[10px] px-1.5 py-0.5 rounded font-bold border border-yellow-200">⚠️</span>}
+                                        </div>
+                                        <div className="flex flex-wrap gap-2 mt-1">
+                                            {p.status === 'new' && <span className="bg-blue-100 text-blue-700 text-[10px] px-2 py-0.5 rounded font-bold">NUEVO</span>}
+                                            {isMerged && <span className="bg-purple-100 text-purple-700 border border-purple-200 text-[10px] px-2 py-0.5 rounded font-bold flex items-center gap-1"><Link className="w-3 h-3" /> FUSIONADO</span>}
+                                        </div>
+                                    </div>
+
+                                    {/* Grid de Datos */}
+                                    <div className="grid grid-cols-2 gap-3 items-end bg-white/50 dark:bg-gray-800/50 p-2 rounded-lg">
+                                        <div>
+                                            <p className="text-[10px] text-gray-500 uppercase font-bold">Costo</p>
+                                            <p className="text-gray-700 dark:text-gray-300 font-medium">${costo.toFixed(2)}</p>
+                                            <span className={`text-[10px] font-bold ${margen > 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                                                Margen: {margen > 0 ? `${margen.toFixed(0)}%` : '-'}
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <p className={`text-[10px] uppercase font-bold mb-1 ${venta > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                                Precio Venta
+                                            </p>
+                                            <div className="relative">
+                                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
+                                                <input
+                                                    type="number"
+                                                    value={p.selling_price === 0 ? '' : p.selling_price}
+                                                    onChange={(e) => handlePriceChange(i, e.target.value)}
+                                                    className={`w-full pl-5 pr-2 py-2 text-sm font-bold text-right border rounded-lg focus:ring-2 outline-none transition-colors ${inputClass}`}
+                                                    placeholder="0.00"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* --- VISTA ESCRITORIO (TABLA) --- */}
                     <div className="hidden md:block bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-visible transition-colors">
                         <div className="overflow-visible">
                             <table className="min-w-full text-sm text-left">
@@ -346,8 +399,11 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                                         const venta = parseFloat(p.selling_price) || 0;
                                         const margen = venta > 0 ? ((venta - costo) / venta * 100) : 0;
                                         const isPriceChanged = p.status === 'price_changed';
+                                        const isMerged = p.status === 'merged'; // ✨ DETECTAR FUSIÓN
+
                                         let rowClass = "hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors";
                                         if (isPriceChanged) rowClass = "bg-yellow-50 dark:bg-yellow-900/10 hover:bg-yellow-100 dark:hover:bg-yellow-900/20 transition-colors";
+                                        if (isMerged) rowClass = "bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors"; // ✨ CLASE MORADA
 
                                         return (
                                             <tr key={i} className={rowClass}>
@@ -355,7 +411,10 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                                                     <div className="flex flex-col gap-1 items-start">
                                                         {isPriceChanged && <span className="bg-yellow-200 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 text-[10px] font-bold px-2 py-0.5 rounded-md">⚠️ Precio</span>}
                                                         {p.status === 'new' && <span className="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 text-[10px] font-bold px-2 py-0.5 rounded-md">NUEVO</span>}
-                                                        {p.status === 'new' && p.suggestions?.length > 0 && (
+                                                        {isMerged && <span className="bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-200 border border-purple-200 dark:border-purple-700 text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1"><Link className="w-3 h-3" /> FUSIONADO</span>}
+
+                                                        {/* MENU DUPLICADOS (Solo si es nuevo y NO está fusionado) */}
+                                                        {p.status === 'new' && !isMerged && p.suggestions?.length > 0 && (
                                                             <div className="relative">
                                                                 <button onClick={() => setMergeMenuOpen(mergeMenuOpen === i ? null : i)} className="mt-1 bg-orange-100 hover:bg-orange-200 dark:bg-orange-900/30 dark:hover:bg-orange-900/50 text-orange-800 dark:text-orange-300 text-[10px] font-bold px-2 py-1 rounded-md flex items-center gap-1 cursor-pointer border border-orange-300 dark:border-orange-800 transition-colors">
                                                                     <GitMerge className="w-3 h-3" /> Duplicado?
@@ -406,7 +465,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                 </div>
             )}
 
-            {/* --- MODAL DE FUSIÓN (PENDIENTE DE FUSIÓN) --- */}
+            {/* --- MODAL DE FUSIÓN --- */}
             {pendingMerge && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
                     <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden animate-scale-in relative text-center p-6 transition-colors">
@@ -431,27 +490,18 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                 </div>
             )}
 
-            {/* --- 🛑 NUEVO: MODAL BONITO PARA ARCHIVOS DUPLICADOS 🛑 --- */}
+            {/* --- MODAL DUPLICADOS --- */}
             {duplicateModal.isOpen && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
                     <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-scale-in relative p-6 transition-colors">
-
-                        {/* Botón cerrar X */}
-                        <button
-                            onClick={() => handleDuplicateResponse(false)}
-                            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
-                        >
+                        <button onClick={() => handleDuplicateResponse(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
                             <X className="w-6 h-6" />
                         </button>
-
                         <div className="flex flex-col items-center text-center">
-                            {/* Icono de Alerta */}
                             <div className="bg-yellow-50 dark:bg-yellow-900/20 w-20 h-20 rounded-full flex items-center justify-center mb-4 border-4 border-white dark:border-gray-800 shadow-sm transition-colors">
                                 <History className="w-10 h-10 text-yellow-600 dark:text-yellow-400" />
                             </div>
-
                             <h3 className="text-xl font-black text-gray-900 dark:text-white mb-2">Archivo ya importado</h3>
-
                             <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700 w-full mb-6">
                                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Este archivo ya fue procesado anteriormente:</p>
                                 <p className="font-bold text-gray-800 dark:text-gray-200 break-all text-sm mb-2">{duplicateModal.filename}</p>
@@ -459,22 +509,14 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                                     <span className="bg-white dark:bg-gray-800 px-2 py-1 rounded border border-gray-200 dark:border-gray-600">{duplicateModal.date}</span>
                                 </div>
                             </div>
-
                             <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">
                                 No es necesario cargarlo de nuevo. <br />¿Quieres ver el historial de esa importación?
                             </p>
-
                             <div className="grid grid-cols-2 gap-3 w-full">
-                                <button
-                                    onClick={() => handleDuplicateResponse(false)}
-                                    className="w-full bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-white font-bold py-3 rounded-xl transition-colors border border-gray-200 dark:border-gray-600"
-                                >
+                                <button onClick={() => handleDuplicateResponse(false)} className="w-full bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-white font-bold py-3 rounded-xl transition-colors border border-gray-200 dark:border-gray-600">
                                     Cancelar
                                 </button>
-                                <button
-                                    onClick={() => handleDuplicateResponse(true)}
-                                    className="w-full bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-95 flex items-center justify-center gap-2"
-                                >
+                                <button onClick={() => handleDuplicateResponse(true)} className="w-full bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-95 flex items-center justify-center gap-2">
                                     Ver Historial <ArrowRight className="w-4 h-4" />
                                 </button>
                             </div>
@@ -482,7 +524,6 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                     </div>
                 </div>
             )}
-
         </div>
     );
 }

@@ -7,16 +7,14 @@ import xml.etree.ElementTree as ET
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import or_, func, case
-from typing import List, Dict, Optional
+from sqlalchemy import or_, func, case, update, delete
+from typing import List, Dict, Optional, Set
 from pydantic import BaseModel
 from app.core.database import get_db
 from app.services.xml_service import XmlInvoiceParser
 from app.domain.models import Product, PriceHistory, ImportBatch, ImportBatchItem
 
-# Configuración de logs
 logger = logging.getLogger(__name__)
-
 router = APIRouter()
 parser = XmlInvoiceParser()
 
@@ -31,11 +29,12 @@ class ManualProductSchema(BaseModel):
     stock: int = 0
 
 
-# --- UTILIDADES DE ALTO RENDIMIENTO ---
+class BatchUpdateSchema(BaseModel):
+    filename: str
 
 
+# --- UTILIDADES ---
 def normalize_name(text: str) -> str:
-    """Limpieza rápida de texto para comparaciones."""
     if not text:
         return ""
     text = str(text).lower()
@@ -46,41 +45,35 @@ def normalize_name(text: str) -> str:
 
 
 def clean_code(code: str) -> str:
-    """Limpieza de códigos (SKU/UPC) eliminando caracteres basura."""
     if not code:
         return ""
     return re.sub(r"[\W_]+", "", str(code).upper())
 
 
-def extract_sku_from_text(text: str) -> Optional[str]:
-    """
-    Extracción optimizada de SKU (Lógica Truper) usando Regex compilado.
-    """
+# 🔥 MEJORA: Extraer CUALQUIER código numérico posible del texto
+def extract_potential_codes(text: str) -> List[str]:
     if not text:
-        return None
-    # Patrón 1: Código entre paréntesis (ej: Truper (10234))
-    match = re.search(r"\((\d{4,6})\)", text)
-    if match:
-        return match.group(1)
-    # Patrón 2: Código de 5 dígitos al final
-    match_end = re.search(r"\b(\d{5})$", text.strip())
-    if match_end:
-        return match_end.group(1)
-    return None
+        return []
+    # Busca cualquier secuencia de 4 a 6 dígitos (ej: 55850, 123456)
+    # \b asegura que no sea parte de un número más largo
+    candidates = re.findall(r"\b(\d{4,6})\b", text)
+    return list(set(candidates))  # Elimina duplicados
 
 
-# --- 1. SUBIDA XML OPTIMIZADA ---
+# --- 1. SUBIDA XML (MATCHING AGRESIVO) ---
 @router.post("/upload")
 async def upload_invoice(
     file: UploadFile = File(...), db: AsyncSession = Depends(get_db)
 ):
+    print(f"--- INICIANDO CARGA: {file.filename} ---")
+
     if not (
         file.filename.endswith(".xml")
         or file.content_type in ["text/xml", "application/xml"]
     ):
         raise HTTPException(status_code=400, detail="Debe ser XML")
 
-    # 🚀 1. CHECK RÁPIDO DE DUPLICADOS (Sin procesar nada si ya existe)
+    # 1. Check duplicados
     stmt_check = select(ImportBatch).where(ImportBatch.filename == file.filename)
     result_check = await db.execute(stmt_check)
     existing_batch = result_check.scalars().first()
@@ -88,59 +81,70 @@ async def upload_invoice(
     if existing_batch:
         return {
             "status": "exists",
-            "message": "Archivo ya procesado anteriormente.",
+            "message": "Archivo ya procesado.",
             "batch_id": existing_batch.id,
             "filename": existing_batch.filename,
             "uploaded_at": existing_batch.created_at,
         }
 
-    # Procesamiento del archivo
+    # 2. Leer XML
     content = await file.read()
     try:
         extracted_items = await parser.extract_data(content, db)
     except Exception as e:
         logger.error(f"Error XML: {e}")
-        raise HTTPException(500, f"Error leyendo XML: {str(e)}")
+        raise HTTPException(500, f"Error leyendo estructura XML: {str(e)}")
 
-    # Crear registro del Lote
+    # 3. Crear Lote
     new_batch = ImportBatch(filename=file.filename)
     db.add(new_batch)
     await db.flush()
+    current_batch_id = new_batch.id
 
-    # 🚀 2. CARGA EFICIENTE EN MEMORIA
+    # 4. Cargar Inventario
     stmt = select(Product)
     all_db_products = (await db.execute(stmt)).scalars().all()
 
-    sku_map = {}
-    upc_map = {}
-    name_map = {}
-
-    for p in all_db_products:
-        if p.sku:
-            sku_map[clean_code(p.sku)] = p
-        if p.upc:
-            upc_map[clean_code(p.upc)] = p
-        name_map[normalize_name(p.name)] = p
-
+    sku_map = {clean_code(p.sku): p for p in all_db_products if p.sku}
+    upc_map = {clean_code(p.upc): p for p in all_db_products if p.upc}
+    name_map = {normalize_name(p.name): p for p in all_db_products}
     fuzzy_keys = list(name_map.keys())
 
+    # 5. Agrupar Items
     grouped_items = {}
     for item in extracted_items:
-        key = item["sku"] if item["sku"] else item["name"]
+        key = item.get("sku") or item.get("name")
+        if not key:
+            continue
+
+        qty = float(item.get("quantity", 0))
+        cost = float(item.get("unit_price_no_tax", 0))
+        line_val = qty * cost
+
         if key in grouped_items:
-            grouped_items[key]["qty"] += item["quantity"]
-            grouped_items[key]["total_line"] += item["total_line"]
+            grouped_items[key]["qty"] += qty
+            grouped_items[key]["total_value"] += line_val
+            if grouped_items[key]["qty"] > 0:
+                grouped_items[key]["cost"] = (
+                    grouped_items[key]["total_value"] / grouped_items[key]["qty"]
+                )
         else:
             grouped_items[key] = {
-                "sku": item["sku"],
+                "sku": item.get("sku", ""),
                 "upc": item.get("upc", ""),
-                "name": item["name"],
-                "qty": item["quantity"],
-                "cost": item["unit_price_no_tax"],
-                "cost_tax": item["unit_price_with_tax"],
+                "name": item.get("name", "Sin Nombre"),
+                "qty": qty,
+                "cost": cost,
+                "cost_tax": float(item.get("unit_price_with_tax", 0)),
+                "total_value": line_val,
             }
 
-    processed_data = []
+    # 6. Procesamiento
+    final_response_data = []
+    new_products_buffer = []
+    price_history_buffer = []
+    batch_items_buffer = []
+    temp_new_products_map = []
 
     for key, data in grouped_items.items():
         existing_product = None
@@ -148,46 +152,46 @@ async def upload_invoice(
         xml_sku = clean_code(data["sku"])
         xml_upc = clean_code(data.get("upc", ""))
         xml_name_norm = normalize_name(data["name"])
-        extracted_sku = extract_sku_from_text(data["name"])
 
-        # Estrategia de búsqueda
+        # Extraemos TODOS los posibles códigos del nombre (ej: "55850")
+        potential_codes = extract_potential_codes(data["name"])
+
+        # Búsqueda EXACTA (Prioridad 1)
         if xml_sku and xml_sku in sku_map:
             existing_product = sku_map[xml_sku]
         elif xml_upc and xml_upc in upc_map:
             existing_product = upc_map[xml_upc]
-        elif extracted_sku and extracted_sku in sku_map:
-            existing_product = sku_map[extracted_sku]
+        # Nota: Ya no buscamos exacto por nombre para dar oportunidad a la sugerencia por código si varía un poco
         elif xml_name_norm in name_map:
             existing_product = name_map[xml_name_norm]
 
-        if not existing_product:
-            matches = difflib.get_close_matches(
-                xml_name_norm, fuzzy_keys, n=1, cutoff=0.85
-            )
-            if matches:
-                existing_product = name_map[matches[0]]
-
         status = "ok"
         suggestions = []
-        final_db_id = None
+        p_id = None
+        p_selling_price = 0.0
         old_cost = 0.0
 
         if existing_product:
-            final_db_id = existing_product.id
+            # --- PRODUCTO YA EXISTENTE ---
+            p_id = existing_product.id
             old_cost = existing_product.price
 
-            # Actualizar SKU si lo encontramos por otra vía
-            sku_cand = xml_sku or extracted_sku
+            # Autocompletar datos faltantes
+            sku_cand = xml_sku
+            # Si no tenemos SKU del XML, probamos si alguno de los códigos del nombre es el SKU
+            if not sku_cand and potential_codes and not existing_product.sku:
+                sku_cand = potential_codes[0]  # Tomamos el primero como candidato
+
             if sku_cand and not existing_product.sku:
                 existing_product.sku = sku_cand
-                sku_map[sku_cand] = existing_product
-
             if not existing_product.upc and data.get("upc"):
                 existing_product.upc = data.get("upc")
 
+            existing_product.stock_quantity += data["qty"]
+
             if abs(existing_product.price - data["cost"]) > 0.1:
                 status = "price_changed"
-                db.add(
+                price_history_buffer.append(
                     PriceHistory(
                         product_id=existing_product.id,
                         change_type="COSTO",
@@ -196,24 +200,66 @@ async def upload_invoice(
                     )
                 )
 
-            if status == "ok" and (existing_product.selling_price or 0) > 0:
-                status = "hidden"
-
-            existing_product.stock_quantity += data["qty"]
             existing_product.price = data["cost"]
 
+            p_selling_price = (
+                existing_product.selling_price
+                if existing_product.selling_price
+                else 0.0
+            )
+            if status == "ok" and p_selling_price > 0:
+                status = "hidden"
+
+            batch_items_buffer.append(
+                ImportBatchItem(batch_id=current_batch_id, product_id=p_id)
+            )
+
         else:
+            # --- PRODUCTO NUEVO (BUSCAR SUGERENCIAS) ---
             status = "new"
+            seen_ids = set()
+
+            # 1. BÚSQUEDA INTELIGENTE POR CÓDIGO (La solución)
+            # Si en el nombre XML dice "55850", buscamos en la BD cualquier cosa que tenga "55850"
+            if potential_codes:
+                for db_prod in all_db_products:
+                    for code in potential_codes:
+                        # Coincide con SKU, UPC o está DENTRO del nombre del producto BD
+                        if (
+                            (code == db_prod.sku)
+                            or (code == db_prod.upc)
+                            or (code in (db_prod.name or ""))
+                        ):
+                            if db_prod.id not in seen_ids:
+                                suggestions.append(
+                                    {
+                                        "id": db_prod.id,
+                                        "name": db_prod.name,
+                                        "price": db_prod.price,
+                                    }
+                                )
+                                seen_ids.add(db_prod.id)
+
+            # 2. Respaldo: Búsqueda Difusa por Texto (30% similitud)
             matches = difflib.get_close_matches(
-                xml_name_norm, fuzzy_keys, n=3, cutoff=0.6
+                xml_name_norm, fuzzy_keys, n=5, cutoff=0.3
             )
             for m in matches:
                 mp = name_map[m]
-                suggestions.append({"id": mp.id, "name": mp.name, "price": mp.price})
+                if mp.id not in seen_ids:
+                    suggestions.append(
+                        {"id": mp.id, "name": mp.name, "price": mp.price}
+                    )
+                    seen_ids.add(mp.id)
 
-            final_sku = xml_sku if xml_sku else extracted_sku
+            # Crear Nuevo
+            final_sku = xml_sku
+            if not final_sku and potential_codes:
+                final_sku = potential_codes[
+                    0
+                ]  # Usar el código del nombre como SKU tentativo
 
-            new_prod = Product(
+            new_p = Product(
                 sku=final_sku,
                 upc=data.get("upc"),
                 name=data["name"],
@@ -221,61 +267,85 @@ async def upload_invoice(
                 stock_quantity=data["qty"],
                 selling_price=0.0,
             )
-            db.add(new_prod)
-            await db.flush()
-            final_db_id = new_prod.id
+            new_products_buffer.append(new_p)
 
-            if final_sku:
-                sku_map[final_sku] = new_prod
-            name_map[xml_name_norm] = new_prod
-            fuzzy_keys.append(xml_name_norm)
-
-            db.add(
-                PriceHistory(
-                    product_id=new_prod.id,
-                    change_type="COSTO",
-                    old_value=0,
-                    new_value=data["cost"],
-                )
-            )
-
-        if final_db_id:
-            db.add(ImportBatchItem(batch_id=new_batch.id, product_id=final_db_id))
-
-        if status != "hidden":
-            processed_data.append(
+            temp_new_products_map.append(
                 {
-                    "id": final_db_id,
-                    "name": data["name"],
-                    "qty": data["qty"],
+                    "product_obj": new_p,
                     "cost": data["cost"],
-                    "cost_with_tax": data["cost_tax"],
-                    "old_cost": old_cost,
-                    "selling_price": existing_product.selling_price
-                    if existing_product
-                    else 0.0,
-                    "sku": existing_product.sku
-                    if (existing_product and existing_product.sku)
-                    else "",
-                    "status": status,
-                    "suggestions": suggestions,
+                    "response_idx": len(final_response_data),
                 }
             )
 
-    await db.commit()
-    processed_data.sort(
-        key=lambda x: 0
-        if x["status"] == "price_changed"
-        else 1
-        if x["status"] == "new"
-        else 2
+        final_response_data.append(
+            {
+                "id": p_id,
+                "name": data["name"],
+                "qty": data["qty"],
+                "cost": data["cost"],
+                "cost_with_tax": data["cost_tax"],
+                "old_cost": old_cost,
+                "selling_price": float(p_selling_price),
+                "sku": (
+                    str(existing_product.sku)
+                    if existing_product and existing_product.sku
+                    else ""
+                ),
+                "upc": (
+                    str(existing_product.upc)
+                    if existing_product and existing_product.upc
+                    else ""
+                ),
+                "status": status,
+                "suggestions": suggestions,
+            }
+        )
+
+    # 7. Guardado Masivo
+    if new_products_buffer:
+        db.add_all(new_products_buffer)
+        await db.flush()
+
+    for item in temp_new_products_map:
+        new_p = item["product_obj"]
+        idx = item["response_idx"]
+        price_history_buffer.append(
+            PriceHistory(
+                product_id=new_p.id,
+                change_type="COSTO",
+                old_value=0,
+                new_value=item["cost"],
+            )
+        )
+        batch_items_buffer.append(
+            ImportBatchItem(batch_id=current_batch_id, product_id=new_p.id)
+        )
+
+        final_response_data[idx]["id"] = new_p.id
+        final_response_data[idx]["sku"] = str(new_p.sku) if new_p.sku else ""
+        final_response_data[idx]["upc"] = str(new_p.upc) if new_p.upc else ""
+
+    db.add_all(price_history_buffer)
+    db.add_all(batch_items_buffer)
+
+    try:
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(500, f"Error DB: {str(e)}")
+
+    final_response_data.sort(
+        key=lambda x: (
+            0 if x["status"] == "price_changed" else 1 if x["status"] == "new" else 2
+        )
     )
 
     return {
         "status": "success",
         "message": "Procesado correctamente",
-        "products": processed_data,
-        "hidden_count": len(grouped_items) - len(processed_data),
+        "products": final_response_data,
+        "hidden_count": len(grouped_items) - len(final_response_data),
+        "batch_id": current_batch_id,
     }
 
 
@@ -290,14 +360,12 @@ async def update_prices(
         if item.get("id"):
             p = await db.get(Product, item["id"])
 
-        # Fallback por nombre
         if not p:
             res = await db.execute(select(Product).where(Product.name == item["name"]))
             p = res.scalar_one_or_none()
 
         if p:
             try:
-                # 1. Actualizar Precio Venta
                 if "selling_price" in item:
                     new_price = float(item["selling_price"])
                     if abs((p.selling_price or 0) - new_price) > 0.01:
@@ -310,23 +378,18 @@ async def update_prices(
                             )
                         )
                         p.selling_price = new_price
-
-                # 2. Actualizar UPC (NUEVO)
                 if "upc" in item:
                     new_upc = str(item["upc"]).strip()
-                    # Solo actualizamos si es diferente y no está vacío
                     if new_upc and new_upc != (p.upc or ""):
                         p.upc = new_upc
-
                 count += 1
             except:
                 continue
-
     await db.commit()
     return {"message": f"{count} productos actualizados."}
 
 
-# --- 3. OBTENER PRODUCTOS (MODIFICADO: ÚLTIMOS 50 MODIFICADOS) ---
+# --- 3. OBTENER PRODUCTOS ---
 @router.get("/products")
 async def get_products(
     q: Optional[str] = None,
@@ -334,14 +397,12 @@ async def get_products(
     min_price: float = None,
     max_price: float = None,
     min_stock: int = None,
-    # 👇 CAMBIOS AQUÍ: Valores por defecto para "Últimos 50 modificados"
     sort_by: str = "updated_at",
     sort_order: str = "desc",
     limit: int = 50,
     db: AsyncSession = Depends(get_db),
 ):
     stmt = select(Product)
-
     if q:
         search_filter = f"%{q}%"
         stmt = stmt.where(
@@ -363,18 +424,13 @@ async def get_products(
     if min_stock is not None:
         stmt = stmt.where(Product.stock_quantity <= min_stock)
 
-    # 👇 LÓGICA MEJORADA DE ORDENAMIENTO
-    # Intentamos ordenar por lo que pide el usuario ('updated_at' por defecto).
-    # Si el modelo Product no tiene ese campo, usamos 'id' (últimos creados) como fallback seguro.
     sort_col = getattr(Product, sort_by, None)
     if sort_col is None:
-        sort_col = Product.id  # Fallback a ID si 'updated_at' no existe
+        sort_col = Product.id
 
-    # Aplicar orden (descendente por defecto para ver los últimos)
     stmt = stmt.order_by(
         sort_col.desc() if sort_order == "desc" else sort_col.asc()
     ).limit(limit)
-
     result = await db.execute(stmt)
     return [
         {
@@ -433,14 +489,42 @@ async def update_product_single(
 # --- 5. FUSIONAR ---
 @router.post("/merge")
 async def merge_products(data: dict = Body(...), db: AsyncSession = Depends(get_db)):
-    k = await db.get(Product, data.get("keep_id"))
-    d = await db.get(Product, data.get("discard_id"))
+    keep_id = data.get("keep_id")
+    discard_id = data.get("discard_id")
+
+    res_k = await db.execute(select(Product).where(Product.id == keep_id))
+    k = res_k.scalar_one_or_none()
+
+    res_d = await db.execute(select(Product).where(Product.id == discard_id))
+    d = res_d.scalar_one_or_none()
+
     if not k or not d:
         raise HTTPException(404, "Producto no encontrado")
-    k.stock_quantity += d.stock_quantity
-    if d.price > 0:
-        k.price = d.price
-    await db.delete(d)
+
+    qty_to_add = d.stock_quantity
+    price_discard = d.price
+    price_keep = k.price
+    new_price = price_keep
+    if price_discard > 0 and price_keep == 0:
+        new_price = price_discard
+
+    await db.execute(
+        update(ImportBatchItem)
+        .where(ImportBatchItem.product_id == discard_id)
+        .values(product_id=keep_id)
+    )
+    await db.execute(
+        update(PriceHistory)
+        .where(PriceHistory.product_id == discard_id)
+        .values(product_id=keep_id)
+    )
+    await db.execute(
+        update(Product)
+        .where(Product.id == keep_id)
+        .values(stock_quantity=Product.stock_quantity + qty_to_add, price=new_price)
+    )
+    await db.execute(delete(Product).where(Product.id == discard_id))
+
     await db.commit()
     return {"message": "Fusionado correctamente"}
 
@@ -582,12 +666,7 @@ async def upload_catalog(
         raise HTTPException(500, str(e))
 
 
-# --- ESQUEMA PARA RENOMBRAR ---
-class BatchUpdateSchema(BaseModel):
-    filename: str
-
-
-# --- ENDPOINT PARA RENOMBRAR LOTE ---
+# --- 10. BATCHES ---
 @router.put("/batches/{batch_id}")
 async def update_batch(
     batch_id: int, data: BatchUpdateSchema, db: AsyncSession = Depends(get_db)
@@ -595,19 +674,13 @@ async def update_batch(
     batch = await db.get(ImportBatch, batch_id)
     if not batch:
         raise HTTPException(status_code=404, detail="Lote no encontrado")
-
     batch.filename = data.filename
     await db.commit()
     return {"message": "Nombre actualizado"}
 
 
-# --- 10. BATCHES (ULTRA RÁPIDO) ---
 @router.get("/batches")
 async def get_batches(db: AsyncSession = Depends(get_db)):
-    """
-    Obtiene el historial agrupando todo en una sola consulta SQL.
-    Evita el bucle N+1 que ralentiza el sistema.
-    """
     stmt = (
         select(
             ImportBatch.id,
@@ -628,10 +701,7 @@ async def get_batches(db: AsyncSession = Depends(get_db)):
         .order_by(ImportBatch.created_at.desc())
         .limit(20)
     )
-
     result = await db.execute(stmt)
-    rows = result.all()
-
     return [
         {
             "id": r.id,
@@ -640,7 +710,7 @@ async def get_batches(db: AsyncSession = Depends(get_db)):
             "total": r.total or 0,
             "pending": r.pending or 0,
         }
-        for r in rows
+        for r in result.all()
     ]
 
 
@@ -664,9 +734,9 @@ async def get_batch_items(batch_id: int, db: AsyncSession = Depends(get_db)):
             "price": p.price,
             "selling_price": p.selling_price,
             "stock": p.stock_quantity,
-            "missing_price": True
-            if (not p.selling_price or p.selling_price <= 0)
-            else False,
+            "missing_price": (
+                True if (not p.selling_price or p.selling_price <= 0) else False
+            ),
         }
         for p in prods
     ]
