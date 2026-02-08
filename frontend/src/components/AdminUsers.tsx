@@ -6,7 +6,7 @@ import {
 import { API_URL } from '../config';
 
 const AVAILABLE_PERMISSIONS = [
-    { id: 'dashboard', label: 'Ver Panel Financiero' },
+    { id: 'dashboard', label: 'Ver Dashboard' },
     { id: 'upload', label: 'Cargar XML/Facturas' },
     { id: 'search', label: 'Buscador de Precios' },
     { id: 'manual', label: 'Entrada Manual' },

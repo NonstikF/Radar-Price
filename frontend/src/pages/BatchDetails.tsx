@@ -1,18 +1,16 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowLeft, FileText, Save, Loader2, AlertTriangle, CheckCircle2, Barcode, Filter, ListFilter } from 'lucide-react';
+import { ArrowLeft, FileText, Save, Loader2, AlertTriangle, CheckCircle2, Barcode, Filter, ListFilter, Search, Package } from 'lucide-react';
 import { API_URL } from '../config';
 
 // ==========================================
 // 1. SUB-COMPONENTE: Tarjeta Móvil (Optimizado)
 // ==========================================
 const BatchItemCard = React.memo(({ p, onPriceUpdate, onUpcUpdate }: any) => {
-    // Estado local para escribir súper rápido sin lag
     const [localPrice, setLocalPrice] = useState(p.selling_price || '');
     const [localUpc, setLocalUpc] = useState(p.upc || '');
 
-    // Sincronizar si la data externa cambia (ej: al cargar)
     useEffect(() => {
         setLocalPrice(p.selling_price || '');
         setLocalUpc(p.upc || '');
@@ -22,6 +20,7 @@ const BatchItemCard = React.memo(({ p, onPriceUpdate, onUpcUpdate }: any) => {
     const venta = parseFloat(localPrice) || 0;
     const margen = venta > 0 ? ((venta - costo) / venta * 100) : 0;
     const tienePrecio = venta > 0;
+    const cantidad = p.quantity || 1; // Cantidad del producto
 
     const cardClass = tienePrecio
         ? "bg-green-50/50 dark:bg-green-900/10 border-green-200 dark:border-green-800"
@@ -35,31 +34,40 @@ const BatchItemCard = React.memo(({ p, onPriceUpdate, onUpcUpdate }: any) => {
         <div className={`p-4 rounded-xl border transition-all ${cardClass}`}>
             <div className="mb-3">
                 <div className="flex justify-between items-start gap-2">
-                    <h3 className="text-sm font-bold text-gray-900 dark:text-white leading-snug w-[85%]">{p.name}</h3>
+                    <div className="w-[85%]">
+                        <h3 className="text-sm font-bold text-gray-900 dark:text-white leading-snug">
+                            {p.name}
+                        </h3>
+                        {/* Badge de Cantidad en Móvil */}
+                        <div className="flex items-center gap-2 mt-1">
+                            <span className="inline-flex items-center gap-1 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
+                                <Package className="w-3 h-3" /> x{cantidad}
+                            </span>
+                            <span className="text-xs text-gray-400 font-mono">SKU: {p.sku || 'N/A'}</span>
+                        </div>
+                    </div>
                     {tienePrecio
                         ? <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
                         : <AlertTriangle className="w-5 h-5 text-red-400 shrink-0" />
                     }
                 </div>
-                <div className="flex flex-col gap-1 mt-2">
-                    <p className="text-xs text-gray-400 font-mono">SKU: {p.sku || 'N/A'}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                        <Barcode className="w-4 h-4 text-gray-400 shrink-0" />
-                        <input
-                            type="text"
-                            value={localUpc}
-                            onChange={(e) => setLocalUpc(e.target.value)}
-                            onBlur={() => onUpcUpdate(p.id, localUpc)} // <--- ACTUALIZA AL SALIR
-                            placeholder="UPC..."
-                            className="text-xs border-b border-gray-300 dark:border-gray-600 bg-transparent focus:border-blue-500 outline-none w-full py-1 text-gray-700 dark:text-gray-200"
-                        />
-                    </div>
+
+                <div className="flex items-center gap-2 mt-2">
+                    <Barcode className="w-4 h-4 text-gray-400 shrink-0" />
+                    <input
+                        type="text"
+                        value={localUpc}
+                        onChange={(e) => setLocalUpc(e.target.value)}
+                        onBlur={() => onUpcUpdate(p.id, localUpc)}
+                        placeholder="UPC..."
+                        className="text-xs border-b border-gray-300 dark:border-gray-600 bg-transparent focus:border-blue-500 outline-none w-full py-1 text-gray-700 dark:text-gray-200"
+                    />
                 </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3 items-end bg-white/50 dark:bg-gray-800/50 p-2 rounded-lg">
                 <div>
-                    <p className="text-[10px] text-gray-500 uppercase font-bold">Costo</p>
+                    <p className="text-[10px] text-gray-500 uppercase font-bold">Costo Unit.</p>
                     <p className="text-gray-700 dark:text-gray-300 font-medium">${costo.toFixed(2)}</p>
                     <span className={`text-[10px] font-bold ${margen > 0 ? 'text-green-600' : 'text-gray-400'}`}>
                         Margen: {margen > 0 ? `${margen.toFixed(0)}%` : '-'}
@@ -73,7 +81,7 @@ const BatchItemCard = React.memo(({ p, onPriceUpdate, onUpcUpdate }: any) => {
                             type="number"
                             value={localPrice}
                             onChange={(e) => setLocalPrice(e.target.value)}
-                            onBlur={() => onPriceUpdate(p.id, localPrice)} // <--- ACTUALIZA AL SALIR
+                            onBlur={() => onPriceUpdate(p.id, localPrice)}
                             className={`w-full pl-5 pr-2 py-2 text-sm font-bold text-right border rounded-lg focus:ring-2 outline-none transition-colors ${inputClass}`}
                             placeholder="0.00"
                         />
@@ -100,6 +108,7 @@ const BatchItemRow = React.memo(({ p, onPriceUpdate, onUpcUpdate }: any) => {
     const venta = parseFloat(localPrice) || 0;
     const margen = venta > 0 ? ((venta - costo) / venta * 100) : 0;
     const tienePrecio = venta > 0;
+    const cantidad = p.quantity || 1; // Cantidad
 
     const rowClass = tienePrecio
         ? "bg-green-50/30 hover:bg-green-50 dark:bg-green-900/10 dark:hover:bg-green-900/20"
@@ -112,6 +121,12 @@ const BatchItemRow = React.memo(({ p, onPriceUpdate, onUpcUpdate }: any) => {
     return (
         <tr className={`transition-colors ${rowClass}`}>
             <td className="px-4 py-3 font-mono text-xs text-gray-500">{p.sku || '-'}</td>
+            <td className="px-4 py-3 text-center">
+                {/* Columna Cantidad */}
+                <span className="bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 font-bold px-2 py-1 rounded-md text-xs">
+                    {cantidad}
+                </span>
+            </td>
             <td className="px-4 py-3">
                 <div className="relative group">
                     <input
@@ -167,6 +182,7 @@ export function BatchDetails() {
     const [successMsg, setSuccessMsg] = useState("");
     const [error, setError] = useState("");
     const [filter, setFilter] = useState<'all' | 'missing' | 'ready'>('all');
+    const [searchTerm, setSearchTerm] = useState(""); // NUEVO: Estado de búsqueda
 
     useEffect(() => {
         const fetchBatchData = async () => {
@@ -184,7 +200,6 @@ export function BatchDetails() {
         if (id) fetchBatchData();
     }, [id]);
 
-    // Callback optimizado: Solo actualiza la lista principal cuando sales del input (onBlur)
     const handlePriceUpdate = useCallback((productId: number, newPrice: string) => {
         setProducts(prev => prev.map(p =>
             p.id === productId ? { ...p, selling_price: newPrice } : p
@@ -225,15 +240,25 @@ export function BatchDetails() {
         return { totalItems, itemsReady, itemsMissing, progress };
     }, [products]);
 
-    // Filtrado
+    // Filtrado (Combinado Búsqueda + Estado)
     const displayedProducts = useMemo(() => {
         return products.filter(p => {
+            // Filtro de Estado
             const hasPrice = parseFloat(p.selling_price) > 0;
-            if (filter === 'missing') return !hasPrice;
-            if (filter === 'ready') return hasPrice;
-            return true;
+            let matchesStatus = true;
+            if (filter === 'missing') matchesStatus = !hasPrice;
+            if (filter === 'ready') matchesStatus = hasPrice;
+
+            // Filtro de Texto (Buscador)
+            const term = searchTerm.toLowerCase();
+            const matchesSearch = !term ||
+                (p.name && p.name.toLowerCase().includes(term)) ||
+                (p.sku && p.sku.toLowerCase().includes(term)) ||
+                (p.upc && p.upc.includes(term));
+
+            return matchesStatus && matchesSearch;
         });
-    }, [products, filter]);
+    }, [products, filter, searchTerm]);
 
     if (loading) return (
         <div className="flex flex-col items-center justify-center h-64 text-gray-500">
@@ -246,28 +271,31 @@ export function BatchDetails() {
 
     return (
         <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-24 animate-fade-in">
-            {/* HEADER */}
+            {/* HEADER Sticky */}
             <div className="sticky top-16 z-30 bg-white/95 dark:bg-gray-900/95 backdrop-blur py-4 border-b border-gray-200 dark:border-gray-800 shadow-sm md:shadow-none -mx-4 px-4 md:mx-0 md:px-0 rounded-b-2xl md:rounded-none">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
-                    <div>
+                    <div className="w-full md:w-auto">
                         <button onClick={() => navigate('/history')} className="flex items-center gap-2 text-gray-500 hover:text-blue-600 transition-colors font-medium mb-2 text-sm">
                             <ArrowLeft className="w-4 h-4" /> Volver al Historial
                         </button>
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400 shrink-0">
-                                <FileText className="w-8 h-8 md:w-6 md:h-6" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <h1 className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white truncate">Importación #{id}</h1>
-                                <div className="flex items-center gap-2 mt-1 w-full max-w-[200px]">
-                                    <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                                        <div className="h-full bg-green-500 transition-all duration-500" style={{ width: `${stats.progress}%` }}></div>
+                        <div className="flex flex-col md:flex-row md:items-center gap-3">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400 shrink-0">
+                                    <FileText className="w-8 h-8 md:w-6 md:h-6" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <h1 className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white truncate">Importación #{id}</h1>
+                                    <div className="flex items-center gap-2 mt-1 w-full max-w-[200px]">
+                                        <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                            <div className="h-full bg-green-500 transition-all duration-500" style={{ width: `${stats.progress}%` }}></div>
+                                        </div>
+                                        <span className="font-bold text-green-600 text-xs">{stats.progress}%</span>
                                     </div>
-                                    <span className="font-bold text-green-600 text-xs">{stats.progress}%</span>
                                 </div>
                             </div>
                         </div>
                     </div>
+
                     <div className="flex items-center gap-3 w-full md:w-auto">
                         {successMsg && <span className="text-green-600 dark:text-green-400 text-xs font-bold animate-pulse flex items-center gap-1 bg-green-50 dark:bg-green-900/20 px-3 py-2 rounded-lg whitespace-nowrap"><CheckCircle2 className="w-4 h-4" /> {successMsg}</span>}
                         <button onClick={handleSave} disabled={saving} className="flex-1 md:flex-none bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg shadow-green-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 text-sm md:text-base">
@@ -277,18 +305,33 @@ export function BatchDetails() {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
-                    <span className="text-gray-400 mr-2 hidden md:block"><ListFilter className="w-5 h-5" /></span>
-                    <button onClick={() => setFilter('all')} className={`px-4 py-1.5 rounded-full text-xs font-bold border transition-all flex items-center gap-2 whitespace-nowrap ${filter === 'all' ? 'bg-gray-800 text-white border-gray-800 dark:bg-white dark:text-gray-900' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}>Todos <span className="opacity-60">({stats.totalItems})</span></button>
-                    <button onClick={() => setFilter('missing')} className={`px-4 py-1.5 rounded-full text-xs font-bold border transition-all flex items-center gap-2 whitespace-nowrap ${filter === 'missing' ? 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-800' : 'bg-white text-gray-500 border-gray-300 hover:bg-orange-50 hover:text-orange-600 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}><AlertTriangle className="w-3 h-3" />Faltan Precio <span className="opacity-80">({stats.itemsMissing})</span></button>
-                    <button onClick={() => setFilter('ready')} className={`px-4 py-1.5 rounded-full text-xs font-bold border transition-all flex items-center gap-2 whitespace-nowrap ${filter === 'ready' ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800' : 'bg-white text-gray-500 border-gray-300 hover:bg-green-50 hover:text-green-600 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}><CheckCircle2 className="w-3 h-3" />Listos <span className="opacity-80">({stats.itemsReady})</span></button>
+                <div className="flex flex-col md:flex-row gap-3">
+                    {/* BARRA DE BÚSQUEDA */}
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                        <input
+                            type="text"
+                            placeholder="Buscar producto, SKU o UPC..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-9 pr-4 py-2 bg-gray-100 dark:bg-gray-800 border border-transparent focus:bg-white dark:focus:bg-gray-900 border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm transition-all"
+                        />
+                    </div>
+
+                    {/* FILTROS */}
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar shrink-0">
+                        <span className="text-gray-400 mr-1 hidden md:block"><ListFilter className="w-5 h-5" /></span>
+                        <button onClick={() => setFilter('all')} className={`px-4 py-1.5 rounded-full text-xs font-bold border transition-all flex items-center gap-2 whitespace-nowrap ${filter === 'all' ? 'bg-gray-800 text-white border-gray-800 dark:bg-white dark:text-gray-900' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}>Todos <span className="opacity-60">({stats.totalItems})</span></button>
+                        <button onClick={() => setFilter('missing')} className={`px-4 py-1.5 rounded-full text-xs font-bold border transition-all flex items-center gap-2 whitespace-nowrap ${filter === 'missing' ? 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-800' : 'bg-white text-gray-500 border-gray-300 hover:bg-orange-50 hover:text-orange-600 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}><AlertTriangle className="w-3 h-3" />Faltan Precio <span className="opacity-80">({stats.itemsMissing})</span></button>
+                        <button onClick={() => setFilter('ready')} className={`px-4 py-1.5 rounded-full text-xs font-bold border transition-all flex items-center gap-2 whitespace-nowrap ${filter === 'ready' ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800' : 'bg-white text-gray-500 border-gray-300 hover:bg-green-50 hover:text-green-600 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}><CheckCircle2 className="w-3 h-3" />Listos <span className="opacity-80">({stats.itemsReady})</span></button>
+                    </div>
                 </div>
             </div>
 
             {displayedProducts.length === 0 ? (
                 <div className="text-center py-20 text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
                     <Filter className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                    <p>No hay productos en esta categoría.</p>
+                    <p>No hay productos que coincidan con la búsqueda.</p>
                 </div>
             ) : (
                 <>
@@ -305,6 +348,7 @@ export function BatchDetails() {
                             <thead className="bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-400 uppercase text-xs font-bold">
                                 <tr>
                                     <th className="px-4 py-3 w-28">SKU</th>
+                                    <th className="px-4 py-3 w-16 text-center">Cant.</th> {/* Nueva Columna */}
                                     <th className="px-4 py-3 w-36">Cód. Barras</th>
                                     <th className="px-4 py-3">Producto</th>
                                     <th className="px-4 py-3 text-right">Costo</th>

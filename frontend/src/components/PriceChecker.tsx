@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Search, X, Save, Barcode, Hash, CheckCircle2, AlertTriangle, ChevronLeft, History, ArrowRight, Camera, Filter, Edit3, PackageOpen, Trash2, Loader2, ArrowDownAZ, ArrowUpAZ } from 'lucide-react';
+import { Search, X, Save, Barcode, Hash, CheckCircle2, AlertTriangle, ChevronLeft, History, ArrowRight, Camera, Filter, Edit3, PackageOpen, Trash2, Loader2, ArrowDownAZ, ArrowUpAZ, Info } from 'lucide-react';
 import { BarcodeScanner } from './BarcodeScanner';
 import { API_URL } from '../config';
 
@@ -16,12 +16,14 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
     const [searchTerm, setSearchTerm] = useState("");
     const [showFilters, setShowFilters] = useState(false);
 
-    // Configuración inicial de filtros
+    // Nuevo estado para saber si estamos mostrando sugerencias
+    const [isSimilarResults, setIsSimilarResults] = useState(false);
+
     const [filters, setFilters] = useState({
         minPrice: "",
         maxPrice: "",
         missingPrice: initialFilter,
-        sortBy: "updated_at", // Orden por defecto: Recientes
+        sortBy: "updated_at",
         sortOrder: "desc"
     });
 
@@ -45,7 +47,6 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     const isAdmin = user.role === 'admin';
 
-    // --- EFECTO DE BÚSQUEDA ---
     useEffect(() => {
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
 
@@ -58,20 +59,48 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
 
     const fetchProducts = async () => {
         setLoading(true);
+        setIsSimilarResults(false); // Reseteamos el aviso de similares
+
         try {
+            // 1. Preparar parámetros base
             const params: any = {
                 q: searchTerm,
                 missing_price: filters.missingPrice,
                 sort_by: filters.sortBy,
                 sort_order: filters.sortOrder,
-                limit: 100 // Cargar suficientes para scroll
+                limit: 100
             };
 
             if (filters.minPrice) params.min_price = filters.minPrice;
             if (filters.maxPrice) params.max_price = filters.maxPrice;
 
+            // 2. PRIMERA BÚSQUEDA (Exacta o normal)
             const response = await axios.get(`${API_URL}/invoices/products`, { params });
-            setProducts(response.data);
+
+            // 3. LÓGICA DE REINTENTO INTELIGENTE
+            // Si no hay resultados, hay término de búsqueda, es numérico y largo (código de barras)
+            if (response.data.length === 0 && searchTerm && searchTerm.length > 8 && /^\d+$/.test(searchTerm)) {
+
+                // Cortamos los últimos 4 dígitos
+                const shortTerm = searchTerm.slice(0, -4);
+
+                // Actualizamos params con el término corto
+                const fallbackParams = { ...params, q: shortTerm };
+
+                // 4. SEGUNDA BÚSQUEDA (Aproximada)
+                const fallbackResponse = await axios.get(`${API_URL}/invoices/products`, { params: fallbackParams });
+
+                if (fallbackResponse.data.length > 0) {
+                    setProducts(fallbackResponse.data);
+                    setIsSimilarResults(true); // ¡Activamos el aviso!
+                } else {
+                    setProducts([]); // Tampoco hubo suerte
+                }
+            } else {
+                // Si hubo resultados a la primera, o no era un código de barras
+                setProducts(response.data);
+            }
+
         } catch (error) {
             console.error(error);
             showToast("Error de conexión", "error");
@@ -94,6 +123,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
             sortBy: "updated_at",
             sortOrder: "desc"
         });
+        setIsSimilarResults(false);
         if (onClearFilter) onClearFilter();
     };
 
@@ -222,7 +252,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                             </div>
                         </div>
 
-                        {/* BOTONES FILTRO (En fila en móvil) */}
+                        {/* BOTONES FILTRO */}
                         <div className="flex gap-2 w-full md:w-auto">
                             <button
                                 onClick={() => setShowFilters(!showFilters)}
@@ -246,7 +276,6 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
             {/* PANEL DE FILTROS */}
             {showFilters && (
                 <div className="mb-4 mx-2 md:mx-0 p-4 md:p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-blue-100 dark:border-blue-900/30 grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6 animate-scale-in">
-
                     <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-400 uppercase">Ordenar por</label>
                         <div className="flex gap-2">
@@ -261,7 +290,6 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                             </button>
                         </div>
                     </div>
-
                     <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-400 uppercase">Precio Venta ($)</label>
                         <div className="flex gap-2 items-center">
@@ -270,13 +298,23 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                             <input type="number" placeholder="Max" value={filters.maxPrice} onChange={(e) => setFilters({ ...filters, maxPrice: e.target.value })} className="w-full p-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none dark:text-white" />
                         </div>
                     </div>
-
                     <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-400 uppercase">Estado</label>
                         <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border border-transparent hover:border-gray-200 dark:hover:border-gray-600">
                             <input type="checkbox" checked={filters.missingPrice} onChange={(e) => setFilters({ ...filters, missingPrice: e.target.checked })} className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300" />
                             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Solo sin precio</span>
                         </label>
+                    </div>
+                </div>
+            )}
+
+            {/* AVISO DE RESULTADOS SIMILARES */}
+            {isSimilarResults && (
+                <div className="mb-4 mx-2 md:mx-0 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-xl flex items-start gap-3 animate-fade-in">
+                    <Info className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                    <div>
+                        <p className="text-sm font-bold text-amber-800 dark:text-amber-200">No se encontró el código exacto.</p>
+                        <p className="text-xs text-amber-700 dark:text-amber-400">Mostrando productos con código similar (ignorando los últimos 4 dígitos).</p>
                     </div>
                 </div>
             )}
@@ -296,11 +334,11 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                         </div>
                     )}
 
-                    {(searchTerm || filters.missingPrice || filters.minPrice || filters.maxPrice) && products.length === 0 && (
+                    {(searchTerm || filters.missingPrice || filters.minPrice || filters.maxPrice) && products.length === 0 && !isSimilarResults && (
                         <div className="text-center py-16 flex flex-col items-center">
                             <PackageOpen className="w-12 h-12 text-gray-300 mb-4" />
                             <h3 className="text-lg font-bold text-gray-700 dark:text-gray-300">No se encontraron productos</h3>
-                            <p className="text-gray-500 text-sm">Prueba otros filtros.</p>
+                            <p className="text-gray-500 text-sm">Prueba otros filtros o escanea de nuevo.</p>
                         </div>
                     )}
 
@@ -310,7 +348,9 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                                 <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm md:text-base leading-tight mb-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-2">{p.name}</h3>
                                 <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                                     <span className="bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded text-gray-600 dark:text-gray-300 font-mono text-[10px] md:text-xs">ID: {p.sku || 'N/A'}</span>
+                                    {p.upc && <span className="bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded text-gray-600 dark:text-gray-300 font-mono text-[10px] md:text-xs">UPC: {p.upc}</span>}
                                     {(!p.selling_price || p.selling_price <= 0) && <span className="text-[10px] bg-orange-100 text-orange-700 px-2 py-0.5 rounded flex items-center gap-1 font-bold whitespace-nowrap"><AlertTriangle className="w-3 h-3" /> Sin precio</span>}
+                                    {isSimilarResults && p.upc && p.upc.startsWith(searchTerm.slice(0, -4)) && <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded font-bold">Similar</span>}
                                 </div>
                             </div>
                             <div className="text-right shrink-0">
@@ -325,7 +365,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                 </div>
             )}
 
-            {/* MODAL DETALLE / EDICIÓN */}
+            {/* MODAL (Sin cambios funcionales, solo estilo heredado) */}
             {selectedProduct && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
                     <div className="absolute inset-0" onClick={handleAttemptClose}></div>

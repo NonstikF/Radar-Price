@@ -590,88 +590,122 @@ async def delete_product(product_id: int, db: AsyncSession = Depends(get_db)):
 async def upload_catalog(
     file: UploadFile = File(...), db: AsyncSession = Depends(get_db)
 ):
-    content = await file.read()
-    new_batch = ImportBatch(filename=f"CATALOGO-{file.filename}")
-    db.add(new_batch)
-    await db.flush()
+    """
+    Importa productos desde un XML de Factura (CFDI 4.0).
+    Mapeo solicitado:
+    - ClaveProdServ -> UPC
+    - NoIdentificacion -> SKU (ID Interno)
+    - ValorUnitario -> Costo
+    """
+    created_count = 0
+    updated_count = 0
+    errors = 0
+
     try:
-        root = ET.fromstring(content)
-        ns = {
+        content = await file.read()
+
+        # Parsear XML
+        try:
+            root = ET.fromstring(content)
+        except ET.ParseError:
+            return {
+                "created": 0,
+                "updated": 0,
+                "errors": 1,
+                "details": ["El archivo no es un XML válido"],
+            }
+
+        # Manejo de Namespaces del SAT (CFDI 4.0 o 3.3)
+        namespaces = {
             "cfdi": "http://www.sat.gob.mx/cfd/4",
             "cfdi3": "http://www.sat.gob.mx/cfd/3",
         }
-        items = root.findall(".//cfdi:Concepto", ns) or root.findall(
-            ".//cfdi3:Concepto", ns
-        )
 
-        all_p = (await db.execute(select(Product))).scalars().all()
-        sku_map = {clean_code(p.sku): p for p in all_p if p.sku}
-        name_map = {normalize_name(p.name): p for p in all_p}
-        fuzzy_keys = list(name_map.keys())
+        # Intentar encontrar conceptos (versión 4.0 o 3.3)
+        conceptos = root.findall(".//cfdi:Concepto", namespaces)
+        if not conceptos:
+            conceptos = root.findall(".//cfdi3:Concepto", namespaces)
 
-        count_new, count_upd = 0, 0
-        for item in items:
-            sku = item.get("NoIdentificacion", "").strip()
-            desc = item.get("Descripcion", "").strip()
+        if not conceptos:
+            return {
+                "created": 0,
+                "updated": 0,
+                "errors": 1,
+                "details": ["No se encontraron conceptos en el XML"],
+            }
+
+        for concepto in conceptos:
             try:
-                price = float(item.get("ValorUnitario", 0))
-                qty = float(item.get("Cantidad", 0))
-            except:
-                price = 0
-                qty = 0
+                # 1. Extraer datos según tu requerimiento
+                upc = concepto.get("ClaveProdServ", "").strip()
+                sku = concepto.get("NoIdentificacion", "").strip()  # ID Interno
+                name = concepto.get("Descripcion", "").strip()
 
-            clean_xml_sku = clean_code(sku)
-            extracted = extract_sku_from_text(desc)
-            norm_desc = normalize_name(desc)
+                # Costo (ValorUnitario en la factura de compra es tu costo)
+                try:
+                    cost = float(concepto.get("ValorUnitario", 0))
+                except:
+                    cost = 0.0
 
-            match = (
-                sku_map.get(clean_xml_sku)
-                or sku_map.get(extracted)
-                or name_map.get(norm_desc)
-            )
-            if not match:
-                fuzzy = difflib.get_close_matches(
-                    norm_desc, fuzzy_keys, n=1, cutoff=0.85
-                )
-                if fuzzy:
-                    match = name_map[fuzzy[0]]
+                # Validar que tengamos al menos un identificador
+                if not sku and not upc:
+                    continue
 
-            final_id = None
-            if match:
-                sku_to_save = sku if sku else extracted
-                if not match.sku and sku_to_save:
-                    match.sku = sku_to_save
-                    sku_map[clean_code(sku_to_save)] = match
-                match.stock_quantity += int(qty)
-                match.price = price
-                count_upd += 1
-                final_id = match.id
-            else:
-                final_sku = sku if sku else extracted
-                new_p = Product(
-                    sku=final_sku,
-                    name=desc,
-                    price=price,
-                    stock_quantity=int(qty),
-                    selling_price=0.0,
-                )
-                db.add(new_p)
-                await db.flush()
-                count_new += 1
-                final_id = new_p.id
-                if final_sku:
-                    sku_map[clean_code(final_sku)] = new_p
-                name_map[norm_desc] = new_p
-                fuzzy_keys.append(norm_desc)
+                # 2. Buscar si el producto ya existe
+                stmt = select(Product)
+                if sku:
+                    stmt = stmt.where(Product.sku == sku)
+                elif upc:
+                    stmt = stmt.where(Product.upc == upc)
 
-            if final_id:
-                db.add(ImportBatchItem(batch_id=new_batch.id, product_id=final_id))
+                result = await db.execute(stmt)
+                product = result.scalar_one_or_none()
+
+                if product:
+                    # --- ACTUALIZAR ---
+                    # Si ya existe, actualizamos datos si están vacíos o el costo cambió
+                    if not product.upc and upc:
+                        product.upc = upc
+                    if not product.sku and sku:
+                        product.sku = sku
+                    if cost > 0:
+                        product.price = cost  # Actualizamos el costo de compra
+
+                    # Opcional: Actualizar nombre si es muy corto o genérico
+                    if len(product.name) < 5 and len(name) > 5:
+                        product.name = name
+
+                    updated_count += 1
+                else:
+                    # --- CREAR ---
+                    new_product = Product(
+                        sku=sku if sku else f"GEN-{upc}",  # Fallback si no hay SKU
+                        upc=upc,
+                        name=name,
+                        price=cost,  # Costo de compra
+                        selling_price=0,  # Precio venta pendiente
+                        stock_quantity=0,
+                    )
+                    db.add(new_product)
+                    created_count += 1
+
+            except Exception as e:
+                print(f"Error procesando item: {e}")
+                errors += 1
 
         await db.commit()
-        return {"message": "Carga OK", "created": count_new, "updated": count_upd}
+
     except Exception as e:
-        await db.rollback()
-        raise HTTPException(500, str(e))
+        print(f"Error crítico en upload_catalog: {str(e)}")
+        # Retornamos error controlado en lugar de 500 para que el frontend lo muestre bonito
+        return {
+            "created": 0,
+            "updated": 0,
+            "errors": 1,
+            "details": [f"Error interno: {str(e)}"],
+        }
+
+    return {"created": created_count, "updated": updated_count, "errors": errors}
 
 
 # --- 10. BATCHES ---
