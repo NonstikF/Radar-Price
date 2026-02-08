@@ -586,16 +586,16 @@ async def delete_product(product_id: int, db: AsyncSession = Depends(get_db)):
 
 
 # --- 9. CATÁLOGO MASIVO ---
+# ... (imports)
+
+
 @router.post("/upload-catalog")
 async def upload_catalog(
     file: UploadFile = File(...), db: AsyncSession = Depends(get_db)
 ):
     """
     Importa productos desde un XML de Factura (CFDI 4.0).
-    Mapeo solicitado:
-    - ClaveProdServ -> UPC
-    - NoIdentificacion -> SKU (ID Interno)
-    - ValorUnitario -> Costo
+    Ahora incluye CANTIDAD.
     """
     created_count = 0
     updated_count = 0
@@ -603,8 +603,6 @@ async def upload_catalog(
 
     try:
         content = await file.read()
-
-        # Parsear XML
         try:
             root = ET.fromstring(content)
         except ET.ParseError:
@@ -612,16 +610,14 @@ async def upload_catalog(
                 "created": 0,
                 "updated": 0,
                 "errors": 1,
-                "details": ["El archivo no es un XML válido"],
+                "details": ["XML inválido"],
             }
 
-        # Manejo de Namespaces del SAT (CFDI 4.0 o 3.3)
         namespaces = {
             "cfdi": "http://www.sat.gob.mx/cfd/4",
             "cfdi3": "http://www.sat.gob.mx/cfd/3",
         }
 
-        # Intentar encontrar conceptos (versión 4.0 o 3.3)
         conceptos = root.findall(".//cfdi:Concepto", namespaces)
         if not conceptos:
             conceptos = root.findall(".//cfdi3:Concepto", namespaces)
@@ -631,27 +627,31 @@ async def upload_catalog(
                 "created": 0,
                 "updated": 0,
                 "errors": 1,
-                "details": ["No se encontraron conceptos en el XML"],
+                "details": ["Sin conceptos"],
             }
 
         for concepto in conceptos:
             try:
-                # 1. Extraer datos según tu requerimiento
+                # 1. Extraer datos (Agregamos CANTIDAD)
                 upc = concepto.get("ClaveProdServ", "").strip()
-                sku = concepto.get("NoIdentificacion", "").strip()  # ID Interno
+                sku = concepto.get("NoIdentificacion", "").strip()
                 name = concepto.get("Descripcion", "").strip()
 
-                # Costo (ValorUnitario en la factura de compra es tu costo)
+                # Cantidad y Costo (Con seguridad ante valores nulos)
+                try:
+                    qty = float(concepto.get("Cantidad", 0))
+                except:
+                    qty = 0.0
+
                 try:
                     cost = float(concepto.get("ValorUnitario", 0))
                 except:
                     cost = 0.0
 
-                # Validar que tengamos al menos un identificador
                 if not sku and not upc:
                     continue
 
-                # 2. Buscar si el producto ya existe
+                # 2. Buscar Producto
                 stmt = select(Product)
                 if sku:
                     stmt = stmt.where(Product.sku == sku)
@@ -663,47 +663,38 @@ async def upload_catalog(
 
                 if product:
                     # --- ACTUALIZAR ---
-                    # Si ya existe, actualizamos datos si están vacíos o el costo cambió
                     if not product.upc and upc:
                         product.upc = upc
                     if not product.sku and sku:
                         product.sku = sku
                     if cost > 0:
-                        product.price = cost  # Actualizamos el costo de compra
+                        product.price = cost
 
-                    # Opcional: Actualizar nombre si es muy corto o genérico
-                    if len(product.name) < 5 and len(name) > 5:
-                        product.name = name
+                    # Opcional: ¿Quieres sumar al stock existente?
+                    # product.stock_quantity += qty
 
                     updated_count += 1
                 else:
                     # --- CREAR ---
                     new_product = Product(
-                        sku=sku if sku else f"GEN-{upc}",  # Fallback si no hay SKU
+                        sku=sku if sku else f"GEN-{upc}",
                         upc=upc,
                         name=name,
-                        price=cost,  # Costo de compra
-                        selling_price=0,  # Precio venta pendiente
-                        stock_quantity=0,
+                        price=cost,
+                        selling_price=0,
+                        stock_quantity=qty,  # <--- AQUÍ GUARDAMOS LA CANTIDAD REAL
                     )
                     db.add(new_product)
                     created_count += 1
 
             except Exception as e:
-                print(f"Error procesando item: {e}")
+                print(f"Error item: {e}")
                 errors += 1
 
         await db.commit()
 
     except Exception as e:
-        print(f"Error crítico en upload_catalog: {str(e)}")
-        # Retornamos error controlado en lugar de 500 para que el frontend lo muestre bonito
-        return {
-            "created": 0,
-            "updated": 0,
-            "errors": 1,
-            "details": [f"Error interno: {str(e)}"],
-        }
+        return {"created": 0, "updated": 0, "errors": 1, "details": [str(e)]}
 
     return {"created": created_count, "updated": updated_count, "errors": errors}
 
