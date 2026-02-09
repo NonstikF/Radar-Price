@@ -1,18 +1,16 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowLeft, FileText, Save, Loader2, AlertTriangle, CheckCircle2, Barcode, Filter, ListFilter } from 'lucide-react';
+import { ArrowLeft, FileText, Save, Loader2, AlertTriangle, CheckCircle2, Barcode, Filter, ListFilter, Box } from 'lucide-react';
 import { API_URL } from '../config';
 
 // ==========================================
 // 1. SUB-COMPONENTE: Tarjeta Móvil (Optimizado)
 // ==========================================
 const BatchItemCard = React.memo(({ p, onPriceUpdate, onUpcUpdate }: any) => {
-    // Estado local para escribir súper rápido sin lag
     const [localPrice, setLocalPrice] = useState(p.selling_price || '');
     const [localUpc, setLocalUpc] = useState(p.upc || '');
 
-    // Sincronizar si la data externa cambia (ej: al cargar)
     useEffect(() => {
         setLocalPrice(p.selling_price || '');
         setLocalUpc(p.upc || '');
@@ -20,6 +18,7 @@ const BatchItemCard = React.memo(({ p, onPriceUpdate, onUpcUpdate }: any) => {
 
     const costo = p.price || 0;
     const venta = parseFloat(localPrice) || 0;
+    const cantidad = p.quantity !== undefined ? p.quantity : 0; // <--- LEER CANTIDAD
     const margen = venta > 0 ? ((venta - costo) / venta * 100) : 0;
     const tienePrecio = venta > 0;
 
@@ -35,7 +34,15 @@ const BatchItemCard = React.memo(({ p, onPriceUpdate, onUpcUpdate }: any) => {
         <div className={`p-4 rounded-xl border transition-all ${cardClass}`}>
             <div className="mb-3">
                 <div className="flex justify-between items-start gap-2">
-                    <h3 className="text-sm font-bold text-gray-900 dark:text-white leading-snug w-[85%]">{p.name}</h3>
+                    <div className="w-[85%]">
+                        <div className="flex items-center gap-2 mb-1">
+                            {/* --- CANTIDAD VISIBLE EN MÓVIL --- */}
+                            <span className="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 w-fit">
+                                <Box className="w-3 h-3" /> x{cantidad}
+                            </span>
+                        </div>
+                        <h3 className="text-sm font-bold text-gray-900 dark:text-white leading-snug">{p.name}</h3>
+                    </div>
                     {tienePrecio
                         ? <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
                         : <AlertTriangle className="w-5 h-5 text-red-400 shrink-0" />
@@ -49,7 +56,7 @@ const BatchItemCard = React.memo(({ p, onPriceUpdate, onUpcUpdate }: any) => {
                             type="text"
                             value={localUpc}
                             onChange={(e) => setLocalUpc(e.target.value)}
-                            onBlur={() => onUpcUpdate(p.id, localUpc)} // <--- ACTUALIZA AL SALIR
+                            onBlur={() => onUpcUpdate(p.id, localUpc)}
                             placeholder="UPC..."
                             className="text-xs border-b border-gray-300 dark:border-gray-600 bg-transparent focus:border-blue-500 outline-none w-full py-1 text-gray-700 dark:text-gray-200"
                         />
@@ -59,11 +66,10 @@ const BatchItemCard = React.memo(({ p, onPriceUpdate, onUpcUpdate }: any) => {
 
             <div className="grid grid-cols-2 gap-3 items-end bg-white/50 dark:bg-gray-800/50 p-2 rounded-lg">
                 <div>
-                    <p className="text-[10px] text-gray-500 uppercase font-bold">Costo</p>
+                    <p className="text-[10px] text-gray-500 uppercase font-bold">Costo Unit.</p>
                     <p className="text-gray-700 dark:text-gray-300 font-medium">${costo.toFixed(2)}</p>
-                    <span className={`text-[10px] font-bold ${margen > 0 ? 'text-green-600' : 'text-gray-400'}`}>
-                        Margen: {margen > 0 ? `${margen.toFixed(0)}%` : '-'}
-                    </span>
+                    {/* Total de la línea (Costo * Cantidad) */}
+                    <p className="text-[10px] text-gray-400 mt-1">Total: ${(costo * cantidad).toFixed(2)}</p>
                 </div>
                 <div>
                     <p className={`text-[10px] uppercase font-bold mb-1 ${tienePrecio ? 'text-green-600' : 'text-red-500'}`}>Precio Venta</p>
@@ -73,10 +79,15 @@ const BatchItemCard = React.memo(({ p, onPriceUpdate, onUpcUpdate }: any) => {
                             type="number"
                             value={localPrice}
                             onChange={(e) => setLocalPrice(e.target.value)}
-                            onBlur={() => onPriceUpdate(p.id, localPrice)} // <--- ACTUALIZA AL SALIR
+                            onBlur={() => onPriceUpdate(p.id, localPrice)}
                             className={`w-full pl-5 pr-2 py-2 text-sm font-bold text-right border rounded-lg focus:ring-2 outline-none transition-colors ${inputClass}`}
                             placeholder="0.00"
                         />
+                    </div>
+                    <div className="text-right mt-1">
+                        <span className={`text-[10px] font-bold ${margen > 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                            Margen: {margen > 0 ? `${margen.toFixed(0)}%` : '-'}
+                        </span>
                     </div>
                 </div>
             </div>
@@ -98,6 +109,7 @@ const BatchItemRow = React.memo(({ p, onPriceUpdate, onUpcUpdate }: any) => {
 
     const costo = p.price || 0;
     const venta = parseFloat(localPrice) || 0;
+    const cantidad = p.quantity !== undefined ? p.quantity : 0; // <--- LEER CANTIDAD
     const margen = venta > 0 ? ((venta - costo) / venta * 100) : 0;
     const tienePrecio = venta > 0;
 
@@ -113,7 +125,7 @@ const BatchItemRow = React.memo(({ p, onPriceUpdate, onUpcUpdate }: any) => {
         <tr className={`transition-colors ${rowClass}`}>
             <td className="px-4 py-3 font-mono text-xs text-gray-500">{p.sku || '-'}</td>
             <td className="px-4 py-3">
-                <div className="relative group">
+                <div className="relative group w-32">
                     <input
                         type="text"
                         value={localUpc}
@@ -125,9 +137,22 @@ const BatchItemRow = React.memo(({ p, onPriceUpdate, onUpcUpdate }: any) => {
                     <Barcode className="w-3 h-3 text-gray-300 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
             </td>
-            <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{p.name}</td>
-            <td className="px-4 py-3 text-right text-gray-500">${costo.toFixed(2)}</td>
-            <td className="px-4 py-2">
+            <td className="px-4 py-3 font-medium text-gray-900 dark:text-white max-w-xs truncate" title={p.name}>
+                {p.name}
+            </td>
+
+            {/* --- COLUMNA DE CANTIDAD --- */}
+            <td className="px-4 py-3 text-center">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-xs font-bold">
+                    {cantidad}
+                </span>
+            </td>
+
+            <td className="px-4 py-3 text-right text-gray-500 text-xs">
+                <div>${costo.toFixed(2)}</div>
+                <div className="text-[10px] text-gray-400">Total: ${(costo * cantidad).toFixed(0)}</div>
+            </td>
+            <td className="px-4 py-2 w-32">
                 <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
                     <input
@@ -140,7 +165,7 @@ const BatchItemRow = React.memo(({ p, onPriceUpdate, onUpcUpdate }: any) => {
                     />
                 </div>
             </td>
-            <td className={`px-4 py-3 text-center font-bold ${margen > 0 ? 'text-green-600' : 'text-gray-300'}`}>
+            <td className={`px-4 py-3 text-center font-bold text-xs ${margen > 0 ? 'text-green-600' : 'text-gray-300'}`}>
                 {margen > 0 ? `${margen.toFixed(0)}%` : '-'}
             </td>
             <td className="px-4 py-3 text-center">
@@ -184,7 +209,6 @@ export function BatchDetails() {
         if (id) fetchBatchData();
     }, [id]);
 
-    // Callback optimizado: Solo actualiza la lista principal cuando sales del input (onBlur)
     const handlePriceUpdate = useCallback((productId: number, newPrice: string) => {
         setProducts(prev => prev.map(p =>
             p.id === productId ? { ...p, selling_price: newPrice } : p
@@ -216,16 +240,16 @@ export function BatchDetails() {
         }
     };
 
-    // Cálculos memorizados
     const stats = useMemo(() => {
         const totalItems = products.length;
+        // Calcular total de piezas sumando las cantidades
+        const totalPiezas = products.reduce((acc, p) => acc + (p.quantity || 0), 0);
         const itemsReady = products.filter(p => parseFloat(p.selling_price) > 0).length;
         const itemsMissing = totalItems - itemsReady;
         const progress = totalItems > 0 ? Math.round((itemsReady / totalItems) * 100) : 0;
-        return { totalItems, itemsReady, itemsMissing, progress };
+        return { totalItems, itemsReady, itemsMissing, progress, totalPiezas };
     }, [products]);
 
-    // Filtrado
     const displayedProducts = useMemo(() => {
         return products.filter(p => {
             const hasPrice = parseFloat(p.selling_price) > 0;
@@ -282,6 +306,11 @@ export function BatchDetails() {
                     <button onClick={() => setFilter('all')} className={`px-4 py-1.5 rounded-full text-xs font-bold border transition-all flex items-center gap-2 whitespace-nowrap ${filter === 'all' ? 'bg-gray-800 text-white border-gray-800 dark:bg-white dark:text-gray-900' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}>Todos <span className="opacity-60">({stats.totalItems})</span></button>
                     <button onClick={() => setFilter('missing')} className={`px-4 py-1.5 rounded-full text-xs font-bold border transition-all flex items-center gap-2 whitespace-nowrap ${filter === 'missing' ? 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-800' : 'bg-white text-gray-500 border-gray-300 hover:bg-orange-50 hover:text-orange-600 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}><AlertTriangle className="w-3 h-3" />Faltan Precio <span className="opacity-80">({stats.itemsMissing})</span></button>
                     <button onClick={() => setFilter('ready')} className={`px-4 py-1.5 rounded-full text-xs font-bold border transition-all flex items-center gap-2 whitespace-nowrap ${filter === 'ready' ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800' : 'bg-white text-gray-500 border-gray-300 hover:bg-green-50 hover:text-green-600 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}><CheckCircle2 className="w-3 h-3" />Listos <span className="opacity-80">({stats.itemsReady})</span></button>
+
+                    {/* INFO EXTRA: Total Piezas */}
+                    <div className="ml-auto px-4 py-1.5 bg-blue-50 text-blue-700 text-xs font-bold rounded-full hidden md:block">
+                        Total Piezas: {stats.totalPiezas}
+                    </div>
                 </div>
             </div>
 
@@ -307,6 +336,7 @@ export function BatchDetails() {
                                     <th className="px-4 py-3 w-28">SKU</th>
                                     <th className="px-4 py-3 w-36">Cód. Barras</th>
                                     <th className="px-4 py-3">Producto</th>
+                                    <th className="px-4 py-3 text-center w-20">Cant.</th> {/* NUEVA COLUMNA */}
                                     <th className="px-4 py-3 text-right">Costo</th>
                                     <th className="px-4 py-3 text-center w-40">Precio Venta</th>
                                     <th className="px-4 py-3 text-center w-20">Margen</th>
