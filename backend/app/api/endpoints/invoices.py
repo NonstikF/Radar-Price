@@ -730,15 +730,24 @@ async def get_batches(db: AsyncSession = Depends(get_db)):
 
 @router.get("/batches/{batch_id}/products")
 async def get_batch_items(batch_id: int, db: AsyncSession = Depends(get_db)):
-    ids_stmt = select(ImportBatchItem.product_id).where(
-        ImportBatchItem.batch_id == batch_id
+    """
+    Versión MEJORADA: Trae el producto Y la cantidad específica de este lote.
+    """
+    # Hacemos un JOIN para traer el Producto y la columna 'quantity' de la tabla intermedia
+    stmt = (
+        select(
+            Product,
+            ImportBatchItem.quantity.label(
+                "batch_qty"
+            ),  # <--- Aquí recuperamos el dato guardado
+        )
+        .join(ImportBatchItem, ImportBatchItem.product_id == Product.id)
+        .where(ImportBatchItem.batch_id == batch_id)
     )
-    ids = (await db.execute(ids_stmt)).scalars().all()
-    if not ids:
-        return []
-    prods = (
-        (await db.execute(select(Product).where(Product.id.in_(ids)))).scalars().all()
-    )
+
+    result = await db.execute(stmt)
+    rows = result.all()  # Esto nos da una lista de parejas: (Producto, Cantidad)
+
     return [
         {
             "id": p.id,
@@ -747,10 +756,13 @@ async def get_batch_items(batch_id: int, db: AsyncSession = Depends(get_db)):
             "name": p.name,
             "price": p.price,
             "selling_price": p.selling_price,
-            "stock": p.stock_quantity,
+            "stock": p.stock_quantity,  # Stock total global
+            "quantity": (
+                batch_qty if batch_qty is not None else 0
+            ),  # <--- Enviamos la cantidad al Frontend
             "missing_price": (
                 True if (not p.selling_price or p.selling_price <= 0) else False
             ),
         }
-        for p in prods
+        for p, batch_qty in rows
     ]
