@@ -1,11 +1,15 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowLeft, FileText, Save, Loader2, AlertTriangle, CheckCircle2, Barcode, Filter, ListFilter, Box, Search, X } from 'lucide-react';
+import {
+    ArrowLeft, FileText, Save, Loader2, AlertTriangle, CheckCircle2,
+    Barcode, Filter, Box, Search, X, Camera
+} from 'lucide-react';
+import { BarcodeScanner } from '../components/BarcodeScanner'; // Asegúrate de tener este componente
 import { API_URL } from '../config';
 
 // ==========================================
-// 1. SUB-COMPONENTE: Tarjeta Móvil (Optimizado)
+// 1. SUB-COMPONENTE: Tarjeta Móvil
 // ==========================================
 const BatchItemCard = React.memo(({ p, onPriceUpdate, onUpcUpdate }: any) => {
     const [localPrice, setLocalPrice] = useState(p.selling_price || '');
@@ -94,7 +98,7 @@ const BatchItemCard = React.memo(({ p, onPriceUpdate, onUpcUpdate }: any) => {
 });
 
 // ==========================================
-// 2. SUB-COMPONENTE: Fila Escritorio (Optimizado)
+// 2. SUB-COMPONENTE: Fila Escritorio
 // ==========================================
 const BatchItemRow = React.memo(({ p, onPriceUpdate, onUpcUpdate }: any) => {
     const [localPrice, setLocalPrice] = useState(p.selling_price || '');
@@ -180,6 +184,7 @@ const BatchItemRow = React.memo(({ p, onPriceUpdate, onUpcUpdate }: any) => {
 export function BatchDetails() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const inputRef = useRef<HTMLInputElement>(null);
 
     const [products, setProducts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -187,9 +192,11 @@ export function BatchDetails() {
     const [successMsg, setSuccessMsg] = useState("");
     const [error, setError] = useState("");
 
-    // --- ESTADOS DE FILTRO ---
+    // --- ESTADOS DE FILTRO / BÚSQUEDA IGUAL QUE PRICE CHECKER ---
     const [filter, setFilter] = useState<'all' | 'missing' | 'ready'>('all');
-    const [searchTerm, setSearchTerm] = useState(""); // <--- NUEVO: ESTADO DE BÚSQUEDA
+    const [searchTerm, setSearchTerm] = useState("");
+    const [showFilters, setShowFilters] = useState(false);
+    const [showScanner, setShowScanner] = useState(false);
 
     useEffect(() => {
         const fetchBatchData = async () => {
@@ -238,6 +245,17 @@ export function BatchDetails() {
         }
     };
 
+    const handleScanSuccess = (code: string) => {
+        setSearchTerm(code);
+        setShowScanner(false);
+    };
+
+    const clearAllFilters = () => {
+        setSearchTerm("");
+        setFilter('all');
+        setShowFilters(false);
+    };
+
     const stats = useMemo(() => {
         const totalItems = products.length;
         const totalPiezas = products.reduce((acc, p) => acc + (p.quantity || 0), 0);
@@ -247,15 +265,15 @@ export function BatchDetails() {
         return { totalItems, itemsReady, itemsMissing, progress, totalPiezas };
     }, [products]);
 
-    // --- FILTRADO AVANZADO (Estado + Búsqueda) ---
+    // --- FILTRADO (Cliente) ---
     const displayedProducts = useMemo(() => {
         return products.filter(p => {
-            // 1. Filtro por Estado (Tabs)
+            // 1. Filtro por Estado
             const hasPrice = parseFloat(p.selling_price) > 0;
             if (filter === 'missing' && hasPrice) return false;
             if (filter === 'ready' && !hasPrice) return false;
 
-            // 2. Filtro por Buscador (Texto)
+            // 2. Filtro por Buscador
             if (searchTerm) {
                 const term = searchTerm.toLowerCase();
                 const matchName = p.name?.toLowerCase().includes(term);
@@ -279,70 +297,96 @@ export function BatchDetails() {
 
     return (
         <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-24 animate-fade-in">
-            {/* HEADER STICKY */}
-            <div className="sticky top-16 z-30 bg-white/95 dark:bg-gray-900/95 backdrop-blur py-4 border-b border-gray-200 dark:border-gray-800 shadow-sm md:shadow-none -mx-4 px-4 md:mx-0 md:px-0 rounded-b-2xl md:rounded-none">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
-                    <div>
-                        <button onClick={() => navigate('/history')} className="flex items-center gap-2 text-gray-500 hover:text-blue-600 transition-colors font-medium mb-2 text-sm">
-                            <ArrowLeft className="w-4 h-4" /> Volver al Historial
-                        </button>
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400 shrink-0">
-                                <FileText className="w-8 h-8 md:w-6 md:h-6" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <h1 className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white truncate">Importación #{id}</h1>
-                                <div className="flex items-center gap-2 mt-1 w-full max-w-[200px]">
-                                    <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                                        <div className="h-full bg-green-500 transition-all duration-500" style={{ width: `${stats.progress}%` }}></div>
-                                    </div>
-                                    <span className="font-bold text-green-600 text-xs">{stats.progress}%</span>
+
+            {/* --- HEADER PRINCIPAL (Datos del Lote y Botón Guardar) --- */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <button onClick={() => navigate('/history')} className="flex items-center gap-2 text-gray-500 hover:text-blue-600 transition-colors font-medium mb-2 text-sm">
+                        <ArrowLeft className="w-4 h-4" /> Volver al Historial
+                    </button>
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400 shrink-0">
+                            <FileText className="w-8 h-8 md:w-6 md:h-6" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <h1 className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white truncate">Importación #{id}</h1>
+                            <div className="flex items-center gap-2 mt-1 w-full max-w-[200px]">
+                                <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                    <div className="h-full bg-green-500 transition-all duration-500" style={{ width: `${stats.progress}%` }}></div>
                                 </div>
+                                <span className="font-bold text-green-600 text-xs">{stats.progress}%</span>
                             </div>
                         </div>
                     </div>
-                    <div className="flex items-center gap-3 w-full md:w-auto">
-                        {successMsg && <span className="text-green-600 dark:text-green-400 text-xs font-bold animate-pulse flex items-center gap-1 bg-green-50 dark:bg-green-900/20 px-3 py-2 rounded-lg whitespace-nowrap"><CheckCircle2 className="w-4 h-4" /> {successMsg}</span>}
-                        <button onClick={handleSave} disabled={saving} className="flex-1 md:flex-none bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg shadow-green-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 text-sm md:text-base">
-                            {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                            {saving ? 'Guardando...' : 'Guardar Cambios'}
-                        </button>
-                    </div>
                 </div>
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                    {successMsg && <span className="text-green-600 dark:text-green-400 text-xs font-bold animate-pulse flex items-center gap-1 bg-green-50 dark:bg-green-900/20 px-3 py-2 rounded-lg whitespace-nowrap"><CheckCircle2 className="w-4 h-4" /> {successMsg}</span>}
+                    <button onClick={handleSave} disabled={saving} className="flex-1 md:flex-none bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg shadow-green-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 text-sm md:text-base">
+                        {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                        {saving ? 'Guardando...' : 'Guardar Cambios'}
+                    </button>
+                </div>
+            </div>
 
-                {/* --- BARRA DE HERRAMIENTAS (BUSCADOR + FILTROS) --- */}
-                <div className="flex flex-col md:flex-row gap-3">
-                    {/* BUSCADOR */}
-                    <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <input
-                            type="text"
-                            placeholder="Buscar por nombre, SKU o UPC..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-9 pr-8 py-2 bg-gray-100 dark:bg-gray-800 border-none rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                        />
-                        {searchTerm && (
-                            <button onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full text-gray-500">
-                                <X className="w-3 h-3" />
+            {/* --- BARRA DE BÚSQUEDA IDENTICA A PRICE CHECKER --- */}
+            <div className="sticky top-0 z-40 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur pt-2 pb-2 md:pb-4 transition-colors -mx-4 px-4 md:mx-0 md:px-0">
+                <div className="bg-white dark:bg-gray-800 p-2 md:p-4 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
+                    <div className="flex flex-col md:flex-row gap-2 md:gap-3">
+                        {/* INPUT BÚSQUEDA */}
+                        <div className="relative flex-1 w-full">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                            <input
+                                ref={inputRef}
+                                type="text"
+                                placeholder="Buscar..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full pl-10 pr-12 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium text-gray-900 dark:text-white text-sm md:text-base"
+                            />
+                            <div className="absolute inset-y-0 right-2 flex items-center gap-1">
+                                <button onClick={() => setShowScanner(true)} className="p-2 rounded-xl text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all active:scale-95" title="Escanear">
+                                    <Camera className="h-5 w-5" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* BOTONES FILTRO */}
+                        <div className="flex gap-2 w-full md:w-auto">
+                            <button
+                                onClick={() => setShowFilters(!showFilters)}
+                                className={`flex-1 md:flex-none px-4 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all border text-sm md:text-base ${showFilters || filter !== 'all' ? 'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-400' : 'bg-gray-50 border-gray-200 text-gray-600 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-300'}`}
+                            >
+                                <Filter className="w-4 h-4 md:w-5 md:h-5" />
+                                <span>Filtros</span>
+                                {(filter !== 'all') && <div className="w-2 h-2 bg-blue-500 rounded-full"></div>}
                             </button>
-                        )}
-                    </div>
 
-                    {/* FILTROS (TABS) */}
-                    <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar shrink-0">
-                        <button onClick={() => setFilter('all')} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 whitespace-nowrap ${filter === 'all' ? 'bg-gray-800 text-white border-gray-800 dark:bg-white dark:text-gray-900' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}>Todos <span className="opacity-60">({stats.totalItems})</span></button>
-                        <button onClick={() => setFilter('missing')} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 whitespace-nowrap ${filter === 'missing' ? 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-800' : 'bg-white text-gray-500 border-gray-300 hover:bg-orange-50 hover:text-orange-600 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}><AlertTriangle className="w-3 h-3" />Faltan Precio <span className="opacity-80">({stats.itemsMissing})</span></button>
-                        <button onClick={() => setFilter('ready')} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 whitespace-nowrap ${filter === 'ready' ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800' : 'bg-white text-gray-500 border-gray-300 hover:bg-green-50 hover:text-green-600 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}><CheckCircle2 className="w-3 h-3" />Listos <span className="opacity-80">({stats.itemsReady})</span></button>
-
-                        {/* INFO EXTRA */}
-                        <div className="ml-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-xs font-bold rounded-xl hidden md:block whitespace-nowrap border border-blue-100 dark:border-blue-800/50">
-                            Total: {stats.totalPiezas} pz
+                            {(searchTerm || filter !== 'all') && (
+                                <button onClick={clearAllFilters} className="px-4 py-3 rounded-xl font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all flex items-center justify-center gap-1 border border-gray-200 dark:border-gray-700 hover:border-red-100 bg-white dark:bg-gray-900">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
             </div>
 
+            {/* --- PANEL DE FILTROS DESPLEGABLE --- */}
+            {showFilters && (
+                <div className="mb-4 p-4 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-blue-100 dark:border-blue-900/30 animate-scale-in">
+                    <label className="text-xs font-bold text-gray-400 uppercase mb-2 block">Estado del Producto</label>
+                    <div className="flex flex-wrap gap-2">
+                        <button onClick={() => setFilter('all')} className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all flex items-center gap-2 ${filter === 'all' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>Todos ({stats.totalItems})</button>
+                        <button onClick={() => setFilter('missing')} className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all flex items-center gap-2 ${filter === 'missing' ? 'bg-orange-100 text-orange-700 border-orange-200' : 'bg-white text-gray-600 border-gray-200 hover:bg-orange-50'}`}>Faltan Precio ({stats.itemsMissing})</button>
+                        <button onClick={() => setFilter('ready')} className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all flex items-center gap-2 ${filter === 'ready' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-white text-gray-600 border-gray-200 hover:bg-green-50'}`}>Listos ({stats.itemsReady})</button>
+                        <div className="ml-auto px-4 py-2 bg-blue-50 text-blue-700 text-sm font-bold rounded-xl border border-blue-100">
+                            Total Piezas: {stats.totalPiezas}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* LISTA DE RESULTADOS */}
             {displayedProducts.length === 0 ? (
                 <div className="text-center py-20 text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
                     <Filter className="w-12 h-12 mx-auto mb-3 opacity-20" />
@@ -381,6 +425,11 @@ export function BatchDetails() {
                         </table>
                     </div>
                 </>
+            )}
+
+            {/* ESCÁNER MODAL */}
+            {showScanner && (
+                <BarcodeScanner onScan={handleScanSuccess} onClose={() => setShowScanner(false)} />
             )}
         </div>
     );
