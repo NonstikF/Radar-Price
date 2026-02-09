@@ -4,6 +4,7 @@ import logging
 import re
 import unicodedata
 import xml.etree.ElementTree as ET
+from datetime import datetime
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -65,7 +66,7 @@ def extract_potential_codes(text: str) -> List[str]:
 async def upload_invoice(
     file: UploadFile = File(...), db: AsyncSession = Depends(get_db)
 ):
-    print(f"--- INICIANDO CARGA: {file.filename} ---")
+    print(f"--- INICIANDO CARGA MEJORADA: {file.filename} ---")
 
     if not (
         file.filename.endswith(".xml")
@@ -96,12 +97,12 @@ async def upload_invoice(
         raise HTTPException(500, f"Error leyendo estructura XML: {str(e)}")
 
     # 3. Crear Lote
-    new_batch = ImportBatch(filename=file.filename)
+    new_batch = ImportBatch(filename=file.filename, created_at=datetime.now())
     db.add(new_batch)
     await db.flush()
     current_batch_id = new_batch.id
 
-    # 4. Cargar Inventario
+    # 4. Cargar Inventario Actual
     stmt = select(Product)
     all_db_products = (await db.execute(stmt)).scalars().all()
 
@@ -117,12 +118,12 @@ async def upload_invoice(
         if not key:
             continue
 
-        qty = float(item.get("quantity", 0))
+        qty_val = float(item.get("quantity", 0))
         cost = float(item.get("unit_price_no_tax", 0))
-        line_val = qty * cost
+        line_val = qty_val * cost
 
         if key in grouped_items:
-            grouped_items[key]["qty"] += qty
+            grouped_items[key]["qty"] += qty_val
             grouped_items[key]["total_value"] += line_val
             if grouped_items[key]["qty"] > 0:
                 grouped_items[key]["cost"] = (
@@ -133,7 +134,7 @@ async def upload_invoice(
                 "sku": item.get("sku", ""),
                 "upc": item.get("upc", ""),
                 "name": item.get("name", "Sin Nombre"),
-                "qty": qty,
+                "qty": qty_val,
                 "cost": cost,
                 "cost_tax": float(item.get("unit_price_with_tax", 0)),
                 "total_value": line_val,
@@ -144,24 +145,20 @@ async def upload_invoice(
     new_products_buffer = []
     price_history_buffer = []
     batch_items_buffer = []
-    temp_new_products_map = []
+    temp_new_products_map = []  # Memoria temporal para evitar error Greenlet
 
     for key, data in grouped_items.items():
         existing_product = None
-
         xml_sku = clean_code(data["sku"])
         xml_upc = clean_code(data.get("upc", ""))
         xml_name_norm = normalize_name(data["name"])
-
-        # Extraemos TODOS los posibles códigos del nombre (ej: "55850")
         potential_codes = extract_potential_codes(data["name"])
 
-        # Búsqueda EXACTA (Prioridad 1)
+        # Búsqueda
         if xml_sku and xml_sku in sku_map:
             existing_product = sku_map[xml_sku]
         elif xml_upc and xml_upc in upc_map:
             existing_product = upc_map[xml_upc]
-        # Nota: Ya no buscamos exacto por nombre para dar oportunidad a la sugerencia por código si varía un poco
         elif xml_name_norm in name_map:
             existing_product = name_map[xml_name_norm]
 
@@ -172,22 +169,21 @@ async def upload_invoice(
         old_cost = 0.0
 
         if existing_product:
-            # --- PRODUCTO YA EXISTENTE ---
+            # --- PRODUCTO EXISTENTE ---
             p_id = existing_product.id
             old_cost = existing_product.price
 
-            # Autocompletar datos faltantes
+            # Actualizar datos si faltan
             sku_cand = xml_sku
-            # Si no tenemos SKU del XML, probamos si alguno de los códigos del nombre es el SKU
             if not sku_cand and potential_codes and not existing_product.sku:
-                sku_cand = potential_codes[0]  # Tomamos el primero como candidato
+                sku_cand = potential_codes[0]
 
             if sku_cand and not existing_product.sku:
                 existing_product.sku = sku_cand
             if not existing_product.upc and data.get("upc"):
                 existing_product.upc = data.get("upc")
 
-            existing_product.stock_quantity += data["qty"]
+            existing_product.stock_quantity += data["qty"]  # Sumar Stock Global
 
             if abs(existing_product.price - data["cost"]) > 0.1:
                 status = "price_changed"
@@ -199,32 +195,31 @@ async def upload_invoice(
                         new_value=data["cost"],
                     )
                 )
-
             existing_product.price = data["cost"]
-
             p_selling_price = (
                 existing_product.selling_price
                 if existing_product.selling_price
                 else 0.0
             )
+
             if status == "ok" and p_selling_price > 0:
                 status = "hidden"
 
+            # Guardar cantidad específica en el lote
             batch_items_buffer.append(
-                ImportBatchItem(batch_id=current_batch_id, product_id=p_id)
+                ImportBatchItem(
+                    batch_id=current_batch_id, product_id=p_id, quantity=data["qty"]
+                )
             )
 
         else:
-            # --- PRODUCTO NUEVO (BUSCAR SUGERENCIAS) ---
+            # --- PRODUCTO NUEVO (Sin ID aleatorio) ---
             status = "new"
             seen_ids = set()
 
-            # 1. BÚSQUEDA INTELIGENTE POR CÓDIGO (La solución)
-            # Si en el nombre XML dice "55850", buscamos en la BD cualquier cosa que tenga "55850"
             if potential_codes:
                 for db_prod in all_db_products:
                     for code in potential_codes:
-                        # Coincide con SKU, UPC o está DENTRO del nombre del producto BD
                         if (
                             (code == db_prod.sku)
                             or (code == db_prod.upc)
@@ -240,7 +235,6 @@ async def upload_invoice(
                                 )
                                 seen_ids.add(db_prod.id)
 
-            # 2. Respaldo: Búsqueda Difusa por Texto (30% similitud)
             matches = difflib.get_close_matches(
                 xml_name_norm, fuzzy_keys, n=5, cutoff=0.3
             )
@@ -252,12 +246,12 @@ async def upload_invoice(
                     )
                     seen_ids.add(mp.id)
 
-            # Crear Nuevo
+            # Lógica SKU: Usar SKU del XML, o UPC, o dejar vacío. NUNCA inventar.
             final_sku = xml_sku
             if not final_sku and potential_codes:
-                final_sku = potential_codes[
-                    0
-                ]  # Usar el código del nombre como SKU tentativo
+                final_sku = potential_codes[0]
+            if not final_sku and data.get("upc"):
+                final_sku = data.get("upc")
 
             new_p = Product(
                 sku=final_sku,
@@ -269,11 +263,15 @@ async def upload_invoice(
             )
             new_products_buffer.append(new_p)
 
+            # Guardamos en memoria temporal para procesar después del flush
             temp_new_products_map.append(
                 {
                     "product_obj": new_p,
                     "cost": data["cost"],
+                    "qty": data["qty"],
                     "response_idx": len(final_response_data),
+                    "saved_sku": final_sku,  # Guardamos el SKU aquí
+                    "saved_upc": data.get("upc"),  # Guardamos el UPC aquí
                 }
             )
 
@@ -304,8 +302,9 @@ async def upload_invoice(
     # 7. Guardado Masivo
     if new_products_buffer:
         db.add_all(new_products_buffer)
-        await db.flush()
+        await db.flush()  # Obtenemos IDs de productos nuevos
 
+    # Procesar los nuevos usando los datos en memoria (evita ir a BD y causar error Greenlet)
     for item in temp_new_products_map:
         new_p = item["product_obj"]
         idx = item["response_idx"]
@@ -318,12 +317,19 @@ async def upload_invoice(
             )
         )
         batch_items_buffer.append(
-            ImportBatchItem(batch_id=current_batch_id, product_id=new_p.id)
+            ImportBatchItem(
+                batch_id=current_batch_id, product_id=new_p.id, quantity=item["qty"]
+            )
         )
 
+        # Actualizamos la respuesta con los datos de memoria
         final_response_data[idx]["id"] = new_p.id
-        final_response_data[idx]["sku"] = str(new_p.sku) if new_p.sku else ""
-        final_response_data[idx]["upc"] = str(new_p.upc) if new_p.upc else ""
+        final_response_data[idx]["sku"] = (
+            str(item["saved_sku"]) if item["saved_sku"] else ""
+        )
+        final_response_data[idx]["upc"] = (
+            str(item["saved_upc"]) if item["saved_upc"] else ""
+        )
 
     db.add_all(price_history_buffer)
     db.add_all(batch_items_buffer)
