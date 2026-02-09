@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowLeft, FileText, Save, Loader2, AlertTriangle, CheckCircle2, Barcode, Filter, ListFilter, Box } from 'lucide-react';
+import { ArrowLeft, FileText, Save, Loader2, AlertTriangle, CheckCircle2, Barcode, Filter, ListFilter, Box, Search, X } from 'lucide-react';
 import { API_URL } from '../config';
 
 // ==========================================
@@ -18,7 +18,7 @@ const BatchItemCard = React.memo(({ p, onPriceUpdate, onUpcUpdate }: any) => {
 
     const costo = p.price || 0;
     const venta = parseFloat(localPrice) || 0;
-    const cantidad = p.quantity !== undefined ? p.quantity : 0; // <--- LEER CANTIDAD
+    const cantidad = p.quantity !== undefined ? p.quantity : 0;
     const margen = venta > 0 ? ((venta - costo) / venta * 100) : 0;
     const tienePrecio = venta > 0;
 
@@ -36,7 +36,6 @@ const BatchItemCard = React.memo(({ p, onPriceUpdate, onUpcUpdate }: any) => {
                 <div className="flex justify-between items-start gap-2">
                     <div className="w-[85%]">
                         <div className="flex items-center gap-2 mb-1">
-                            {/* --- CANTIDAD VISIBLE EN MÓVIL --- */}
                             <span className="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 w-fit">
                                 <Box className="w-3 h-3" /> x{cantidad}
                             </span>
@@ -68,7 +67,6 @@ const BatchItemCard = React.memo(({ p, onPriceUpdate, onUpcUpdate }: any) => {
                 <div>
                     <p className="text-[10px] text-gray-500 uppercase font-bold">Costo Unit.</p>
                     <p className="text-gray-700 dark:text-gray-300 font-medium">${costo.toFixed(2)}</p>
-                    {/* Total de la línea (Costo * Cantidad) */}
                     <p className="text-[10px] text-gray-400 mt-1">Total: ${(costo * cantidad).toFixed(2)}</p>
                 </div>
                 <div>
@@ -109,7 +107,7 @@ const BatchItemRow = React.memo(({ p, onPriceUpdate, onUpcUpdate }: any) => {
 
     const costo = p.price || 0;
     const venta = parseFloat(localPrice) || 0;
-    const cantidad = p.quantity !== undefined ? p.quantity : 0; // <--- LEER CANTIDAD
+    const cantidad = p.quantity !== undefined ? p.quantity : 0;
     const margen = venta > 0 ? ((venta - costo) / venta * 100) : 0;
     const tienePrecio = venta > 0;
 
@@ -140,14 +138,11 @@ const BatchItemRow = React.memo(({ p, onPriceUpdate, onUpcUpdate }: any) => {
             <td className="px-4 py-3 font-medium text-gray-900 dark:text-white max-w-xs truncate" title={p.name}>
                 {p.name}
             </td>
-
-            {/* --- COLUMNA DE CANTIDAD --- */}
             <td className="px-4 py-3 text-center">
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-xs font-bold">
                     {cantidad}
                 </span>
             </td>
-
             <td className="px-4 py-3 text-right text-gray-500 text-xs">
                 <div>${costo.toFixed(2)}</div>
                 <div className="text-[10px] text-gray-400">Total: ${(costo * cantidad).toFixed(0)}</div>
@@ -191,7 +186,10 @@ export function BatchDetails() {
     const [saving, setSaving] = useState(false);
     const [successMsg, setSuccessMsg] = useState("");
     const [error, setError] = useState("");
+
+    // --- ESTADOS DE FILTRO ---
     const [filter, setFilter] = useState<'all' | 'missing' | 'ready'>('all');
+    const [searchTerm, setSearchTerm] = useState(""); // <--- NUEVO: ESTADO DE BÚSQUEDA
 
     useEffect(() => {
         const fetchBatchData = async () => {
@@ -242,7 +240,6 @@ export function BatchDetails() {
 
     const stats = useMemo(() => {
         const totalItems = products.length;
-        // Calcular total de piezas sumando las cantidades
         const totalPiezas = products.reduce((acc, p) => acc + (p.quantity || 0), 0);
         const itemsReady = products.filter(p => parseFloat(p.selling_price) > 0).length;
         const itemsMissing = totalItems - itemsReady;
@@ -250,14 +247,26 @@ export function BatchDetails() {
         return { totalItems, itemsReady, itemsMissing, progress, totalPiezas };
     }, [products]);
 
+    // --- FILTRADO AVANZADO (Estado + Búsqueda) ---
     const displayedProducts = useMemo(() => {
         return products.filter(p => {
+            // 1. Filtro por Estado (Tabs)
             const hasPrice = parseFloat(p.selling_price) > 0;
-            if (filter === 'missing') return !hasPrice;
-            if (filter === 'ready') return hasPrice;
+            if (filter === 'missing' && hasPrice) return false;
+            if (filter === 'ready' && !hasPrice) return false;
+
+            // 2. Filtro por Buscador (Texto)
+            if (searchTerm) {
+                const term = searchTerm.toLowerCase();
+                const matchName = p.name?.toLowerCase().includes(term);
+                const matchSku = p.sku?.toLowerCase().includes(term);
+                const matchUpc = p.upc?.toLowerCase().includes(term);
+                if (!matchName && !matchSku && !matchUpc) return false;
+            }
+
             return true;
         });
-    }, [products, filter]);
+    }, [products, filter, searchTerm]);
 
     if (loading) return (
         <div className="flex flex-col items-center justify-center h-64 text-gray-500">
@@ -270,7 +279,7 @@ export function BatchDetails() {
 
     return (
         <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-24 animate-fade-in">
-            {/* HEADER */}
+            {/* HEADER STICKY */}
             <div className="sticky top-16 z-30 bg-white/95 dark:bg-gray-900/95 backdrop-blur py-4 border-b border-gray-200 dark:border-gray-800 shadow-sm md:shadow-none -mx-4 px-4 md:mx-0 md:px-0 rounded-b-2xl md:rounded-none">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
                     <div>
@@ -301,15 +310,35 @@ export function BatchDetails() {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
-                    <span className="text-gray-400 mr-2 hidden md:block"><ListFilter className="w-5 h-5" /></span>
-                    <button onClick={() => setFilter('all')} className={`px-4 py-1.5 rounded-full text-xs font-bold border transition-all flex items-center gap-2 whitespace-nowrap ${filter === 'all' ? 'bg-gray-800 text-white border-gray-800 dark:bg-white dark:text-gray-900' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}>Todos <span className="opacity-60">({stats.totalItems})</span></button>
-                    <button onClick={() => setFilter('missing')} className={`px-4 py-1.5 rounded-full text-xs font-bold border transition-all flex items-center gap-2 whitespace-nowrap ${filter === 'missing' ? 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-800' : 'bg-white text-gray-500 border-gray-300 hover:bg-orange-50 hover:text-orange-600 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}><AlertTriangle className="w-3 h-3" />Faltan Precio <span className="opacity-80">({stats.itemsMissing})</span></button>
-                    <button onClick={() => setFilter('ready')} className={`px-4 py-1.5 rounded-full text-xs font-bold border transition-all flex items-center gap-2 whitespace-nowrap ${filter === 'ready' ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800' : 'bg-white text-gray-500 border-gray-300 hover:bg-green-50 hover:text-green-600 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}><CheckCircle2 className="w-3 h-3" />Listos <span className="opacity-80">({stats.itemsReady})</span></button>
+                {/* --- BARRA DE HERRAMIENTAS (BUSCADOR + FILTROS) --- */}
+                <div className="flex flex-col md:flex-row gap-3">
+                    {/* BUSCADOR */}
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                            type="text"
+                            placeholder="Buscar por nombre, SKU o UPC..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-9 pr-8 py-2 bg-gray-100 dark:bg-gray-800 border-none rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                        />
+                        {searchTerm && (
+                            <button onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full text-gray-500">
+                                <X className="w-3 h-3" />
+                            </button>
+                        )}
+                    </div>
 
-                    {/* INFO EXTRA: Total Piezas */}
-                    <div className="ml-auto px-4 py-1.5 bg-blue-50 text-blue-700 text-xs font-bold rounded-full hidden md:block">
-                        Total Piezas: {stats.totalPiezas}
+                    {/* FILTROS (TABS) */}
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar shrink-0">
+                        <button onClick={() => setFilter('all')} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 whitespace-nowrap ${filter === 'all' ? 'bg-gray-800 text-white border-gray-800 dark:bg-white dark:text-gray-900' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}>Todos <span className="opacity-60">({stats.totalItems})</span></button>
+                        <button onClick={() => setFilter('missing')} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 whitespace-nowrap ${filter === 'missing' ? 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-800' : 'bg-white text-gray-500 border-gray-300 hover:bg-orange-50 hover:text-orange-600 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}><AlertTriangle className="w-3 h-3" />Faltan Precio <span className="opacity-80">({stats.itemsMissing})</span></button>
+                        <button onClick={() => setFilter('ready')} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 whitespace-nowrap ${filter === 'ready' ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800' : 'bg-white text-gray-500 border-gray-300 hover:bg-green-50 hover:text-green-600 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}><CheckCircle2 className="w-3 h-3" />Listos <span className="opacity-80">({stats.itemsReady})</span></button>
+
+                        {/* INFO EXTRA */}
+                        <div className="ml-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-xs font-bold rounded-xl hidden md:block whitespace-nowrap border border-blue-100 dark:border-blue-800/50">
+                            Total: {stats.totalPiezas} pz
+                        </div>
                     </div>
                 </div>
             </div>
@@ -317,7 +346,8 @@ export function BatchDetails() {
             {displayedProducts.length === 0 ? (
                 <div className="text-center py-20 text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
                     <Filter className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                    <p>No hay productos en esta categoría.</p>
+                    <p>No se encontraron productos{searchTerm ? ` para "${searchTerm}"` : ''}.</p>
+                    {searchTerm && <button onClick={() => setSearchTerm('')} className="mt-2 text-blue-500 hover:underline text-sm">Limpiar búsqueda</button>}
                 </div>
             ) : (
                 <>
@@ -336,7 +366,7 @@ export function BatchDetails() {
                                     <th className="px-4 py-3 w-28">SKU</th>
                                     <th className="px-4 py-3 w-36">Cód. Barras</th>
                                     <th className="px-4 py-3">Producto</th>
-                                    <th className="px-4 py-3 text-center w-20">Cant.</th> {/* NUEVA COLUMNA */}
+                                    <th className="px-4 py-3 text-center w-20">Cant.</th>
                                     <th className="px-4 py-3 text-right">Costo</th>
                                     <th className="px-4 py-3 text-center w-40">Precio Venta</th>
                                     <th className="px-4 py-3 text-center w-20">Margen</th>
