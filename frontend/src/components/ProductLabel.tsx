@@ -1,15 +1,31 @@
 import React from 'react';
 
-export const ProductLabel = React.forwardRef<HTMLDivElement, { product: any }>(({ product }, ref) => {
+// Definimos los tamaños soportados para evitar errores
+export type LabelSize = '1.5x1' | '2x1';
+
+interface Props {
+    product: any;
+    size: LabelSize;        // Nuevo: Tamaño elegido
+    companyName: string;    // Nuevo: Nombre de la empresa
+}
+
+export const ProductLabel = React.forwardRef<HTMLDivElement, Props>(({ product, size, companyName }, ref) => {
     if (!product) return null;
 
-    // 1. LÓGICA DE TEXTO: Preferimos el Alias, si no hay, usamos el Nombre
+    // 1. DEFINIR MEDIDAS SEGÚN EL MODELO
+    const width = size === '2x1' ? '2in' : '1.5in';
+    const height = '1in'; // Ambas son de 1 pulgada de alto
+
+    // Ajustamos el tamaño de la fuente del precio si la etiqueta es más grande
+    const priceFontSize = size === '2x1' ? '40pt' : '34pt';
+
+    // 2. LÓGICA DE TEXTO (Alias o Nombre)
     let footerText = product.name;
     if (product.alias && product.alias.trim() !== "") {
         footerText = product.alias;
     }
 
-    // 2. FORMATEO DE PRECIO: Quitamos decimales si es número entero para que se vea MAS GRANDE
+    // 3. FORMATEO DE PRECIO
     const price = parseFloat(product.selling_price || 0);
     const isInteger = Number.isInteger(price);
     const priceDisplay = isInteger ? price : price.toFixed(2);
@@ -20,7 +36,7 @@ export const ProductLabel = React.forwardRef<HTMLDivElement, { product: any }>((
                 <style type="text/css" media="print">
                     {`
                         @page { 
-                            size: 1.5in 1in; /* 1.5 ancho x 1 alto */
+                            size: ${width} ${height}; 
                             margin: 0;
                         }
                         body { 
@@ -29,8 +45,8 @@ export const ProductLabel = React.forwardRef<HTMLDivElement, { product: any }>((
                             -webkit-print-color-adjust: exact;
                         }
                         .label-container {
-                            width: 1.5in;
-                            height: 1in;
+                            width: ${width};
+                            height: ${height};
                             display: flex;
                             flex-direction: column;
                             align-items: center;
@@ -38,23 +54,25 @@ export const ProductLabel = React.forwardRef<HTMLDivElement, { product: any }>((
                             text-align: center;
                             font-family: Arial, Helvetica, sans-serif;
                             overflow: hidden;
-                            padding: 1mm; /* Un pequeño margen interno de seguridad */
+                            padding: 1mm;
                             box-sizing: border-box;
                             background: white;
                         }
                         
-                        /* HEADER: PlantArte */
                         .company-name {
                             font-size: 10pt;
                             font-weight: bold;
                             color: #000;
                             line-height: 1;
                             margin-top: 1px;
+                            width: 100%;
+                            white-space: nowrap;
+                            overflow: hidden;
+                            text-overflow: ellipsis;
                         }
 
-                        /* BODY: Precio */
                         .price-wrapper {
-                            flex: 1; /* Ocupa todo el espacio disponible en medio */
+                            flex: 1;
                             display: flex;
                             align-items: center;
                             justify-content: center;
@@ -71,36 +89,33 @@ export const ProductLabel = React.forwardRef<HTMLDivElement, { product: any }>((
                         }
 
                         .price-number {
-                            font-size: 34pt; /* TAMAÑO GIGANTE */
+                            font-size: ${priceFontSize}; /* Dinámico según tamaño */
                             font-weight: 900;
                             letter-spacing: -1px;
                         }
 
-                        /* Si tiene decimales, reducimos un poco la fuente para que quepa */
                         .price-number.decimal {
                             font-size: 24pt; 
                         }
 
-                        /* FOOTER: Nombre o Alias */
                         .product-name {
-                            font-size: 7pt;
+                            font-size: 8pt; /* Un poco más grande si cabe */
                             font-weight: bold;
                             width: 100%;
                             white-space: nowrap;
                             overflow: hidden;
                             text-overflow: ellipsis;
                             text-transform: uppercase;
-                            padding-top: 1px;
-                            border-top: 1px solid #000; /* Línea separadora opcional para estilo */
+                            border-top: 1px solid #000;
                         }
                     `}
                 </style>
 
                 <div className="label-container">
-                    {/* 1. EMPRESA */}
-                    <div className="company-name">PlantArte</div>
+                    {/* NOMBRE EMPRESA DINÁMICO */}
+                    <div className="company-name">{companyName}</div>
 
-                    {/* 2. PRECIO */}
+                    {/* PRECIO */}
                     <div className="price-wrapper">
                         <span className="currency">$</span>
                         <span className={`price-number ${!isInteger ? 'decimal' : ''}`}>
@@ -108,7 +123,7 @@ export const ProductLabel = React.forwardRef<HTMLDivElement, { product: any }>((
                         </span>
                     </div>
 
-                    {/* 3. PRODUCTO / ALIAS */}
+                    {/* PRODUCTO */}
                     <div className="product-name">
                         {footerText}
                     </div>
