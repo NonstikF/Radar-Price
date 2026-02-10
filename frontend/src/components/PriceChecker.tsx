@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Search, X, Save, Barcode, Hash, CheckCircle2, AlertTriangle, ChevronLeft, History, ArrowRight, Camera, Filter, Edit3, PackageOpen, Trash2, Loader2, ArrowDownAZ, ArrowUpAZ } from 'lucide-react';
+import { Search, X, Save, Barcode, Hash, CheckCircle2, AlertTriangle, ChevronLeft, History, ArrowRight, Camera, Filter, Edit3, PackageOpen, Trash2, Loader2, ArrowDownAZ, ArrowUpAZ, Tag } from 'lucide-react';
 import { BarcodeScanner } from './BarcodeScanner';
 import { API_URL } from '../config';
 
@@ -16,18 +16,18 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
     const [searchTerm, setSearchTerm] = useState("");
     const [showFilters, setShowFilters] = useState(false);
 
-    // Configuración inicial de filtros
     const [filters, setFilters] = useState({
         minPrice: "",
         maxPrice: "",
         missingPrice: initialFilter,
-        sortBy: "updated_at", // Orden por defecto: Recientes
+        sortBy: "updated_at",
         sortOrder: "desc"
     });
 
     const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
     const [editUpc, setEditUpc] = useState("");
     const [editSku, setEditSku] = useState("");
+    const [editAlias, setEditAlias] = useState(""); // <--- NUEVO ESTADO
     const [editPrice, setEditPrice] = useState("");
 
     const [saving, setSaving] = useState(false);
@@ -45,14 +45,11 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     const isAdmin = user.role === 'admin';
 
-    // --- EFECTO DE BÚSQUEDA ---
     useEffect(() => {
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
-
         timeoutRef.current = setTimeout(() => {
             fetchProducts();
         }, 500);
-
         return () => clearTimeout(timeoutRef.current);
     }, [searchTerm, filters]);
 
@@ -64,9 +61,8 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                 missing_price: filters.missingPrice,
                 sort_by: filters.sortBy,
                 sort_order: filters.sortOrder,
-                limit: 100 // Cargar suficientes para scroll
+                limit: 100
             };
-
             if (filters.minPrice) params.min_price = filters.minPrice;
             if (filters.maxPrice) params.max_price = filters.maxPrice;
 
@@ -101,6 +97,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
         setSelectedProduct(p);
         setEditUpc(p.upc ? String(p.upc) : "");
         setEditSku(p.sku ? String(p.sku) : "");
+        setEditAlias(p.alias ? String(p.alias) : ""); // <--- CARGAR ALIAS
         setEditPrice(p.selling_price ? String(p.selling_price) : "");
         setShowExitConfirm(false);
         setShowDeleteConfirm(false);
@@ -118,8 +115,9 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
         const priceChanged = parseFloat(editPrice || "0") !== parseFloat(selectedProduct.selling_price || "0");
         const upcChanged = clean(editUpc) !== clean(selectedProduct.upc);
         const skuChanged = clean(editSku) !== clean(selectedProduct.sku);
+        const aliasChanged = clean(editAlias) !== clean(selectedProduct.alias); // <--- VALIDAR CAMBIO
 
-        if (upcChanged || skuChanged || (isAdmin && priceChanged)) {
+        if (upcChanged || skuChanged || aliasChanged || (isAdmin && priceChanged)) {
             setShowExitConfirm(true);
         } else {
             setSelectedProduct(null);
@@ -144,7 +142,8 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
         }
     };
 
-    const handleSaveField = async (field: 'upc' | 'sku' | 'price') => {
+    // --- FUNCIÓN DE GUARDADO ACTUALIZADA ---
+    const handleSaveField = async (field: 'upc' | 'sku' | 'price' | 'alias') => {
         if (!selectedProduct) return;
         setSaving(true);
         try {
@@ -153,6 +152,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
 
             if (field === 'upc') { cleanValue = editUpc.trim(); payload = { upc: cleanValue }; }
             else if (field === 'sku') { cleanValue = editSku.trim(); payload = { sku: cleanValue }; }
+            else if (field === 'alias') { cleanValue = editAlias.trim(); payload = { alias: cleanValue }; } // <--- NUEVO CASO
             else if (field === 'price') { cleanValue = parseFloat(editPrice) || 0; payload = { selling_price: cleanValue }; }
 
             await axios.put(`${API_URL}/invoices/products/${selectedProduct.id}`, payload);
@@ -163,6 +163,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
 
             if (field === 'upc') setEditUpc(cleanValue);
             if (field === 'sku') setEditSku(cleanValue);
+            if (field === 'alias') setEditAlias(cleanValue);
             if (field === 'price') setEditPrice(String(cleanValue));
 
             showToast(`${field.toUpperCase()} ACTUALIZADO`);
@@ -204,7 +205,6 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
             <div className="sticky top-0 z-40 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur pt-2 pb-2 md:pb-4 transition-colors px-2 md:px-0">
                 <div className="bg-white dark:bg-gray-800 p-2 md:p-4 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
                     <div className="flex flex-col md:flex-row gap-2 md:gap-3">
-                        {/* INPUT BÚSQUEDA */}
                         <div className="relative flex-1 w-full">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                             <input
@@ -222,7 +222,6 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                             </div>
                         </div>
 
-                        {/* BOTONES FILTRO (En fila en móvil) */}
                         <div className="flex gap-2 w-full md:w-auto">
                             <button
                                 onClick={() => setShowFilters(!showFilters)}
@@ -246,7 +245,6 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
             {/* PANEL DE FILTROS */}
             {showFilters && (
                 <div className="mb-4 mx-2 md:mx-0 p-4 md:p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-blue-100 dark:border-blue-900/30 grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6 animate-scale-in">
-
                     <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-400 uppercase">Ordenar por</label>
                         <div className="flex gap-2">
@@ -261,7 +259,6 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                             </button>
                         </div>
                     </div>
-
                     <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-400 uppercase">Precio Venta ($)</label>
                         <div className="flex gap-2 items-center">
@@ -270,7 +267,6 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                             <input type="number" placeholder="Max" value={filters.maxPrice} onChange={(e) => setFilters({ ...filters, maxPrice: e.target.value })} className="w-full p-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none dark:text-white" />
                         </div>
                     </div>
-
                     <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-400 uppercase">Estado</label>
                         <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border border-transparent hover:border-gray-200 dark:hover:border-gray-600">
@@ -308,8 +304,9 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                         <div key={i} onClick={() => handleProductClick(p)} className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex justify-between items-center active:bg-blue-50 dark:active:bg-gray-700 active:scale-[0.99] transition-all cursor-pointer hover:shadow-md group">
                             <div className="flex-1 min-w-0 pr-3">
                                 <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm md:text-base leading-tight mb-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-2">{p.name}</h3>
-                                <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                                     <span className="bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded text-gray-600 dark:text-gray-300 font-mono text-[10px] md:text-xs">ID: {p.sku || 'N/A'}</span>
+                                    {p.alias && <span className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded font-bold text-[10px] flex items-center gap-1"><Tag className="w-3 h-3" /> {p.alias}</span>}
                                     {(!p.selling_price || p.selling_price <= 0) && <span className="text-[10px] bg-orange-100 text-orange-700 px-2 py-0.5 rounded flex items-center gap-1 font-bold whitespace-nowrap"><AlertTriangle className="w-3 h-3" /> Sin precio</span>}
                                 </div>
                             </div>
@@ -362,6 +359,16 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                                         <p className="text-gray-800 dark:text-gray-100 font-medium text-sm leading-relaxed">{selectedProduct.name}</p>
                                     </div>
                                     <div className="space-y-4">
+                                        {/* --- CAMPO ALIAS NUEVO --- */}
+                                        <div className={`transition-all ${String(editAlias || "").trim() !== String(selectedProduct.alias || "").trim() ? 'bg-purple-50 p-3 rounded-2xl border border-purple-200' : ''}`}>
+                                            <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase mb-2"><Tag className="w-4 h-4 text-purple-500" /> Alias / Apodo {String(editAlias || "").trim() !== String(selectedProduct.alias || "").trim() && <span className="text-purple-600 animate-pulse ml-auto text-[10px]">● Sin guardar</span>}</label>
+                                            <div className="flex gap-2">
+                                                <input type="text" value={editAlias} onChange={(e) => setEditAlias(e.target.value)} className="flex-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 p-3 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none dark:text-white text-sm" placeholder="Ej: Ficus Trenzado..." />
+                                                <button onClick={() => handleSaveField('alias')} disabled={saving || String(editAlias || "").trim() === String(selectedProduct.alias || "").trim()} className={`px-4 rounded-xl flex items-center justify-center ${String(editAlias || "").trim() !== String(selectedProduct.alias || "").trim() ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-400'}`}><Save className="w-5 h-5" /></button>
+                                            </div>
+                                        </div>
+
+                                        {/* CAMPO UPC */}
                                         <div className={`transition-all ${String(editUpc || "").trim() !== String(selectedProduct.upc || "").trim() ? 'bg-yellow-50 p-3 rounded-2xl border border-yellow-200' : ''}`}>
                                             <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase mb-2"><Barcode className="w-4 h-4 text-blue-500" /> UPC {String(editUpc || "").trim() !== String(selectedProduct.upc || "").trim() && <span className="text-yellow-600 animate-pulse ml-auto text-[10px]">● Sin guardar</span>}</label>
                                             <div className="flex gap-2">
@@ -370,11 +377,13 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                                                 <button onClick={() => handleSaveField('upc')} disabled={saving || String(editUpc || "").trim() === String(selectedProduct.upc || "").trim()} className={`px-4 rounded-xl flex items-center justify-center ${String(editUpc || "").trim() !== String(selectedProduct.upc || "").trim() ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-400'}`}><Save className="w-5 h-5" /></button>
                                             </div>
                                         </div>
+
+                                        {/* CAMPO SKU */}
                                         <div className={`transition-all ${String(editSku || "").trim() !== String(selectedProduct.sku || "").trim() ? 'bg-yellow-50 p-3 rounded-2xl border border-yellow-200' : ''}`}>
-                                            <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase mb-2"><Hash className="w-4 h-4 text-purple-500" /> ID Interno {String(editSku || "").trim() !== String(selectedProduct.sku || "").trim() && <span className="text-yellow-600 animate-pulse ml-auto text-[10px]">● Sin guardar</span>}</label>
+                                            <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase mb-2"><Hash className="w-4 h-4 text-gray-500" /> ID Interno {String(editSku || "").trim() !== String(selectedProduct.sku || "").trim() && <span className="text-yellow-600 animate-pulse ml-auto text-[10px]">● Sin guardar</span>}</label>
                                             <div className="flex gap-2">
-                                                <input type="text" value={editSku} onChange={(e) => setEditSku(e.target.value)} className="flex-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 p-3 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none dark:text-white text-sm" placeholder="Clave..." />
-                                                <button onClick={() => handleSaveField('sku')} disabled={saving || String(editSku || "").trim() === String(selectedProduct.sku || "").trim()} className={`px-4 rounded-xl flex items-center justify-center ${String(editSku || "").trim() !== String(selectedProduct.sku || "").trim() ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-400'}`}><Save className="w-5 h-5" /></button>
+                                                <input type="text" value={editSku} onChange={(e) => setEditSku(e.target.value)} className="flex-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 p-3 rounded-xl focus:ring-2 focus:ring-gray-500 outline-none dark:text-white text-sm" placeholder="Clave..." />
+                                                <button onClick={() => handleSaveField('sku')} disabled={saving || String(editSku || "").trim() === String(selectedProduct.sku || "").trim()} className={`px-4 rounded-xl flex items-center justify-center ${String(editSku || "").trim() !== String(selectedProduct.sku || "").trim() ? 'bg-gray-600 text-white' : 'bg-gray-200 text-gray-400'}`}><Save className="w-5 h-5" /></button>
                                             </div>
                                         </div>
                                     </div>

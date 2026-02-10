@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
     ArrowLeft, FileText, Save, Loader2, AlertTriangle, CheckCircle2,
-    Barcode, Box, Search, X, Camera, Filter, Tag
+    Barcode, Box, Search, X, Camera, Filter, Tag, ChevronLeft
 } from 'lucide-react';
 import { BarcodeScanner } from '../components/BarcodeScanner';
 import { API_URL } from '../config';
@@ -25,14 +25,16 @@ const BatchItemCard = React.memo(({ p, onPriceUpdate, onUpcUpdate, onAliasUpdate
     const costo = p.price || 0;
     const venta = parseFloat(localPrice) || 0;
     const cantidad = p.quantity !== undefined ? p.quantity : 0;
-
-    // Aquí usamos la variable margen para que no de error
     const margen = venta > 0 ? ((venta - costo) / venta * 100) : 0;
     const tienePrecio = venta > 0;
 
     const cardClass = tienePrecio
         ? "bg-green-50/50 dark:bg-green-900/10 border-green-200 dark:border-green-800"
         : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-sm";
+
+    const inputClass = tienePrecio
+        ? "text-green-700 dark:text-green-300 border-green-200 focus:ring-green-500 bg-white dark:bg-gray-900"
+        : "text-red-700 dark:text-red-300 border-red-300 focus:ring-red-500 bg-white dark:bg-gray-900 ring-1 ring-red-100 dark:ring-red-900/30";
 
     return (
         <div className={`p-4 rounded-xl border transition-all ${cardClass}`}>
@@ -96,11 +98,10 @@ const BatchItemCard = React.memo(({ p, onPriceUpdate, onUpcUpdate, onAliasUpdate
                             value={localPrice}
                             onChange={(e) => setLocalPrice(e.target.value)}
                             onBlur={() => onPriceUpdate(p.id, localPrice)}
-                            className="w-full pl-5 pr-2 py-2 text-sm font-bold text-right border rounded-lg focus:ring-2 outline-none transition-colors border-gray-200 focus:ring-blue-500 bg-white"
+                            className={`w-full pl-5 pr-2 py-2 text-sm font-bold text-right border rounded-lg focus:ring-2 outline-none transition-colors ${inputClass}`}
                             placeholder="0.00"
                         />
                     </div>
-                    {/* VISUALIZAR MARGEN EN MÓVIL */}
                     <div className="text-right mt-1">
                         <span className={`text-[10px] font-bold ${margen > 0 ? 'text-green-600' : 'text-gray-400'}`}>
                             Margen: {margen > 0 ? `${margen.toFixed(0)}%` : '-'}
@@ -129,8 +130,6 @@ const BatchItemRow = React.memo(({ p, onPriceUpdate, onUpcUpdate, onAliasUpdate 
     const costo = p.price || 0;
     const venta = parseFloat(localPrice) || 0;
     const cantidad = p.quantity !== undefined ? p.quantity : 0;
-
-    // Usamos margen aquí
     const margen = venta > 0 ? ((venta - costo) / venta * 100) : 0;
     const tienePrecio = venta > 0;
 
@@ -201,7 +200,6 @@ const BatchItemRow = React.memo(({ p, onPriceUpdate, onUpcUpdate, onAliasUpdate 
                     />
                 </div>
             </td>
-            {/* VISUALIZAR MARGEN EN ESCRITORIO */}
             <td className={`px-4 py-3 text-center font-bold text-xs ${margen > 0 ? 'text-green-600' : 'text-gray-300'}`}>
                 {margen > 0 ? `${margen.toFixed(0)}%` : '-'}
             </td>
@@ -230,12 +228,25 @@ export function BatchDetails() {
     const [successMsg, setSuccessMsg] = useState("");
     const [error, setError] = useState("");
 
-    // Filtros simplificados
+    // Estados de control de cambios y navegación
+    const [hasChanges, setHasChanges] = useState(false);
+    const [showExitPrompt, setShowExitPrompt] = useState(false);
+
     const [filter, setFilter] = useState<'all' | 'missing' | 'ready'>('all');
     const [searchTerm, setSearchTerm] = useState("");
     const [showScanner, setShowScanner] = useState(false);
 
-    // Eliminados showFilters y clearAllFilters que no se usaban
+    // --- PROTECCIÓN CONTRA CIERRE DE NAVEGADOR ---
+    useEffect(() => {
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (hasChanges) {
+                e.preventDefault();
+                e.returnValue = ''; // Necesario para Chrome
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [hasChanges]);
 
     useEffect(() => {
         const fetchBatchData = async () => {
@@ -243,6 +254,7 @@ export function BatchDetails() {
                 setLoading(true);
                 const response = await axios.get(`${API_URL}/invoices/batches/${id}/products`);
                 setProducts(response.data);
+                setHasChanges(false); // Reset al cargar
             } catch (err) {
                 console.error(err);
                 setError("No se pudo cargar la información del lote.");
@@ -253,22 +265,41 @@ export function BatchDetails() {
         if (id) fetchBatchData();
     }, [id]);
 
+    // --- MANEJO SEGURO DE RETROCESO ---
+    const handleBack = () => {
+        if (hasChanges) {
+            setShowExitPrompt(true);
+        } else {
+            navigate('/history');
+        }
+    };
+
+    const handleDiscardAndExit = () => {
+        setShowExitPrompt(false);
+        setHasChanges(false);
+        navigate('/history');
+    };
+
+    // --- UPDATERS CON FLAG DE CAMBIOS ---
     const handlePriceUpdate = useCallback((productId: number, newPrice: string) => {
         setProducts(prev => prev.map(p =>
             p.id === productId ? { ...p, selling_price: newPrice } : p
         ));
+        setHasChanges(true); // Marca sucio
     }, []);
 
     const handleUpcUpdate = useCallback((productId: number, newUpc: string) => {
         setProducts(prev => prev.map(p =>
             p.id === productId ? { ...p, upc: newUpc } : p
         ));
+        setHasChanges(true); // Marca sucio
     }, []);
 
     const handleAliasUpdate = useCallback((productId: number, newAlias: string) => {
         setProducts(prev => prev.map(p =>
             p.id === productId ? { ...p, alias: newAlias } : p
         ));
+        setHasChanges(true); // Marca sucio
     }, []);
 
     const handleSave = async () => {
@@ -283,6 +314,7 @@ export function BatchDetails() {
             }));
             await axios.post(`${API_URL}/invoices/update-prices`, updates);
             setSuccessMsg("Guardado");
+            setHasChanges(false); // Limpia estado sucio
             setTimeout(() => setSuccessMsg(""), 3000);
         } catch (err) {
             alert("Error al guardar.");
@@ -305,15 +337,13 @@ export function BatchDetails() {
         return { totalItems, itemsReady, itemsMissing, progress, totalPiezas };
     }, [products]);
 
-    // --- FILTRADO AVANZADO (Nombre + SKU + UPC + ALIAS) ---
+    // --- FILTRADO AVANZADO ---
     const displayedProducts = useMemo(() => {
         return products.filter(p => {
-            // 1. Filtro por Estado
             const hasPrice = parseFloat(p.selling_price) > 0;
             if (filter === 'missing' && hasPrice) return false;
             if (filter === 'ready' && !hasPrice) return false;
 
-            // 2. Filtro por Buscador (Incluye Alias)
             if (searchTerm) {
                 const term = searchTerm.toLowerCase();
                 const matchName = p.name?.toLowerCase().includes(term);
@@ -322,7 +352,6 @@ export function BatchDetails() {
                 const matchAlias = p.alias?.toLowerCase().includes(term);
                 if (!matchName && !matchSku && !matchUpc && !matchAlias) return false;
             }
-
             return true;
         });
     }, [products, filter, searchTerm]);
@@ -337,12 +366,12 @@ export function BatchDetails() {
     if (error) return <div className="p-10 text-center text-red-500 font-bold">{error}</div>;
 
     return (
-        <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-24 animate-fade-in">
+        <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-24 animate-fade-in relative">
 
             {/* HEADER SUPERIOR */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <button onClick={() => navigate('/history')} className="flex items-center gap-2 text-gray-500 hover:text-blue-600 transition-colors font-medium mb-2 text-sm">
+                    <button onClick={handleBack} className="flex items-center gap-2 text-gray-500 hover:text-blue-600 transition-colors font-medium mb-2 text-sm">
                         <ArrowLeft className="w-4 h-4" /> Volver al Historial
                     </button>
                     <div className="flex items-center gap-3">
@@ -361,8 +390,11 @@ export function BatchDetails() {
                     </div>
                 </div>
                 <div className="flex items-center gap-3 w-full md:w-auto">
+                    {/* Indicador de Cambios sin Guardar */}
+                    {hasChanges && <span className="text-orange-500 text-xs font-bold animate-pulse flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Sin guardar</span>}
+
                     {successMsg && <span className="text-green-600 dark:text-green-400 text-xs font-bold animate-pulse flex items-center gap-1 bg-green-50 dark:bg-green-900/20 px-3 py-2 rounded-lg whitespace-nowrap"><CheckCircle2 className="w-4 h-4" /> {successMsg}</span>}
-                    <button onClick={handleSave} disabled={saving} className="flex-1 md:flex-none bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg shadow-green-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 text-sm md:text-base">
+                    <button onClick={handleSave} disabled={saving} className={`flex-1 md:flex-none hover:bg-green-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg shadow-green-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 text-sm md:text-base ${hasChanges ? 'bg-green-600 ring-2 ring-green-400 ring-offset-2 dark:ring-offset-gray-900' : 'bg-green-600'}`}>
                         {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                         {saving ? 'Guardando...' : 'Guardar Cambios'}
                     </button>
@@ -456,6 +488,21 @@ export function BatchDetails() {
                         </table>
                     </div>
                 </>
+            )}
+
+            {/* MODAL DE CONFIRMACIÓN DE SALIDA */}
+            {showExitPrompt && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-xl border border-gray-100 dark:border-gray-700 max-w-xs w-full animate-scale-in">
+                        <div className="bg-amber-100 dark:bg-amber-900/30 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-amber-600 dark:text-amber-400"><AlertTriangle className="w-8 h-8" /></div>
+                        <h3 className="text-xl font-black text-gray-900 dark:text-white mb-2 text-center">¡Espera!</h3>
+                        <p className="text-gray-500 dark:text-gray-400 text-sm mb-6 text-center">Tienes cambios sin guardar. ¿Seguro que quieres salir?</p>
+                        <div className="space-y-3">
+                            <button onClick={() => setShowExitPrompt(false)} className="w-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2"><ChevronLeft className="w-4 h-4" /> Cancelar</button>
+                            <button onClick={handleDiscardAndExit} className="w-full text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 font-bold py-3 rounded-xl transition-colors text-sm">Salir sin guardar</button>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {/* ESCÁNER MODAL */}
