@@ -354,38 +354,37 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                     <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-scale-in relative z-10 flex flex-col max-h-[90vh]">
                         <div className="bg-blue-600 dark:bg-blue-700 p-6 md:p-8 text-white relative text-center shrink-0">
 
-                            <button onClick={handleAttemptClose} className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 p-2 rounded-full transition-colors active:scale-90 z-20"><X className="w-5 h-5 text-white" /></button>
-
-                            {/* BOTONES DE ACCIÓN (SELECTOR DE TAMAÑO / IMPRIMIR / BORRAR) */}
-                            <div className="absolute top-4 left-4 flex gap-2 z-20 items-center">
-
-                                {/* SELECTOR DE TAMAÑO */}
+                            {/* --- ESQUINA IZQUIERDA: CONFIGURACIÓN DE IMPRESIÓN --- */}
+                            <div className="absolute top-4 left-4 flex gap-3 z-20 items-center">
+                                {/* Selector de Tamaño (Estilo más limpio) */}
                                 <div className="relative group">
                                     <select
                                         value={labelSize}
                                         onChange={(e) => setLabelSize(e.target.value as LabelSize)}
-                                        className="appearance-none bg-white/20 hover:bg-white/30 text-white text-[10px] font-bold py-1.5 pl-2 pr-6 rounded-lg border border-white/30 outline-none cursor-pointer transition-colors backdrop-blur-sm"
+                                        className="appearance-none bg-blue-800/40 hover:bg-blue-800/60 text-white text-[10px] font-bold py-2 pl-3 pr-8 rounded-lg border border-blue-400/30 outline-none cursor-pointer transition-all backdrop-blur-md shadow-sm"
                                         title="Tamaño de Etiqueta"
                                     >
                                         <option value="1.5x1" className="text-gray-900">1.5" x 1"</option>
                                         <option value="2x1" className="text-gray-900">2" x 1"</option>
                                     </select>
-                                    {/* Flechita decorativa */}
-                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-50">
+                                    <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-70">
                                         <Settings className="w-3 h-3 text-white" />
                                     </div>
                                 </div>
 
-                                {/* BOTÓN IMPRIMIR */}
+                                {/* Botón Imprimir */}
                                 <button
                                     onClick={handlePrint}
-                                    className="bg-white/20 hover:bg-white/30 p-2 rounded-full transition-colors active:scale-90 text-white border border-white/30 backdrop-blur-sm"
+                                    className="bg-white text-blue-600 hover:bg-blue-50 p-2 rounded-full transition-all active:scale-95 shadow-lg border border-transparent"
                                     title={`Imprimir (${labelSize})`}
                                 >
                                     <Printer className="w-5 h-5" />
                                 </button>
+                            </div>
 
-                                {/* BOTÓN BORRAR (ADMIN) */}
+                            {/* --- ESQUINA DERECHA: ACCIONES DE CIERRE Y BORRADO --- */}
+                            <div className="absolute top-4 right-4 flex gap-2 z-20 items-center">
+                                {/* Botón Borrar (Solo Admin) - MOVIDO AQUÍ */}
                                 {isAdmin && (
                                     <button
                                         onClick={() => setShowDeleteConfirm(true)}
@@ -395,19 +394,45 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                                         <Trash2 className="w-5 h-5" />
                                     </button>
                                 )}
+
+                                {/* Botón Cerrar (X) */}
+                                <button
+                                    onClick={handleAttemptClose}
+                                    className="bg-black/10 hover:bg-black/20 p-2 rounded-full transition-colors active:scale-90 text-white border border-white/10 backdrop-blur-sm"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
                             </div>
 
-                            <p className="text-blue-200 text-xs font-bold uppercase tracking-widest mb-2 flex items-center justify-center gap-2">Precio de Venta {isAdmin && <Edit3 className="w-3 h-3 opacity-50" />}</p>
+                            {/* --- CONTENIDO CENTRAL (PRECIO) --- */}
+                            <p className="text-blue-200 text-xs font-bold uppercase tracking-widest mb-2 flex items-center justify-center gap-2 mt-6 md:mt-0">
+                                Precio de Venta {isAdmin && <Edit3 className="w-3 h-3 opacity-50" />}
+                            </p>
+
                             {isAdmin ? (
                                 <div className="relative inline-block w-full max-w-[200px]">
                                     <span className="absolute left-0 top-1/2 -translate-y-1/2 text-3xl md:text-4xl font-black text-blue-300">$</span>
-                                    <input type="number" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} className="w-full bg-transparent text-center text-6xl md:text-7xl font-black tracking-tighter text-white placeholder-blue-300 focus:outline-none border-b-2 border-transparent focus:border-white/50 transition-all pl-6" placeholder="0" />
+                                    <input
+                                        type="number"
+                                        value={editPrice}
+                                        onChange={(e) => setEditPrice(e.target.value)}
+                                        className="w-full bg-transparent text-center text-6xl md:text-7xl font-black tracking-tighter text-white placeholder-blue-300 focus:outline-none border-b-2 border-transparent focus:border-white/50 transition-all pl-6"
+                                        placeholder="0"
+                                    />
                                     {parseFloat(editPrice || "0") !== parseFloat(selectedProduct.selling_price || "0") && (
-                                        <button onClick={() => handleSaveField('price')} disabled={saving} className="absolute -right-10 md:-right-12 top-1/2 -translate-y-1/2 bg-white text-blue-600 p-2 rounded-full shadow-lg hover:scale-110 transition-transform active:scale-90 animate-bounce-in"><Save className="w-5 h-5" /></button>
+                                        <button
+                                            onClick={() => handleSaveField('price')}
+                                            disabled={saving}
+                                            className="absolute -right-10 md:-right-12 top-1/2 -translate-y-1/2 bg-white text-blue-600 p-2 rounded-full shadow-lg hover:scale-110 transition-transform active:scale-90 animate-bounce-in"
+                                        >
+                                            <Save className="w-5 h-5" />
+                                        </button>
                                     )}
                                 </div>
                             ) : (
-                                <h2 className="text-6xl md:text-7xl font-black tracking-tighter drop-shadow-lg">${selectedProduct.selling_price?.toFixed(2)}</h2>
+                                <h2 className="text-6xl md:text-7xl font-black tracking-tighter drop-shadow-lg">
+                                    ${selectedProduct.selling_price?.toFixed(2)}
+                                </h2>
                             )}
                         </div>
 
