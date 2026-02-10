@@ -224,11 +224,20 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
 // 4. DEFINICIÓN DEL ROUTER (Data Router)
 // =========================================================================
 
+const HomeRedirect = () => {
+  const { isAdmin, checkPermission } = useOutletContext<ContextType>();
+
+  if (isAdmin || checkPermission('dashboard')) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <Navigate to="/search" replace />;
+};
+
 const router = createBrowserRouter(
   createRoutesFromElements(
     <Route path="/" element={<RootLayout />}>
       {/* Redirección Inicial */}
-      <Route index element={<Navigate to="/search" replace />} />
+      <Route index element={<HomeRedirect />} />
 
       {/* Rutas Protegidas */}
       <Route path="dashboard" element={<PermissionGuard module="dashboard"><DashboardWrapper /></PermissionGuard>} />
