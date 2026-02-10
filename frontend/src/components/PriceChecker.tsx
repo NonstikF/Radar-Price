@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Search, X, Save, Barcode, Hash, CheckCircle2, AlertTriangle, ChevronLeft, History, ArrowRight, Camera, Filter, Edit3, PackageOpen, Trash2, Loader2, ArrowDownAZ, ArrowUpAZ, Tag } from 'lucide-react';
+import { Search, X, Save, Barcode, Hash, CheckCircle2, AlertTriangle, ChevronLeft, History, ArrowRight, Camera, Filter, Edit3, PackageOpen, Trash2, Loader2, ArrowDownAZ, ArrowUpAZ, Tag, Printer } from 'lucide-react';
+import { useReactToPrint } from 'react-to-print'; // <--- IMPORTANTE: Librería de impresión
 import { BarcodeScanner } from './BarcodeScanner';
+import { ProductLabel } from './ProductLabel'; // <--- IMPORTANTE: Tu diseño de etiqueta
 import { API_URL } from '../config';
 
 interface Props {
@@ -27,7 +29,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
     const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
     const [editUpc, setEditUpc] = useState("");
     const [editSku, setEditSku] = useState("");
-    const [editAlias, setEditAlias] = useState(""); // <--- NUEVO ESTADO
+    const [editAlias, setEditAlias] = useState("");
     const [editPrice, setEditPrice] = useState("");
 
     const [saving, setSaving] = useState(false);
@@ -42,8 +44,19 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
 
     const inputRef = useRef<HTMLInputElement>(null);
     const timeoutRef = useRef<any>(null);
+
+    // --- REF PARA IMPRESIÓN ---
+    const labelRef = useRef<HTMLDivElement>(null);
+
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     const isAdmin = user.role === 'admin';
+
+    // --- FUNCIÓN DE IMPRESIÓN ---
+    const handlePrint = useReactToPrint({
+        contentRef: labelRef, // <--- SE LLAMA ASÍ AHORA
+        documentTitle: selectedProduct?.alias || selectedProduct?.name || 'Etiqueta',
+        onAfterPrint: () => showToast("Enviado a impresión"),
+    });
 
     useEffect(() => {
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -97,7 +110,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
         setSelectedProduct(p);
         setEditUpc(p.upc ? String(p.upc) : "");
         setEditSku(p.sku ? String(p.sku) : "");
-        setEditAlias(p.alias ? String(p.alias) : ""); // <--- CARGAR ALIAS
+        setEditAlias(p.alias ? String(p.alias) : "");
         setEditPrice(p.selling_price ? String(p.selling_price) : "");
         setShowExitConfirm(false);
         setShowDeleteConfirm(false);
@@ -115,7 +128,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
         const priceChanged = parseFloat(editPrice || "0") !== parseFloat(selectedProduct.selling_price || "0");
         const upcChanged = clean(editUpc) !== clean(selectedProduct.upc);
         const skuChanged = clean(editSku) !== clean(selectedProduct.sku);
-        const aliasChanged = clean(editAlias) !== clean(selectedProduct.alias); // <--- VALIDAR CAMBIO
+        const aliasChanged = clean(editAlias) !== clean(selectedProduct.alias);
 
         if (upcChanged || skuChanged || aliasChanged || (isAdmin && priceChanged)) {
             setShowExitConfirm(true);
@@ -142,7 +155,6 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
         }
     };
 
-    // --- FUNCIÓN DE GUARDADO ACTUALIZADA ---
     const handleSaveField = async (field: 'upc' | 'sku' | 'price' | 'alias') => {
         if (!selectedProduct) return;
         setSaving(true);
@@ -152,7 +164,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
 
             if (field === 'upc') { cleanValue = editUpc.trim(); payload = { upc: cleanValue }; }
             else if (field === 'sku') { cleanValue = editSku.trim(); payload = { sku: cleanValue }; }
-            else if (field === 'alias') { cleanValue = editAlias.trim(); payload = { alias: cleanValue }; } // <--- NUEVO CASO
+            else if (field === 'alias') { cleanValue = editAlias.trim(); payload = { alias: cleanValue }; }
             else if (field === 'price') { cleanValue = parseFloat(editPrice) || 0; payload = { selling_price: cleanValue }; }
 
             await axios.put(`${API_URL}/invoices/products/${selectedProduct.id}`, payload);
@@ -328,10 +340,30 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                     <div className="absolute inset-0" onClick={handleAttemptClose}></div>
                     <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-scale-in relative z-10 flex flex-col max-h-[90vh]">
                         <div className="bg-blue-600 dark:bg-blue-700 p-6 md:p-8 text-white relative text-center shrink-0">
-                            <button onClick={handleAttemptClose} className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 p-2 rounded-full transition-colors active:scale-90"><X className="w-5 h-5 text-white" /></button>
-                            {isAdmin && (
-                                <button onClick={() => setShowDeleteConfirm(true)} className="absolute top-4 left-4 bg-red-500/20 hover:bg-red-500/40 p-2 rounded-full transition-colors active:scale-90 text-white border border-red-400/30"><Trash2 className="w-5 h-5" /></button>
-                            )}
+
+                            <button onClick={handleAttemptClose} className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 p-2 rounded-full transition-colors active:scale-90 z-20"><X className="w-5 h-5 text-white" /></button>
+
+                            {/* BOTONES DE ACCIÓN (IMPRIMIR / BORRAR) */}
+                            <div className="absolute top-4 left-4 flex gap-2 z-20">
+                                <button
+                                    onClick={handlePrint}
+                                    className="bg-white/20 hover:bg-white/30 p-2 rounded-full transition-colors active:scale-90 text-white border border-white/30 backdrop-blur-sm"
+                                    title="Imprimir Etiqueta"
+                                >
+                                    <Printer className="w-5 h-5" />
+                                </button>
+
+                                {isAdmin && (
+                                    <button
+                                        onClick={() => setShowDeleteConfirm(true)}
+                                        className="bg-red-500/20 hover:bg-red-500/40 p-2 rounded-full transition-colors active:scale-90 text-white border border-red-400/30 backdrop-blur-sm"
+                                        title="Eliminar Producto"
+                                    >
+                                        <Trash2 className="w-5 h-5" />
+                                    </button>
+                                )}
+                            </div>
+
                             <p className="text-blue-200 text-xs font-bold uppercase tracking-widest mb-2 flex items-center justify-center gap-2">Precio de Venta {isAdmin && <Edit3 className="w-3 h-3 opacity-50" />}</p>
                             {isAdmin ? (
                                 <div className="relative inline-block w-full max-w-[200px]">
@@ -434,6 +466,11 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                     </div>
                 </div>
             )}
+
+            {/* COMPONENTE DE ETIQUETA (INVISIBLE EN PANTALLA) */}
+            <div style={{ display: "none" }}>
+                <ProductLabel ref={labelRef} product={selectedProduct} />
+            </div>
 
             {showScanner && (
                 <BarcodeScanner onScan={handleScanSuccess} onClose={() => setShowScanner(false)} />
