@@ -1,9 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Search, X, Save, Barcode, Hash, CheckCircle2, AlertTriangle, ChevronLeft, History, ArrowRight, Camera, Filter, Edit3, PackageOpen, Trash2, Loader2, ArrowDownAZ, ArrowUpAZ, Tag, Printer } from 'lucide-react';
-import { useReactToPrint } from 'react-to-print'; // <--- IMPORTANTE: Librería de impresión
+import {
+    Search, X, Save, Barcode, Hash, CheckCircle2, AlertTriangle,
+    ChevronLeft, History, ArrowRight, Camera, Filter, Edit3,
+    PackageOpen, Trash2, Loader2, ArrowDownAZ, ArrowUpAZ, Tag,
+    Printer, Settings
+} from 'lucide-react';
+import { useReactToPrint } from 'react-to-print';
 import { BarcodeScanner } from './BarcodeScanner';
-import { ProductLabel } from './ProductLabel'; // <--- IMPORTANTE: Tu diseño de etiqueta
+import { ProductLabel, type LabelSize } from './ProductLabel'; // Asegúrate de que ProductLabel exporte LabelSize
 import { API_URL } from '../config';
 
 interface Props {
@@ -12,12 +17,13 @@ interface Props {
 }
 
 export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
+    // --- ESTADOS DE DATOS ---
     const [products, setProducts] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
 
+    // --- ESTADOS DE BÚSQUEDA Y FILTROS ---
     const [searchTerm, setSearchTerm] = useState("");
     const [showFilters, setShowFilters] = useState(false);
-
     const [filters, setFilters] = useState({
         minPrice: "",
         maxPrice: "",
@@ -26,15 +32,16 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
         sortOrder: "desc"
     });
 
+    // --- ESTADOS DE PRODUCTO SELECCIONADO Y EDICIÓN ---
     const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
     const [editUpc, setEditUpc] = useState("");
     const [editSku, setEditSku] = useState("");
     const [editAlias, setEditAlias] = useState("");
     const [editPrice, setEditPrice] = useState("");
 
+    // --- ESTADOS DE UI Y CONTROL ---
     const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState(false);
-
     const [showExitConfirm, setShowExitConfirm] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [history, setHistory] = useState<any[]>([]);
@@ -42,22 +49,26 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
     const [showScanner, setShowScanner] = useState(false);
     const [toast, setToast] = useState<{ show: boolean, message: string, type: 'success' | 'error' }>({ show: false, message: '', type: 'success' });
 
+    // --- ESTADOS DE IMPRESIÓN ---
+    const [labelSize, setLabelSize] = useState<LabelSize>('1.5x1'); // Tamaño por defecto
+    const companyName = "PlantArte"; // Nombre de tu empresa para la etiqueta
+
+    // --- REFS ---
     const inputRef = useRef<HTMLInputElement>(null);
     const timeoutRef = useRef<any>(null);
-
-    // --- REF PARA IMPRESIÓN ---
-    const labelRef = useRef<HTMLDivElement>(null);
+    const labelRef = useRef<HTMLDivElement>(null); // Ref para el componente a imprimir
 
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     const isAdmin = user.role === 'admin';
 
-    // --- FUNCIÓN DE IMPRESIÓN ---
+    // --- HANDLER DE IMPRESIÓN (react-to-print v7+) ---
     const handlePrint = useReactToPrint({
-        contentRef: labelRef, // <--- SE LLAMA ASÍ AHORA
+        contentRef: labelRef,
         documentTitle: selectedProduct?.alias || selectedProduct?.name || 'Etiqueta',
         onAfterPrint: () => showToast("Enviado a impresión"),
     });
 
+    // --- EFECTO DE BÚSQUEDA (DEBOUNCE) ---
     useEffect(() => {
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
         timeoutRef.current = setTimeout(() => {
@@ -66,6 +77,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
         return () => clearTimeout(timeoutRef.current);
     }, [searchTerm, filters]);
 
+    // --- FUNCIONES API ---
     const fetchProducts = async () => {
         setLoading(true);
         try {
@@ -106,6 +118,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
         if (onClearFilter) onClearFilter();
     };
 
+    // --- MANEJO DE SELECCIÓN Y EDICIÓN ---
     const handleProductClick = async (p: any) => {
         setSelectedProduct(p);
         setEditUpc(p.upc ? String(p.upc) : "");
@@ -343,16 +356,36 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
 
                             <button onClick={handleAttemptClose} className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 p-2 rounded-full transition-colors active:scale-90 z-20"><X className="w-5 h-5 text-white" /></button>
 
-                            {/* BOTONES DE ACCIÓN (IMPRIMIR / BORRAR) */}
-                            <div className="absolute top-4 left-4 flex gap-2 z-20">
+                            {/* BOTONES DE ACCIÓN (SELECTOR DE TAMAÑO / IMPRIMIR / BORRAR) */}
+                            <div className="absolute top-4 left-4 flex gap-2 z-20 items-center">
+
+                                {/* SELECTOR DE TAMAÑO */}
+                                <div className="relative group">
+                                    <select
+                                        value={labelSize}
+                                        onChange={(e) => setLabelSize(e.target.value as LabelSize)}
+                                        className="appearance-none bg-white/20 hover:bg-white/30 text-white text-[10px] font-bold py-1.5 pl-2 pr-6 rounded-lg border border-white/30 outline-none cursor-pointer transition-colors backdrop-blur-sm"
+                                        title="Tamaño de Etiqueta"
+                                    >
+                                        <option value="1.5x1" className="text-gray-900">1.5" x 1"</option>
+                                        <option value="2x1" className="text-gray-900">2" x 1"</option>
+                                    </select>
+                                    {/* Flechita decorativa */}
+                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-50">
+                                        <Settings className="w-3 h-3 text-white" />
+                                    </div>
+                                </div>
+
+                                {/* BOTÓN IMPRIMIR */}
                                 <button
                                     onClick={handlePrint}
                                     className="bg-white/20 hover:bg-white/30 p-2 rounded-full transition-colors active:scale-90 text-white border border-white/30 backdrop-blur-sm"
-                                    title="Imprimir Etiqueta"
+                                    title={`Imprimir (${labelSize})`}
                                 >
                                     <Printer className="w-5 h-5" />
                                 </button>
 
+                                {/* BOTÓN BORRAR (ADMIN) */}
                                 {isAdmin && (
                                     <button
                                         onClick={() => setShowDeleteConfirm(true)}
@@ -391,7 +424,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                                         <p className="text-gray-800 dark:text-gray-100 font-medium text-sm leading-relaxed">{selectedProduct.name}</p>
                                     </div>
                                     <div className="space-y-4">
-                                        {/* --- CAMPO ALIAS NUEVO --- */}
+                                        {/* CAMPO ALIAS */}
                                         <div className={`transition-all ${String(editAlias || "").trim() !== String(selectedProduct.alias || "").trim() ? 'bg-purple-50 p-3 rounded-2xl border border-purple-200' : ''}`}>
                                             <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase mb-2"><Tag className="w-4 h-4 text-purple-500" /> Alias / Apodo {String(editAlias || "").trim() !== String(selectedProduct.alias || "").trim() && <span className="text-purple-600 animate-pulse ml-auto text-[10px]">● Sin guardar</span>}</label>
                                             <div className="flex gap-2">
@@ -467,9 +500,14 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                 </div>
             )}
 
-            {/* COMPONENTE DE ETIQUETA (INVISIBLE EN PANTALLA) */}
+            {/* COMPONENTE DE ETIQUETA (INVISIBLE) */}
             <div style={{ display: "none" }}>
-                <ProductLabel ref={labelRef} product={selectedProduct} />
+                <ProductLabel
+                    ref={labelRef}
+                    product={selectedProduct}
+                    size={labelSize}
+                    companyName={companyName}
+                />
             </div>
 
             {showScanner && (
