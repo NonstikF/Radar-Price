@@ -372,6 +372,9 @@ async def update_prices(
 
         if p:
             try:
+                if "alias" in item:
+                    new_alias = str(item["alias"]).strip()
+                    p.alias = new_alias if new_alias else None
                 if "selling_price" in item:
                     new_price = float(item["selling_price"])
                     if abs((p.selling_price or 0) - new_price) > 0.01:
@@ -419,6 +422,7 @@ async def get_products(
                 func.unaccent(Product.name).ilike(func.unaccent(f"%{q}%")),
                 Product.sku.ilike(f"%{q}%"),  # SKU y UPC no suelen llevar acentos
                 Product.upc.ilike(f"%{q}%"),
+                func.unaccent(Product.alias).ilike(func.unaccent(f"%{q}%")),
             )
         )
 
@@ -754,6 +758,7 @@ async def get_batch_items(batch_id: int, db: AsyncSession = Depends(get_db)):
             "sku": p.sku,
             "upc": p.upc,
             "name": p.name,
+            "alias": p.alias or "",
             "price": p.price,
             "selling_price": p.selling_price,
             "stock": p.stock_quantity,  # Stock total global

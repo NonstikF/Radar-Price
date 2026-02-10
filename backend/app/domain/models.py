@@ -11,6 +11,7 @@ class Product(Base):
     sku = Column(String, unique=True, index=True)
     upc = Column(String, nullable=True, index=True)
     name = Column(String)
+    alias = Column(String, nullable=True)
     description = Column(String, nullable=True)
 
     price = Column(Float, default=0.0)  # Costo actual

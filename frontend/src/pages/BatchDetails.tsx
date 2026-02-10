@@ -3,36 +3,36 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
     ArrowLeft, FileText, Save, Loader2, AlertTriangle, CheckCircle2,
-    Barcode, Filter, Box, Search, X, Camera
+    Barcode, Box, Search, X, Camera, Filter, Tag
 } from 'lucide-react';
-import { BarcodeScanner } from '../components/BarcodeScanner'; // Asegúrate de tener este componente
+import { BarcodeScanner } from '../components/BarcodeScanner';
 import { API_URL } from '../config';
 
 // ==========================================
 // 1. SUB-COMPONENTE: Tarjeta Móvil
 // ==========================================
-const BatchItemCard = React.memo(({ p, onPriceUpdate, onUpcUpdate }: any) => {
+const BatchItemCard = React.memo(({ p, onPriceUpdate, onUpcUpdate, onAliasUpdate }: any) => {
     const [localPrice, setLocalPrice] = useState(p.selling_price || '');
     const [localUpc, setLocalUpc] = useState(p.upc || '');
+    const [localAlias, setLocalAlias] = useState(p.alias || '');
 
     useEffect(() => {
         setLocalPrice(p.selling_price || '');
         setLocalUpc(p.upc || '');
-    }, [p.selling_price, p.upc]);
+        setLocalAlias(p.alias || '');
+    }, [p.selling_price, p.upc, p.alias]);
 
     const costo = p.price || 0;
     const venta = parseFloat(localPrice) || 0;
     const cantidad = p.quantity !== undefined ? p.quantity : 0;
+
+    // Aquí usamos la variable margen para que no de error
     const margen = venta > 0 ? ((venta - costo) / venta * 100) : 0;
     const tienePrecio = venta > 0;
 
     const cardClass = tienePrecio
         ? "bg-green-50/50 dark:bg-green-900/10 border-green-200 dark:border-green-800"
         : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-sm";
-
-    const inputClass = tienePrecio
-        ? "text-green-700 dark:text-green-300 border-green-200 focus:ring-green-500 bg-white dark:bg-gray-900"
-        : "text-red-700 dark:text-red-300 border-red-300 focus:ring-red-500 bg-white dark:bg-gray-900 ring-1 ring-red-100 dark:ring-red-900/30";
 
     return (
         <div className={`p-4 rounded-xl border transition-all ${cardClass}`}>
@@ -45,13 +45,27 @@ const BatchItemCard = React.memo(({ p, onPriceUpdate, onUpcUpdate }: any) => {
                             </span>
                         </div>
                         <h3 className="text-sm font-bold text-gray-900 dark:text-white leading-snug">{p.name}</h3>
+
+                        {/* INPUT DE ALIAS MÓVIL */}
+                        <div className="mt-2 flex items-center gap-2">
+                            <Tag className="w-3 h-3 text-purple-500" />
+                            <input
+                                type="text"
+                                value={localAlias}
+                                onChange={(e) => setLocalAlias(e.target.value)}
+                                onBlur={() => onAliasUpdate(p.id, localAlias)}
+                                placeholder="Agregar alias/apodo..."
+                                className="text-xs w-full bg-transparent border-b border-gray-200 dark:border-gray-700 focus:border-purple-500 outline-none text-purple-700 dark:text-purple-300 placeholder-gray-400"
+                            />
+                        </div>
+
                     </div>
                     {tienePrecio
                         ? <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
                         : <AlertTriangle className="w-5 h-5 text-red-400 shrink-0" />
                     }
                 </div>
-                <div className="flex flex-col gap-1 mt-2">
+                <div className="flex flex-col gap-1 mt-2 pl-1">
                     <p className="text-xs text-gray-400 font-mono">SKU: {p.sku || 'N/A'}</p>
                     <div className="flex items-center gap-2 mt-1">
                         <Barcode className="w-4 h-4 text-gray-400 shrink-0" />
@@ -67,7 +81,7 @@ const BatchItemCard = React.memo(({ p, onPriceUpdate, onUpcUpdate }: any) => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 items-end bg-white/50 dark:bg-gray-800/50 p-2 rounded-lg">
+            <div className="grid grid-cols-2 gap-3 items-end bg-white/50 dark:bg-gray-800/50 p-2 rounded-lg mt-3">
                 <div>
                     <p className="text-[10px] text-gray-500 uppercase font-bold">Costo Unit.</p>
                     <p className="text-gray-700 dark:text-gray-300 font-medium">${costo.toFixed(2)}</p>
@@ -82,10 +96,11 @@ const BatchItemCard = React.memo(({ p, onPriceUpdate, onUpcUpdate }: any) => {
                             value={localPrice}
                             onChange={(e) => setLocalPrice(e.target.value)}
                             onBlur={() => onPriceUpdate(p.id, localPrice)}
-                            className={`w-full pl-5 pr-2 py-2 text-sm font-bold text-right border rounded-lg focus:ring-2 outline-none transition-colors ${inputClass}`}
+                            className="w-full pl-5 pr-2 py-2 text-sm font-bold text-right border rounded-lg focus:ring-2 outline-none transition-colors border-gray-200 focus:ring-blue-500 bg-white"
                             placeholder="0.00"
                         />
                     </div>
+                    {/* VISUALIZAR MARGEN EN MÓVIL */}
                     <div className="text-right mt-1">
                         <span className={`text-[10px] font-bold ${margen > 0 ? 'text-green-600' : 'text-gray-400'}`}>
                             Margen: {margen > 0 ? `${margen.toFixed(0)}%` : '-'}
@@ -100,18 +115,22 @@ const BatchItemCard = React.memo(({ p, onPriceUpdate, onUpcUpdate }: any) => {
 // ==========================================
 // 2. SUB-COMPONENTE: Fila Escritorio
 // ==========================================
-const BatchItemRow = React.memo(({ p, onPriceUpdate, onUpcUpdate }: any) => {
+const BatchItemRow = React.memo(({ p, onPriceUpdate, onUpcUpdate, onAliasUpdate }: any) => {
     const [localPrice, setLocalPrice] = useState(p.selling_price || '');
     const [localUpc, setLocalUpc] = useState(p.upc || '');
+    const [localAlias, setLocalAlias] = useState(p.alias || '');
 
     useEffect(() => {
         setLocalPrice(p.selling_price || '');
         setLocalUpc(p.upc || '');
-    }, [p.selling_price, p.upc]);
+        setLocalAlias(p.alias || '');
+    }, [p.selling_price, p.upc, p.alias]);
 
     const costo = p.price || 0;
     const venta = parseFloat(localPrice) || 0;
     const cantidad = p.quantity !== undefined ? p.quantity : 0;
+
+    // Usamos margen aquí
     const margen = venta > 0 ? ((venta - costo) / venta * 100) : 0;
     const tienePrecio = venta > 0;
 
@@ -139,9 +158,27 @@ const BatchItemRow = React.memo(({ p, onPriceUpdate, onUpcUpdate }: any) => {
                     <Barcode className="w-3 h-3 text-gray-300 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
             </td>
-            <td className="px-4 py-3 font-medium text-gray-900 dark:text-white max-w-xs truncate" title={p.name}>
-                {p.name}
+
+            {/* NOMBRE Y ALIAS */}
+            <td className="px-4 py-3">
+                <div className="flex flex-col justify-center">
+                    <span className="font-medium text-gray-900 dark:text-white text-sm max-w-xs truncate" title={p.name}>
+                        {p.name}
+                    </span>
+                    <div className="flex items-center gap-1 mt-1 group/alias">
+                        <Tag className="w-3 h-3 text-purple-400 opacity-50 group-hover/alias:opacity-100" />
+                        <input
+                            type="text"
+                            value={localAlias}
+                            onChange={(e) => setLocalAlias(e.target.value)}
+                            onBlur={() => onAliasUpdate(p.id, localAlias)}
+                            placeholder="Agregar alias..."
+                            className="text-xs bg-transparent border-b border-transparent hover:border-gray-300 focus:border-purple-500 outline-none text-purple-600 dark:text-purple-300 placeholder-gray-400/50 w-full transition-all"
+                        />
+                    </div>
+                </div>
             </td>
+
             <td className="px-4 py-3 text-center">
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-xs font-bold">
                     {cantidad}
@@ -164,6 +201,7 @@ const BatchItemRow = React.memo(({ p, onPriceUpdate, onUpcUpdate }: any) => {
                     />
                 </div>
             </td>
+            {/* VISUALIZAR MARGEN EN ESCRITORIO */}
             <td className={`px-4 py-3 text-center font-bold text-xs ${margen > 0 ? 'text-green-600' : 'text-gray-300'}`}>
                 {margen > 0 ? `${margen.toFixed(0)}%` : '-'}
             </td>
@@ -192,11 +230,12 @@ export function BatchDetails() {
     const [successMsg, setSuccessMsg] = useState("");
     const [error, setError] = useState("");
 
-    // --- ESTADOS DE FILTRO / BÚSQUEDA IGUAL QUE PRICE CHECKER ---
+    // Filtros simplificados
     const [filter, setFilter] = useState<'all' | 'missing' | 'ready'>('all');
     const [searchTerm, setSearchTerm] = useState("");
-    const [showFilters, setShowFilters] = useState(false);
     const [showScanner, setShowScanner] = useState(false);
+
+    // Eliminados showFilters y clearAllFilters que no se usaban
 
     useEffect(() => {
         const fetchBatchData = async () => {
@@ -226,6 +265,12 @@ export function BatchDetails() {
         ));
     }, []);
 
+    const handleAliasUpdate = useCallback((productId: number, newAlias: string) => {
+        setProducts(prev => prev.map(p =>
+            p.id === productId ? { ...p, alias: newAlias } : p
+        ));
+    }, []);
+
     const handleSave = async () => {
         setSaving(true);
         try {
@@ -233,7 +278,8 @@ export function BatchDetails() {
                 id: p.id,
                 name: p.name,
                 selling_price: parseFloat(p.selling_price) || 0,
-                upc: p.upc || ""
+                upc: p.upc || "",
+                alias: p.alias || ""
             }));
             await axios.post(`${API_URL}/invoices/update-prices`, updates);
             setSuccessMsg("Guardado");
@@ -250,12 +296,6 @@ export function BatchDetails() {
         setShowScanner(false);
     };
 
-    const clearAllFilters = () => {
-        setSearchTerm("");
-        setFilter('all');
-        setShowFilters(false);
-    };
-
     const stats = useMemo(() => {
         const totalItems = products.length;
         const totalPiezas = products.reduce((acc, p) => acc + (p.quantity || 0), 0);
@@ -265,7 +305,7 @@ export function BatchDetails() {
         return { totalItems, itemsReady, itemsMissing, progress, totalPiezas };
     }, [products]);
 
-    // --- FILTRADO (Cliente) ---
+    // --- FILTRADO AVANZADO (Nombre + SKU + UPC + ALIAS) ---
     const displayedProducts = useMemo(() => {
         return products.filter(p => {
             // 1. Filtro por Estado
@@ -273,13 +313,14 @@ export function BatchDetails() {
             if (filter === 'missing' && hasPrice) return false;
             if (filter === 'ready' && !hasPrice) return false;
 
-            // 2. Filtro por Buscador
+            // 2. Filtro por Buscador (Incluye Alias)
             if (searchTerm) {
                 const term = searchTerm.toLowerCase();
                 const matchName = p.name?.toLowerCase().includes(term);
                 const matchSku = p.sku?.toLowerCase().includes(term);
                 const matchUpc = p.upc?.toLowerCase().includes(term);
-                if (!matchName && !matchSku && !matchUpc) return false;
+                const matchAlias = p.alias?.toLowerCase().includes(term);
+                if (!matchName && !matchSku && !matchUpc && !matchAlias) return false;
             }
 
             return true;
@@ -298,7 +339,7 @@ export function BatchDetails() {
     return (
         <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-24 animate-fade-in">
 
-            {/* --- HEADER PRINCIPAL (Datos del Lote y Botón Guardar) --- */}
+            {/* HEADER SUPERIOR */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <button onClick={() => navigate('/history')} className="flex items-center gap-2 text-gray-500 hover:text-blue-600 transition-colors font-medium mb-2 text-sm">
@@ -328,63 +369,53 @@ export function BatchDetails() {
                 </div>
             </div>
 
-            {/* --- BARRA DE BÚSQUEDA IDENTICA A PRICE CHECKER --- */}
-            <div className="sticky top-0 z-40 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur pt-2 pb-2 md:pb-4 transition-colors -mx-4 px-4 md:mx-0 md:px-0">
-                <div className="bg-white dark:bg-gray-800 p-2 md:p-4 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
-                    <div className="flex flex-col md:flex-row gap-2 md:gap-3">
-                        {/* INPUT BÚSQUEDA */}
-                        <div className="relative flex-1 w-full">
+            {/* BARRA DE HERRAMIENTAS STICKY */}
+            <div className="sticky top-16 z-30 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur py-2 -mx-4 px-4 md:mx-0 md:px-0">
+                <div className="space-y-3">
+                    {/* BUSCADOR */}
+                    <div className="bg-white dark:bg-gray-800 p-2 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
+                        <div className="relative w-full">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                             <input
                                 ref={inputRef}
                                 type="text"
-                                placeholder="Buscar..."
+                                placeholder="Buscar por nombre, SKU, UPC o Alias..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-12 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium text-gray-900 dark:text-white text-sm md:text-base"
+                                className="w-full pl-10 pr-12 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium text-gray-900 dark:text-white text-sm"
                             />
                             <div className="absolute inset-y-0 right-2 flex items-center gap-1">
+                                {searchTerm && (
+                                    <button onClick={() => setSearchTerm('')} className="p-2 rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">
+                                        <X className="h-5 w-5" />
+                                    </button>
+                                )}
                                 <button onClick={() => setShowScanner(true)} className="p-2 rounded-xl text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all active:scale-95" title="Escanear">
                                     <Camera className="h-5 w-5" />
                                 </button>
                             </div>
                         </div>
-
-                        {/* BOTONES FILTRO */}
-                        <div className="flex gap-2 w-full md:w-auto">
-                            <button
-                                onClick={() => setShowFilters(!showFilters)}
-                                className={`flex-1 md:flex-none px-4 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all border text-sm md:text-base ${showFilters || filter !== 'all' ? 'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-400' : 'bg-gray-50 border-gray-200 text-gray-600 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-300'}`}
-                            >
-                                <Filter className="w-4 h-4 md:w-5 md:h-5" />
-                                <span>Filtros</span>
-                                {(filter !== 'all') && <div className="w-2 h-2 bg-blue-500 rounded-full"></div>}
-                            </button>
-
-                            {(searchTerm || filter !== 'all') && (
-                                <button onClick={clearAllFilters} className="px-4 py-3 rounded-xl font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all flex items-center justify-center gap-1 border border-gray-200 dark:border-gray-700 hover:border-red-100 bg-white dark:bg-gray-900">
-                                    <X className="w-5 h-5" />
-                                </button>
-                            )}
-                        </div>
                     </div>
-                </div>
-            </div>
 
-            {/* --- PANEL DE FILTROS DESPLEGABLE --- */}
-            {showFilters && (
-                <div className="mb-4 p-4 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-blue-100 dark:border-blue-900/30 animate-scale-in">
-                    <label className="text-xs font-bold text-gray-400 uppercase mb-2 block">Estado del Producto</label>
-                    <div className="flex flex-wrap gap-2">
-                        <button onClick={() => setFilter('all')} className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all flex items-center gap-2 ${filter === 'all' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>Todos ({stats.totalItems})</button>
-                        <button onClick={() => setFilter('missing')} className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all flex items-center gap-2 ${filter === 'missing' ? 'bg-orange-100 text-orange-700 border-orange-200' : 'bg-white text-gray-600 border-gray-200 hover:bg-orange-50'}`}>Faltan Precio ({stats.itemsMissing})</button>
-                        <button onClick={() => setFilter('ready')} className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all flex items-center gap-2 ${filter === 'ready' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-white text-gray-600 border-gray-200 hover:bg-green-50'}`}>Listos ({stats.itemsReady})</button>
-                        <div className="ml-auto px-4 py-2 bg-blue-50 text-blue-700 text-sm font-bold rounded-xl border border-blue-100">
+                    {/* FILTROS VISIBLES */}
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+                        <button onClick={() => setFilter('all')} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 whitespace-nowrap ${filter === 'all' ? 'bg-gray-800 text-white border-gray-800 dark:bg-white dark:text-gray-900' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 shadow-sm'}`}>
+                            Todos <span className="opacity-60">({stats.totalItems})</span>
+                        </button>
+                        <button onClick={() => setFilter('missing')} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 whitespace-nowrap ${filter === 'missing' ? 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-800' : 'bg-white text-gray-500 border-gray-300 hover:bg-orange-50 hover:text-orange-600 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 shadow-sm'}`}>
+                            <AlertTriangle className="w-3 h-3" /> Faltan Precio <span className="opacity-80">({stats.itemsMissing})</span>
+                        </button>
+                        <button onClick={() => setFilter('ready')} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 whitespace-nowrap ${filter === 'ready' ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800' : 'bg-white text-gray-500 border-gray-300 hover:bg-green-50 hover:text-green-600 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 shadow-sm'}`}>
+                            <CheckCircle2 className="w-3 h-3" /> Listos <span className="opacity-80">({stats.itemsReady})</span>
+                        </button>
+
+                        {/* Info Total Piezas */}
+                        <div className="ml-auto px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-xs font-bold rounded-xl whitespace-nowrap border border-blue-100 dark:border-blue-800/50 hidden md:block">
                             Total Piezas: {stats.totalPiezas}
                         </div>
                     </div>
                 </div>
-            )}
+            </div>
 
             {/* LISTA DE RESULTADOS */}
             {displayedProducts.length === 0 ? (
@@ -395,21 +426,21 @@ export function BatchDetails() {
                 </div>
             ) : (
                 <>
-                    {/* VISTA MÓVIL OPTIMIZADA */}
-                    <div className="md:hidden space-y-4 pt-2">
+                    {/* VISTA MÓVIL */}
+                    <div className="md:hidden space-y-4">
                         {displayedProducts.map(p => (
-                            <BatchItemCard key={p.id} p={p} onPriceUpdate={handlePriceUpdate} onUpcUpdate={handleUpcUpdate} />
+                            <BatchItemCard key={p.id} p={p} onPriceUpdate={handlePriceUpdate} onUpcUpdate={handleUpcUpdate} onAliasUpdate={handleAliasUpdate} />
                         ))}
                     </div>
 
-                    {/* VISTA ESCRITORIO OPTIMIZADA */}
+                    {/* VISTA ESCRITORIO */}
                     <div className="hidden md:block bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
                         <table className="min-w-full text-sm text-left">
                             <thead className="bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-400 uppercase text-xs font-bold">
                                 <tr>
                                     <th className="px-4 py-3 w-28">SKU</th>
                                     <th className="px-4 py-3 w-36">Cód. Barras</th>
-                                    <th className="px-4 py-3">Producto</th>
+                                    <th className="px-4 py-3">Producto / Alias</th>
                                     <th className="px-4 py-3 text-center w-20">Cant.</th>
                                     <th className="px-4 py-3 text-right">Costo</th>
                                     <th className="px-4 py-3 text-center w-40">Precio Venta</th>
@@ -419,7 +450,7 @@ export function BatchDetails() {
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                                 {displayedProducts.map(p => (
-                                    <BatchItemRow key={p.id} p={p} onPriceUpdate={handlePriceUpdate} onUpcUpdate={handleUpcUpdate} />
+                                    <BatchItemRow key={p.id} p={p} onPriceUpdate={handlePriceUpdate} onUpcUpdate={handleUpcUpdate} onAliasUpdate={handleAliasUpdate} />
                                 ))}
                             </tbody>
                         </table>
