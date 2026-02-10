@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
     ArrowLeft, FileText, Save, Loader2, AlertTriangle, CheckCircle2,
-    Barcode, Box, Search, X, Camera, Filter, Tag, ChevronLeft
+    Barcode, Box, Search, X, Camera, Filter, Tag, LogOut
 } from 'lucide-react';
 import { BarcodeScanner } from '../components/BarcodeScanner';
 import { API_URL } from '../config';
@@ -48,7 +48,6 @@ const BatchItemCard = React.memo(({ p, onPriceUpdate, onUpcUpdate, onAliasUpdate
                         </div>
                         <h3 className="text-sm font-bold text-gray-900 dark:text-white leading-snug">{p.name}</h3>
 
-                        {/* INPUT DE ALIAS MÓVIL */}
                         <div className="mt-2 flex items-center gap-2">
                             <Tag className="w-3 h-3 text-purple-500" />
                             <input
@@ -158,7 +157,6 @@ const BatchItemRow = React.memo(({ p, onPriceUpdate, onUpcUpdate, onAliasUpdate 
                 </div>
             </td>
 
-            {/* NOMBRE Y ALIAS */}
             <td className="px-4 py-3">
                 <div className="flex flex-col justify-center">
                     <span className="font-medium text-gray-900 dark:text-white text-sm max-w-xs truncate" title={p.name}>
@@ -228,7 +226,7 @@ export function BatchDetails() {
     const [successMsg, setSuccessMsg] = useState("");
     const [error, setError] = useState("");
 
-    // Estados de control de cambios y navegación
+    // --- ESTADO SUCIO ---
     const [hasChanges, setHasChanges] = useState(false);
     const [showExitPrompt, setShowExitPrompt] = useState(false);
 
@@ -236,12 +234,12 @@ export function BatchDetails() {
     const [searchTerm, setSearchTerm] = useState("");
     const [showScanner, setShowScanner] = useState(false);
 
-    // --- PROTECCIÓN CONTRA CIERRE DE NAVEGADOR ---
+    // --- 1. PROTECCIÓN BROWSER (CERRAR PESTAÑA/REFRESCAR) ---
     useEffect(() => {
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
             if (hasChanges) {
                 e.preventDefault();
-                e.returnValue = ''; // Necesario para Chrome
+                e.returnValue = ''; // Navegadores modernos requieren esto
             }
         };
         window.addEventListener('beforeunload', handleBeforeUnload);
@@ -254,7 +252,7 @@ export function BatchDetails() {
                 setLoading(true);
                 const response = await axios.get(`${API_URL}/invoices/batches/${id}/products`);
                 setProducts(response.data);
-                setHasChanges(false); // Reset al cargar
+                setHasChanges(false);
             } catch (err) {
                 console.error(err);
                 setError("No se pudo cargar la información del lote.");
@@ -265,7 +263,7 @@ export function BatchDetails() {
         if (id) fetchBatchData();
     }, [id]);
 
-    // --- MANEJO SEGURO DE RETROCESO ---
+    // --- 2. PROTECCIÓN NAVEGACIÓN INTERNA (BOTÓN ATRÁS) ---
     const handleBack = () => {
         if (hasChanges) {
             setShowExitPrompt(true);
@@ -280,29 +278,33 @@ export function BatchDetails() {
         navigate('/history');
     };
 
-    // --- UPDATERS CON FLAG DE CAMBIOS ---
+    // --- NUEVO: GUARDAR Y SALIR ---
+    const handleSaveAndExit = async () => {
+        const success = await handleSave(); // Reutilizamos la lógica de guardado
+        if (success) {
+            setShowExitPrompt(false);
+            navigate('/history');
+        }
+    };
+
+    // UPDATERS
     const handlePriceUpdate = useCallback((productId: number, newPrice: string) => {
-        setProducts(prev => prev.map(p =>
-            p.id === productId ? { ...p, selling_price: newPrice } : p
-        ));
-        setHasChanges(true); // Marca sucio
+        setProducts(prev => prev.map(p => p.id === productId ? { ...p, selling_price: newPrice } : p));
+        setHasChanges(true);
     }, []);
 
     const handleUpcUpdate = useCallback((productId: number, newUpc: string) => {
-        setProducts(prev => prev.map(p =>
-            p.id === productId ? { ...p, upc: newUpc } : p
-        ));
-        setHasChanges(true); // Marca sucio
+        setProducts(prev => prev.map(p => p.id === productId ? { ...p, upc: newUpc } : p));
+        setHasChanges(true);
     }, []);
 
     const handleAliasUpdate = useCallback((productId: number, newAlias: string) => {
-        setProducts(prev => prev.map(p =>
-            p.id === productId ? { ...p, alias: newAlias } : p
-        ));
-        setHasChanges(true); // Marca sucio
+        setProducts(prev => prev.map(p => p.id === productId ? { ...p, alias: newAlias } : p));
+        setHasChanges(true);
     }, []);
 
-    const handleSave = async () => {
+    // Función Guardar (Retorna true si tuvo éxito)
+    const handleSave = async (): Promise<boolean> => {
         setSaving(true);
         try {
             const updates = products.map(p => ({
@@ -314,10 +316,12 @@ export function BatchDetails() {
             }));
             await axios.post(`${API_URL}/invoices/update-prices`, updates);
             setSuccessMsg("Guardado");
-            setHasChanges(false); // Limpia estado sucio
+            setHasChanges(false);
             setTimeout(() => setSuccessMsg(""), 3000);
+            return true;
         } catch (err) {
             alert("Error al guardar.");
+            return false;
         } finally {
             setSaving(false);
         }
@@ -337,7 +341,6 @@ export function BatchDetails() {
         return { totalItems, itemsReady, itemsMissing, progress, totalPiezas };
     }, [products]);
 
-    // --- FILTRADO AVANZADO ---
     const displayedProducts = useMemo(() => {
         return products.filter(p => {
             const hasPrice = parseFloat(p.selling_price) > 0;
@@ -368,7 +371,7 @@ export function BatchDetails() {
     return (
         <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-24 animate-fade-in relative">
 
-            {/* HEADER SUPERIOR */}
+            {/* HEADER */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <button onClick={handleBack} className="flex items-center gap-2 text-gray-500 hover:text-blue-600 transition-colors font-medium mb-2 text-sm">
@@ -390,21 +393,18 @@ export function BatchDetails() {
                     </div>
                 </div>
                 <div className="flex items-center gap-3 w-full md:w-auto">
-                    {/* Indicador de Cambios sin Guardar */}
                     {hasChanges && <span className="text-orange-500 text-xs font-bold animate-pulse flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Sin guardar</span>}
-
                     {successMsg && <span className="text-green-600 dark:text-green-400 text-xs font-bold animate-pulse flex items-center gap-1 bg-green-50 dark:bg-green-900/20 px-3 py-2 rounded-lg whitespace-nowrap"><CheckCircle2 className="w-4 h-4" /> {successMsg}</span>}
-                    <button onClick={handleSave} disabled={saving} className={`flex-1 md:flex-none hover:bg-green-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg shadow-green-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 text-sm md:text-base ${hasChanges ? 'bg-green-600 ring-2 ring-green-400 ring-offset-2 dark:ring-offset-gray-900' : 'bg-green-600'}`}>
+                    <button onClick={() => handleSave()} disabled={saving} className={`flex-1 md:flex-none hover:bg-green-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg shadow-green-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 text-sm md:text-base ${hasChanges ? 'bg-green-600 ring-2 ring-green-400 ring-offset-2 dark:ring-offset-gray-900' : 'bg-green-600'}`}>
                         {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                         {saving ? 'Guardando...' : 'Guardar Cambios'}
                     </button>
                 </div>
             </div>
 
-            {/* BARRA DE HERRAMIENTAS STICKY */}
+            {/* BARRA DE HERRAMIENTAS */}
             <div className="sticky top-16 z-30 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur py-2 -mx-4 px-4 md:mx-0 md:px-0">
                 <div className="space-y-3">
-                    {/* BUSCADOR */}
                     <div className="bg-white dark:bg-gray-800 p-2 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
                         <div className="relative w-full">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -417,39 +417,21 @@ export function BatchDetails() {
                                 className="w-full pl-10 pr-12 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium text-gray-900 dark:text-white text-sm"
                             />
                             <div className="absolute inset-y-0 right-2 flex items-center gap-1">
-                                {searchTerm && (
-                                    <button onClick={() => setSearchTerm('')} className="p-2 rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">
-                                        <X className="h-5 w-5" />
-                                    </button>
-                                )}
-                                <button onClick={() => setShowScanner(true)} className="p-2 rounded-xl text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all active:scale-95" title="Escanear">
-                                    <Camera className="h-5 w-5" />
-                                </button>
+                                {searchTerm && <button onClick={() => setSearchTerm('')} className="p-2 rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"><X className="h-5 w-5" /></button>}
+                                <button onClick={() => setShowScanner(true)} className="p-2 rounded-xl text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all active:scale-95" title="Escanear"><Camera className="h-5 w-5" /></button>
                             </div>
                         </div>
                     </div>
-
-                    {/* FILTROS VISIBLES */}
                     <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
-                        <button onClick={() => setFilter('all')} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 whitespace-nowrap ${filter === 'all' ? 'bg-gray-800 text-white border-gray-800 dark:bg-white dark:text-gray-900' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 shadow-sm'}`}>
-                            Todos <span className="opacity-60">({stats.totalItems})</span>
-                        </button>
-                        <button onClick={() => setFilter('missing')} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 whitespace-nowrap ${filter === 'missing' ? 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-800' : 'bg-white text-gray-500 border-gray-300 hover:bg-orange-50 hover:text-orange-600 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 shadow-sm'}`}>
-                            <AlertTriangle className="w-3 h-3" /> Faltan Precio <span className="opacity-80">({stats.itemsMissing})</span>
-                        </button>
-                        <button onClick={() => setFilter('ready')} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 whitespace-nowrap ${filter === 'ready' ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800' : 'bg-white text-gray-500 border-gray-300 hover:bg-green-50 hover:text-green-600 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 shadow-sm'}`}>
-                            <CheckCircle2 className="w-3 h-3" /> Listos <span className="opacity-80">({stats.itemsReady})</span>
-                        </button>
-
-                        {/* Info Total Piezas */}
-                        <div className="ml-auto px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-xs font-bold rounded-xl whitespace-nowrap border border-blue-100 dark:border-blue-800/50 hidden md:block">
-                            Total Piezas: {stats.totalPiezas}
-                        </div>
+                        <button onClick={() => setFilter('all')} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 whitespace-nowrap ${filter === 'all' ? 'bg-gray-800 text-white border-gray-800 dark:bg-white dark:text-gray-900' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 shadow-sm'}`}>Todos <span className="opacity-60">({stats.totalItems})</span></button>
+                        <button onClick={() => setFilter('missing')} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 whitespace-nowrap ${filter === 'missing' ? 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-800' : 'bg-white text-gray-500 border-gray-300 hover:bg-orange-50 hover:text-orange-600 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 shadow-sm'}`}><AlertTriangle className="w-3 h-3" /> Faltan Precio <span className="opacity-80">({stats.itemsMissing})</span></button>
+                        <button onClick={() => setFilter('ready')} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 whitespace-nowrap ${filter === 'ready' ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800' : 'bg-white text-gray-500 border-gray-300 hover:bg-green-50 hover:text-green-600 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 shadow-sm'}`}><CheckCircle2 className="w-3 h-3" /> Listos <span className="opacity-80">({stats.itemsReady})</span></button>
+                        <div className="ml-auto px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-xs font-bold rounded-xl whitespace-nowrap border border-blue-100 dark:border-blue-800/50 hidden md:block">Total Piezas: {stats.totalPiezas}</div>
                     </div>
                 </div>
             </div>
 
-            {/* LISTA DE RESULTADOS */}
+            {/* LISTA */}
             {displayedProducts.length === 0 ? (
                 <div className="text-center py-20 text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
                     <Filter className="w-12 h-12 mx-auto mb-3 opacity-20" />
@@ -458,14 +440,7 @@ export function BatchDetails() {
                 </div>
             ) : (
                 <>
-                    {/* VISTA MÓVIL */}
-                    <div className="md:hidden space-y-4">
-                        {displayedProducts.map(p => (
-                            <BatchItemCard key={p.id} p={p} onPriceUpdate={handlePriceUpdate} onUpcUpdate={handleUpcUpdate} onAliasUpdate={handleAliasUpdate} />
-                        ))}
-                    </div>
-
-                    {/* VISTA ESCRITORIO */}
+                    <div className="md:hidden space-y-4">{displayedProducts.map(p => (<BatchItemCard key={p.id} p={p} onPriceUpdate={handlePriceUpdate} onUpcUpdate={handleUpcUpdate} onAliasUpdate={handleAliasUpdate} />))}</div>
                     <div className="hidden md:block bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
                         <table className="min-w-full text-sm text-left">
                             <thead className="bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-400 uppercase text-xs font-bold">
@@ -480,35 +455,33 @@ export function BatchDetails() {
                                     <th className="px-4 py-3 text-center w-16">Estado</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                {displayedProducts.map(p => (
-                                    <BatchItemRow key={p.id} p={p} onPriceUpdate={handlePriceUpdate} onUpcUpdate={handleUpcUpdate} onAliasUpdate={handleAliasUpdate} />
-                                ))}
-                            </tbody>
+                            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">{displayedProducts.map(p => (<BatchItemRow key={p.id} p={p} onPriceUpdate={handlePriceUpdate} onUpcUpdate={handleUpcUpdate} onAliasUpdate={handleAliasUpdate} />))}</tbody>
                         </table>
                     </div>
                 </>
             )}
 
-            {/* MODAL DE CONFIRMACIÓN DE SALIDA */}
+            {/* MODAL DE CONFIRMACIÓN DE SALIDA MEJORADO */}
             {showExitPrompt && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-xl border border-gray-100 dark:border-gray-700 max-w-xs w-full animate-scale-in">
+                    <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-xl border border-gray-100 dark:border-gray-700 max-w-sm w-full animate-scale-in">
                         <div className="bg-amber-100 dark:bg-amber-900/30 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-amber-600 dark:text-amber-400"><AlertTriangle className="w-8 h-8" /></div>
-                        <h3 className="text-xl font-black text-gray-900 dark:text-white mb-2 text-center">¡Espera!</h3>
-                        <p className="text-gray-500 dark:text-gray-400 text-sm mb-6 text-center">Tienes cambios sin guardar. ¿Seguro que quieres salir?</p>
+                        <h3 className="text-xl font-black text-gray-900 dark:text-white mb-2 text-center">¡Tienes cambios!</h3>
+                        <p className="text-gray-500 dark:text-gray-400 text-sm mb-6 text-center">¿Qué quieres hacer antes de salir?</p>
                         <div className="space-y-3">
-                            <button onClick={() => setShowExitPrompt(false)} className="w-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2"><ChevronLeft className="w-4 h-4" /> Cancelar</button>
-                            <button onClick={handleDiscardAndExit} className="w-full text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 font-bold py-3 rounded-xl transition-colors text-sm">Salir sin guardar</button>
+                            <button onClick={handleSaveAndExit} disabled={saving} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2">
+                                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Guardar y Salir
+                            </button>
+                            <button onClick={handleDiscardAndExit} className="w-full bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 font-bold py-3 rounded-xl flex items-center justify-center gap-2">
+                                <LogOut className="w-4 h-4" /> Salir sin guardar
+                            </button>
+                            <button onClick={() => setShowExitPrompt(false)} className="w-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 font-bold py-2 text-sm">Cancelar</button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* ESCÁNER MODAL */}
-            {showScanner && (
-                <BarcodeScanner onScan={handleScanSuccess} onClose={() => setShowScanner(false)} />
-            )}
+            {showScanner && (<BarcodeScanner onScan={handleScanSuccess} onClose={() => setShowScanner(false)} />)}
         </div>
     );
 }
