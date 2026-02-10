@@ -2,8 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import {
     Search, X, Save, Barcode, Hash, CheckCircle2, AlertTriangle,
-    ChevronLeft, History, ArrowRight, Camera, Filter, Edit3,
-    PackageOpen, Trash2, Loader2, ArrowDownAZ, ArrowUpAZ, Tag,
+    ChevronLeft, History, ArrowRight, Camera, Filter, Edit3, Trash2, Loader2, ArrowDownAZ, ArrowUpAZ, Tag,
     Printer, Settings
 } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
