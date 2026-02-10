@@ -1,6 +1,16 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import {
+  createBrowserRouter,
+  RouterProvider,
+  createRoutesFromElements,
+  Route,
+  useNavigate,
+  useLocation,
+  Navigate,
+  Outlet,
+  useOutletContext
+} from 'react-router-dom';
 
 // --- COMPONENTES ---
 import { InvoiceUploader } from './components/InvoiceUploader';
@@ -12,17 +22,20 @@ import { Login } from './components/UserLogin';
 import { Logo } from './components/Logo';
 import { History } from './components/History';
 import { BatchDetails } from './pages/BatchDetails';
-import { ProtectedRoute } from './components/ProtectedRoute';
+// Borramos ProtectedRoute porque ya no lo usamos aquí
 
 // --- UTILIDADES ---
 import { LayoutGrid, FileText, Search, PlusCircle, Moon, Sun, Users, LogOut } from 'lucide-react';
 import { API_URL } from './config';
 
-function App() {
+// =========================================================================
+// 1. ROOT LAYOUT: Maneja la Estructura (Header, State, Auth)
+// =========================================================================
+function RootLayout() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // --- 1. ESTADOS ---
+  // --- ESTADOS GLOBALES ---
   const [isAuthenticated, setIsAuthenticated] = useState(() => !!localStorage.getItem('token'));
 
   const [user, setUser] = useState<{ username: string, role: string, permissions: string[] } | null>(() => {
@@ -34,29 +47,22 @@ function App() {
   const [filterMissing, setFilterMissing] = useState(false);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
 
-  // --- 2. CONFIGURACIÓN AXIOS ---
+  // --- CONFIGURACIÓN AXIOS ---
   if (isAuthenticated && user) {
     const token = localStorage.getItem('token');
-    // IMPORTANTE: Asegurar que el token no sea "undefined" string
     if (token && token !== 'undefined') {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     }
     axios.defaults.baseURL = API_URL;
   }
 
-  // --- 3. LÓGICA DE PERMISOS ---
+  // --- PERMISOS ---
   const isAdmin = user?.role === 'admin';
-
   const checkPermission = (requiredModule: string) => {
     if (!user) return false;
     if (isAdmin) return true;
-
     const userPerms = Array.isArray(user.permissions) ? user.permissions : [];
-
-    if (requiredModule === 'history') {
-      return userPerms.includes('dashboard') || userPerms.includes('upload');
-    }
-
+    if (requiredModule === 'history') return userPerms.includes('dashboard') || userPerms.includes('upload');
     return userPerms.includes(requiredModule);
   };
 
@@ -73,18 +79,14 @@ function App() {
 
   // --- HANDLERS ---
   const handleLoginSuccess = (userData: any) => {
-    // 🔥 CORRECCIÓN AQUÍ: El backend envía 'access_token', no 'token'
     const token = userData.access_token || userData.token;
-
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(userData));
-
     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
     setIsAuthenticated(true);
     setUser(userData);
 
-    // Redirección
     if (userData.role === 'admin' || userData.permissions?.includes('dashboard')) {
       navigate('/dashboard');
     } else {
@@ -100,9 +102,20 @@ function App() {
     navigate('/');
   };
 
+  // --- RENDERIZADO CONDICIONAL (LOGIN vs APP) ---
   if (!isAuthenticated) {
     return <div className={darkMode ? 'dark' : ''}><Login onLoginSuccess={handleLoginSuccess} /></div>;
   }
+
+  // Contexto que pasaremos a los hijos (Wrappers)
+  const contextValue = {
+    products,
+    setProducts,
+    filterMissing,
+    setFilterMissing,
+    checkPermission,
+    isAdmin
+  };
 
   return (
     <div className="min-h-screen bg-gray-50/50 dark:bg-gray-900 font-sans text-gray-900 dark:text-gray-100 transition-colors duration-300">
@@ -120,7 +133,6 @@ function App() {
               {checkPermission('upload') && <NavButton active={location.pathname === '/upload'} onClick={() => navigate('/upload')} icon={<FileText className="w-4 h-4" />} label="Cargar XML" />}
               {checkPermission('search') && <NavButton active={location.pathname === '/search'} onClick={() => navigate('/search')} icon={<Search className="w-4 h-4" />} label="Buscador" />}
               {checkPermission('manual') && <NavButton active={location.pathname === '/manual'} onClick={() => navigate('/manual')} icon={<PlusCircle className="w-4 h-4" />} label="Manual" />}
-
               {isAdmin && <NavButton active={location.pathname === '/admin'} onClick={() => navigate('/admin')} icon={<Users className="w-4 h-4" />} label="Usuarios" />}
             </nav>
 
@@ -142,39 +154,9 @@ function App() {
         </div>
       </header>
 
-      {/* RUTAS */}
+      {/* AQUÍ SE RENDERIZAN LAS RUTAS HIJAS */}
       <main className="animate-fade-in">
-        <Routes>
-          <Route path="/" element={<Navigate to={isAdmin ? "/dashboard" : "/search"} replace />} />
-
-          <Route element={<ProtectedRoute isAllowed={checkPermission('dashboard')} />}>
-            <Route path="/dashboard" element={<Dashboard onNavigate={(view) => navigate('/' + view)} />} />
-          </Route>
-
-          <Route element={<ProtectedRoute isAllowed={checkPermission('history')} />}>
-            <Route path="/history" element={<History onBack={() => navigate('/dashboard')} />} />
-            <Route path="/history/:id" element={<BatchDetails />} />
-            <Route path="/batches/:id" element={<BatchDetails />} />
-          </Route>
-
-          <Route element={<ProtectedRoute isAllowed={checkPermission('upload')} />}>
-            <Route path="/upload" element={<InvoiceUploader products={products} setProducts={setProducts} />} />
-          </Route>
-
-          <Route element={<ProtectedRoute isAllowed={checkPermission('search')} />}>
-            <Route path="/search" element={<PriceChecker initialFilter={filterMissing} onClearFilter={() => setFilterMissing(false)} />} />
-          </Route>
-
-          <Route element={<ProtectedRoute isAllowed={checkPermission('manual')} />}>
-            <Route path="/manual" element={<ManualEntry />} />
-          </Route>
-
-          <Route element={<ProtectedRoute isAllowed={isAdmin} />}>
-            <Route path="/admin" element={<AdminUsers />} />
-          </Route>
-
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <Outlet context={contextValue} />
       </main>
 
       {/* MENÚ MÓVIL */}
@@ -189,6 +171,94 @@ function App() {
   );
 }
 
+// =========================================================================
+// 2. WRAPPERS (Para conectar el Router con los Props de tus componentes)
+// =========================================================================
+
+// Tipado del contexto
+type ContextType = {
+  products: any[];
+  setProducts: (p: any[]) => void;
+  filterMissing: boolean;
+  setFilterMissing: (v: boolean) => void;
+  checkPermission: (mod: string) => boolean;
+  isAdmin: boolean;
+};
+
+const DashboardWrapper = () => {
+  const navigate = useNavigate();
+  return <Dashboard onNavigate={(view: string) => navigate('/' + view)} />;
+};
+
+const HistoryWrapper = () => {
+  const navigate = useNavigate();
+  return <History onBack={() => navigate('/dashboard')} />;
+};
+
+const UploadWrapper = () => {
+  const { products, setProducts } = useOutletContext<ContextType>();
+  return <InvoiceUploader products={products} setProducts={setProducts} />;
+};
+
+const SearchWrapper = () => {
+  const { filterMissing, setFilterMissing } = useOutletContext<ContextType>();
+  return <PriceChecker initialFilter={filterMissing} onClearFilter={() => setFilterMissing(false)} />;
+};
+
+// =========================================================================
+// 3. COMPONENTES AUXILIARES Y GUARDS (Corregidos)
+// =========================================================================
+
+// Usamos React.ReactNode para evitar el error de namespace JSX
+function PermissionGuard({ module, children }: { module: string, children: React.ReactNode }) {
+  const { checkPermission } = useOutletContext<ContextType>();
+  return checkPermission(module) ? <>{children}</> : <Navigate to="/" replace />;
+}
+
+function AdminGuard({ children }: { children: React.ReactNode }) {
+  const { isAdmin } = useOutletContext<ContextType>();
+  return isAdmin ? <>{children}</> : <Navigate to="/" replace />;
+}
+
+// =========================================================================
+// 4. DEFINICIÓN DEL ROUTER (Data Router)
+// =========================================================================
+
+const router = createBrowserRouter(
+  createRoutesFromElements(
+    <Route path="/" element={<RootLayout />}>
+      {/* Redirección Inicial */}
+      <Route index element={<Navigate to="/search" replace />} />
+
+      {/* Rutas Protegidas */}
+      <Route path="dashboard" element={<PermissionGuard module="dashboard"><DashboardWrapper /></PermissionGuard>} />
+
+      <Route path="history" element={<PermissionGuard module="history"><HistoryWrapper /></PermissionGuard>} />
+      <Route path="history/:id" element={<PermissionGuard module="history"><BatchDetails /></PermissionGuard>} />
+      <Route path="batches/:id" element={<PermissionGuard module="history"><BatchDetails /></PermissionGuard>} />
+
+      <Route path="upload" element={<PermissionGuard module="upload"><UploadWrapper /></PermissionGuard>} />
+
+      <Route path="search" element={<PermissionGuard module="search"><SearchWrapper /></PermissionGuard>} />
+
+      <Route path="manual" element={<PermissionGuard module="manual"><ManualEntry /></PermissionGuard>} />
+
+      <Route path="admin" element={<AdminGuard><AdminUsers /></AdminGuard>} />
+
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Route>
+  )
+);
+
+// =========================================================================
+// 5. COMPONENTE APP FINAL
+// =========================================================================
+
+function App() {
+  return <RouterProvider router={router} />;
+}
+
+// Componentes visuales pequeños
 const NavButton = ({ active, onClick, icon, label }: any) => (
   <button onClick={onClick} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${active ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
     {icon} {label}
