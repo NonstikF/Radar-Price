@@ -456,6 +456,7 @@ async def get_products(
             "sku": p.sku,
             "upc": p.upc or "",
             "name": p.name,
+            "alias": p.alias or "",
             "price": p.price,
             "selling_price": p.selling_price,
             "stock": p.stock_quantity,
