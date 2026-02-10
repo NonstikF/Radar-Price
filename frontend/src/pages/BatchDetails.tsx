@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useBlocker } from 'react-router-dom'; // <--- AHORA USAMOS useBlocker ESTABLE
 import axios from 'axios';
 import {
     ArrowLeft, FileText, Save, Loader2, AlertTriangle, CheckCircle2,
@@ -234,12 +234,25 @@ export function BatchDetails() {
     const [searchTerm, setSearchTerm] = useState("");
     const [showScanner, setShowScanner] = useState(false);
 
-    // --- 1. PROTECCIÓN BROWSER (CERRAR PESTAÑA/REFRESCAR) ---
+    // --- BLOQUEO DE NAVEGACIÓN (Sidebar, Links, Search, etc.) ---
+    const blocker = useBlocker(
+        ({ currentLocation, nextLocation }) =>
+            hasChanges && currentLocation.pathname !== nextLocation.pathname
+    );
+
+    // Efecto para abrir el modal cuando el blocker detecta navegación
+    useEffect(() => {
+        if (blocker.state === "blocked") {
+            setShowExitPrompt(true);
+        }
+    }, [blocker.state]);
+
+    // --- PROTECCIÓN BROWSER (CERRAR PESTAÑA/REFRESCAR) ---
     useEffect(() => {
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
             if (hasChanges) {
                 e.preventDefault();
-                e.returnValue = ''; // Navegadores modernos requieren esto
+                e.returnValue = '';
             }
         };
         window.addEventListener('beforeunload', handleBeforeUnload);
@@ -263,27 +276,39 @@ export function BatchDetails() {
         if (id) fetchBatchData();
     }, [id]);
 
-    // --- 2. PROTECCIÓN NAVEGACIÓN INTERNA (BOTÓN ATRÁS) ---
+    // Botón manual "Volver" (ahora solo navega, el blocker lo interceptará si es necesario)
     const handleBack = () => {
-        if (hasChanges) {
-            setShowExitPrompt(true);
-        } else {
-            navigate('/history');
-        }
-    };
-
-    const handleDiscardAndExit = () => {
-        setShowExitPrompt(false);
-        setHasChanges(false);
         navigate('/history');
     };
 
-    // --- NUEVO: GUARDAR Y SALIR ---
+    // --- ACCIONES DEL MODAL ---
+    const handleDiscardAndExit = () => {
+        if (blocker.state === "blocked") {
+            blocker.proceed(); // Deja pasar la navegación bloqueada
+        } else {
+            navigate('/history'); // Fallback por si se abrió manual
+        }
+        setShowExitPrompt(false);
+        setHasChanges(false);
+    };
+
+    const handleCancelExit = () => {
+        if (blocker.state === "blocked") {
+            blocker.reset(); // Cancela el intento de navegación
+        }
+        setShowExitPrompt(false);
+    };
+
     const handleSaveAndExit = async () => {
-        const success = await handleSave(); // Reutilizamos la lógica de guardado
+        const success = await handleSave();
         if (success) {
+            // Si guardó bien, dejamos pasar al usuario
+            if (blocker.state === "blocked") {
+                blocker.proceed();
+            } else {
+                navigate('/history');
+            }
             setShowExitPrompt(false);
-            navigate('/history');
         }
     };
 
@@ -303,7 +328,6 @@ export function BatchDetails() {
         setHasChanges(true);
     }, []);
 
-    // Función Guardar (Retorna true si tuvo éxito)
     const handleSave = async (): Promise<boolean> => {
         setSaving(true);
         try {
@@ -316,7 +340,7 @@ export function BatchDetails() {
             }));
             await axios.post(`${API_URL}/invoices/update-prices`, updates);
             setSuccessMsg("Guardado");
-            setHasChanges(false);
+            setHasChanges(false); // Limpia estado sucio, el blocker se desactiva
             setTimeout(() => setSuccessMsg(""), 3000);
             return true;
         } catch (err) {
@@ -461,7 +485,7 @@ export function BatchDetails() {
                 </>
             )}
 
-            {/* MODAL DE CONFIRMACIÓN DE SALIDA MEJORADO */}
+            {/* MODAL DE CONFIRMACIÓN DE SALIDA (BLOCKER) */}
             {showExitPrompt && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
                     <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-xl border border-gray-100 dark:border-gray-700 max-w-sm w-full animate-scale-in">
@@ -475,7 +499,7 @@ export function BatchDetails() {
                             <button onClick={handleDiscardAndExit} className="w-full bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 font-bold py-3 rounded-xl flex items-center justify-center gap-2">
                                 <LogOut className="w-4 h-4" /> Salir sin guardar
                             </button>
-                            <button onClick={() => setShowExitPrompt(false)} className="w-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 font-bold py-2 text-sm">Cancelar</button>
+                            <button onClick={handleCancelExit} className="w-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 font-bold py-2 text-sm">Cancelar</button>
                         </div>
                     </div>
                 </div>
