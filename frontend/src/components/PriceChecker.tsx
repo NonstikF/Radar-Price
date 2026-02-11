@@ -149,7 +149,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                     )}
 
                     {products.map((product) => (
-                        <div key={product.id} onClick={() => setSelectedProduct(product)} className="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center cursor-pointer hover:shadow-md transition-all active:scale-[0.99] group">
+                        <div key={product.id} onClick={() => setSelectedProduct(product)} className="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex justify-between items-center cursor-pointer hover:shadow-md transition-all active:scale-[0.99] group">
                             <div className="flex-1 min-w-0 pr-3">
                                 <h3 className="font-bold text-gray-800 dark:text-gray-100 text-base leading-tight mb-1 group-hover:text-blue-600 line-clamp-2">{product.name}</h3>
                                 <div className="flex flex-wrap gap-2 text-xs text-gray-500">

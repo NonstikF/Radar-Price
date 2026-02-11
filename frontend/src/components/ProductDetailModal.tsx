@@ -105,10 +105,18 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
         setDeleting(true);
         try {
             await axios.delete(`${API_URL}/invoices/products/${product.id}`);
-            onDelete(); // Notificar al padre para quitar de la lista
-        } catch (error) {
-            showToast("Error al eliminar", "error");
+            onDelete();
+        } catch (error: any) {
+            console.error(error);
+            // Mensaje más útil para el usuario
+            if (error.response && error.response.status === 500) {
+                showToast("No se puede eliminar: El producto tiene ventas asociadas.", "error");
+            } else {
+                showToast("Error al eliminar el producto", "error");
+            }
+        } finally {
             setDeleting(false);
+            setShowDeleteConfirm(false); // Cerramos el modal de confirmación
         }
     };
 
