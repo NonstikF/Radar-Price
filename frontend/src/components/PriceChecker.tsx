@@ -68,7 +68,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
 
             {/* BARRA DE BÚSQUEDA */}
             <div className="sticky top-0 z-40 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur pt-2 pb-2 md:pb-4 px-2 md:px-0">
-                <div className="bg-white dark:bg-gray-800 p-2 md:p-4 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
+                <div className="bg-white dark:bg-gray-800 p-2 md:p-4 rounded-2xl shadow-sm border border-gray-200 dark:border-transparent">
                     <div className="flex flex-col md:flex-row gap-2 md:gap-3">
                         <div className="relative flex-1 w-full">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -77,10 +77,11 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                                 placeholder="Buscar producto..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-12 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium text-gray-900 dark:text-white"
+                                // CORRECCIÓN: dark:bg-gray-900 dark:text-white
+                                className="w-full pl-10 pr-12 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-transparent rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium text-gray-900 dark:text-white shadow-inner"
                             />
                             <div className="absolute inset-y-0 right-2 flex items-center gap-1">
-                                <button onClick={() => setShowScanner(true)} className="p-2 rounded-xl text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-all">
+                                <button onClick={() => setShowScanner(true)} className="p-2 rounded-xl text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-gray-700 transition-all">
                                     <Camera className="h-5 w-5" />
                                 </button>
                             </div>
@@ -89,12 +90,13 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                         <div className="flex gap-2 w-full md:w-auto">
                             <button
                                 onClick={() => setShowFilters(!showFilters)}
-                                className={`flex-1 md:flex-none px-4 py-3 rounded-xl font-bold flex items-center justify-center gap-2 border text-sm ${showFilters || filters.minPrice || filters.missingPrice ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-600'}`}
+                                // CORRECCIÓN: Colores oscuros para activo/inactivo
+                                className={`flex-1 md:flex-none px-4 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-sm ${showFilters || filters.minPrice || filters.missingPrice ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' : 'bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
                             >
-                                <Filter className="w-4 h-4" /> Filters
+                                <Filter className="w-4 h-4" /> Filtros
                             </button>
                             {(searchTerm || filters.minPrice || filters.missingPrice) && (
-                                <button onClick={handleClearAllFilters} className="px-4 py-3 rounded-xl font-bold text-red-500 border border-gray-200 bg-white hover:bg-red-50">
+                                <button onClick={handleClearAllFilters} className="px-4 py-3 rounded-xl font-bold text-red-500 dark:text-red-400 bg-white dark:bg-gray-900 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">
                                     <X className="w-5 h-5" />
                                 </button>
                             )}
@@ -105,28 +107,28 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
 
             {/* FILTROS EXPANDIBLES */}
             {showFilters && (
-                <div className="mb-4 mx-2 md:mx-0 p-4 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-blue-100 animate-scale-in">
+                <div className="mb-4 mx-2 md:mx-0 p-4 bg-white dark:bg-gray-800 rounded-2xl shadow-lg animate-scale-in">
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        {/* Reutilizando lógica de filtros, ahora más limpia */}
                         <div className="space-y-2">
                             <label className="text-xs font-bold text-gray-400 uppercase">Ordenar</label>
                             <div className="flex gap-2">
-                                <select value={filters.sortBy} onChange={(e) => setFilters({ ...filters, sortBy: e.target.value })} className="w-full p-2 rounded-lg bg-gray-50 border">
+                                {/* CORRECCIÓN: Select con fondo oscuro y texto blanco */}
+                                <select value={filters.sortBy} onChange={(e) => setFilters({ ...filters, sortBy: e.target.value })} className="w-full p-2 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500">
                                     <option value="updated_at">Últimos</option>
                                     <option value="name">Nombre</option>
                                     <option value="selling_price">Precio</option>
                                 </select>
-                                <button onClick={() => setFilters({ ...filters, sortOrder: filters.sortOrder === 'asc' ? 'desc' : 'asc' })} className="p-2 bg-gray-100 rounded-lg">
+                                <button onClick={() => setFilters({ ...filters, sortOrder: filters.sortOrder === 'asc' ? 'desc' : 'asc' })} className="p-2 bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700">
                                     {filters.sortOrder === 'asc' ? <ArrowDownAZ className="w-4 h-4" /> : <ArrowUpAZ className="w-4 h-4" />}
                                 </button>
                             </div>
                         </div>
-                        {/* Más filtros... (Min/Max precio) */}
                         <div className="space-y-2">
                             <label className="text-xs font-bold text-gray-400 uppercase">Estado</label>
-                            <label className="flex items-center gap-2 p-2 rounded-lg border cursor-pointer hover:bg-gray-50">
+                            <label className="flex items-center gap-2 p-2 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                                 <input type="checkbox" checked={filters.missingPrice} onChange={(e) => setFilters({ ...filters, missingPrice: e.target.checked })} className="text-blue-600 rounded" />
-                                <span className="text-sm font-medium">Solo sin precio</span>
+                                {/* CORRECCIÓN: Texto visible en oscuro */}
+                                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Solo sin precio</span>
                             </label>
                         </div>
                     </div>
