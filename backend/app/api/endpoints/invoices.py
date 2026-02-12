@@ -587,13 +587,26 @@ async def create_manual(item: ManualProductSchema, db: AsyncSession = Depends(ge
 # --- 8. ELIMINAR ---
 @router.delete("/products/{product_id}")
 async def delete_product(product_id: int, db: AsyncSession = Depends(get_db)):
+    # 1. Buscar el producto
     p = await db.get(Product, product_id)
     if not p:
-        raise HTTPException(404, "No encontrado")
-    await db.execute(select(PriceHistory).where(PriceHistory.product_id == product_id))
+        raise HTTPException(status_code=404, detail="No encontrado")
+
+    # 2. LIMPIEZA DE DEPENDENCIAS ANTES DE BORRAR EL PRODUCTO
+
+    # A) Eliminar registros en lotes de importación (Esto soluciona tu error actual)
+    await db.execute(
+        delete(ImportBatchItem).where(ImportBatchItem.product_id == product_id)
+    )
+
+    # B) Eliminar el historial de precios de este producto
+    await db.execute(delete(PriceHistory).where(PriceHistory.product_id == product_id))
+
+    # 3. Ahora sí, eliminar el producto de forma segura
     await db.delete(p)
     await db.commit()
-    return {"message": "Eliminado"}
+
+    return {"message": "Producto eliminado correctamente"}
 
 
 # --- 9. CATÁLOGO MASIVO ---
