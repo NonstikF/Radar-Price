@@ -133,7 +133,6 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                 </div>
             )}
 
-            {/* LISTA DE RESULTADOS */}
             {loading ? (
                 <div className="text-center py-20 text-gray-400 flex flex-col items-center gap-3">
                     <Loader2 className="animate-spin h-8 w-8 text-blue-600" />
@@ -149,7 +148,11 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                     )}
 
                     {products.map((product) => (
-                        <div key={product.id} onClick={() => setSelectedProduct(product)} className="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex justify-between items-center cursor-pointer hover:shadow-md transition-all active:scale-[0.99] group">
+                        <div
+                            key={product.id}
+                            onClick={() => setSelectedProduct(product)}
+                            className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-xl shadow-sm border border-gray-100 dark:border-transparent flex justify-between items-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all active:scale-[0.99] group"
+                        >
                             <div className="flex-1 min-w-0 pr-3">
                                 <h3 className="font-bold text-gray-800 dark:text-gray-100 text-base leading-tight mb-1 group-hover:text-blue-600 line-clamp-2">{product.name}</h3>
                                 <div className="flex flex-wrap gap-2 text-xs text-gray-500">
