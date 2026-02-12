@@ -158,16 +158,17 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
                                 type="number"
                                 value={editPrice}
                                 onChange={(e) => setEditPrice(e.target.value)}
-                                className="w-full bg-transparent text-center text-6xl font-black text-white focus:outline-none border-b-2 border-transparent focus:border-white/50 pl-6"
+                                placeholder="0"
+                                className="w-full bg-transparent text-center text-6xl font-black text-white placeholder-blue-300/50 focus:outline-none border-b-2 border-transparent focus:border-white/50 pl-6"
                             />
-                            {parseFloat(editPrice) !== parseFloat(product.selling_price || "0") && (
-                                <button onClick={() => handleSaveField('price')} disabled={saving} className="absolute -right-10 top-1/2 -translate-y-1/2 bg-white text-blue-600 p-2 rounded-full animate-bounce-in">
+                            {parseFloat(editPrice || "0") !== parseFloat(product.selling_price || "0") && (
+                                <button onClick={() => handleSaveField('price')} disabled={saving} className="absolute -right-10 top-1/2 -translate-y-1/2 bg-white text-blue-600 p-2 rounded-full shadow-lg animate-bounce-in hover:scale-110 active:scale-95 transition-all">
                                     <Save className="w-5 h-5" />
                                 </button>
                             )}
                         </div>
                     ) : (
-                        <h2 className="text-6xl font-black tracking-tighter drop-shadow-lg">${product.selling_price?.toFixed(2)}</h2>
+                        <h2 className="text-6xl font-black tracking-tighter drop-shadow-lg">${(product.selling_price || 0).toFixed(2)}</h2>
                     )}
                 </div>
 

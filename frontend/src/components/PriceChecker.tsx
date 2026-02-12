@@ -154,17 +154,26 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                             className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-xl shadow-sm border border-gray-100 dark:border-transparent flex justify-between items-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all active:scale-[0.99] group"
                         >
                             <div className="flex-1 min-w-0 pr-3">
-                                <h3 className="font-bold text-gray-800 dark:text-gray-100 text-base leading-tight mb-1 group-hover:text-blue-600 line-clamp-2">{product.name}</h3>
-                                <div className="flex flex-wrap gap-2 text-xs text-gray-500">
-                                    <span className="bg-gray-100 px-2 rounded font-mono">ID: {product.sku || 'N/A'}</span>
-                                    {product.alias && <span className="bg-purple-100 text-purple-700 px-2 rounded font-bold flex items-center gap-1"><Tag className="w-3 h-3" /> {product.alias}</span>}
-                                    {(!product.selling_price) && <span className="bg-orange-100 text-orange-700 px-2 rounded flex items-center gap-1 font-bold"><AlertTriangle className="w-3 h-3" /> Sin precio</span>}
+                                {/* Título: Cambia a un azul más suave al pasar el mouse en modo oscuro */}
+                                <h3 className="font-bold text-gray-800 dark:text-gray-100 text-base leading-tight mb-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-2">{product.name}</h3>
+
+                                <div className="flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                    {/* Etiqueta ID: Fondo oscuro sutil */}
+                                    <span className="bg-gray-100 dark:bg-gray-900 px-2 rounded font-mono">ID: {product.sku || 'N/A'}</span>
+
+                                    {/* Etiqueta Alias: Fondo morado translúcido */}
+                                    {product.alias && <span className="bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 px-2 rounded font-bold flex items-center gap-1"><Tag className="w-3 h-3" /> {product.alias}</span>}
+
+                                    {/* Etiqueta Sin Precio Pequeña: Fondo naranja translúcido */}
+                                    {(!product.selling_price) && <span className="bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 px-2 rounded flex items-center gap-1 font-bold"><AlertTriangle className="w-3 h-3" /> Sin precio</span>}
                                 </div>
                             </div>
                             <div className="text-right">
                                 {(!product.selling_price) ?
-                                    <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded-lg text-xs font-bold">Sin Precio</span> :
-                                    <div className="text-2xl font-black text-blue-600 tracking-tight">${product.selling_price?.toFixed(2)}</div>
+                                    /* Etiqueta Sin Precio Grande: Fondo naranja translúcido */
+                                    <span className="bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 px-2 py-1 rounded-lg text-xs font-bold">Sin Precio</span> :
+                                    /* Precio: Azul más suave en modo oscuro */
+                                    <div className="text-2xl font-black text-blue-600 dark:text-blue-400 tracking-tight">${product.selling_price?.toFixed(2)}</div>
                                 }
                             </div>
                         </div>
