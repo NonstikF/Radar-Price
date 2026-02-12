@@ -174,15 +174,16 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
 
                 {/* TABS NAVEGACIÓN */}
                 <div className="bg-blue-50 dark:bg-gray-900 p-2 flex gap-2">
-                    <button onClick={() => setShowHistory(false)} className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase ${!showHistory ? 'bg-white shadow-sm text-blue-700' : 'text-gray-400'}`}>Datos Generales</button>
-                    <button onClick={() => setShowHistory(true)} className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase ${showHistory ? 'bg-white shadow-sm text-blue-700' : 'text-gray-400'}`}>Historial</button>
+                    <button onClick={() => setShowHistory(false)} className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase transition-all ${!showHistory ? 'bg-white dark:bg-gray-800 shadow-sm text-blue-700 dark:text-blue-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}>Datos Generales</button>
+                    <button onClick={() => setShowHistory(true)} className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase transition-all ${showHistory ? 'bg-white dark:bg-gray-800 shadow-sm text-blue-700 dark:text-blue-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}>Historial</button>
                 </div>
 
                 {/* CONTENIDO SCROLLABLE */}
                 <div className="p-4 md:p-6 space-y-6 bg-white dark:bg-gray-800 overflow-y-auto">
                     {!showHistory ? (
                         <div className="space-y-4">
-                            <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-700">
+                            {/* CAJA DEL NOMBRE DEL PRODUCTO */}
+                            <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-2xl">
                                 <label className="block text-[10px] font-black text-gray-400 uppercase mb-2">Producto</label>
                                 <p className="text-gray-800 dark:text-gray-100 font-medium text-sm">{product.name}</p>
                             </div>
