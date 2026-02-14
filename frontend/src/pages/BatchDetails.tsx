@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
-import { useParams, useNavigate, useBlocker } from 'react-router-dom'; // <--- AHORA USAMOS useBlocker ESTABLE
+import { useParams, useNavigate, useBlocker } from 'react-router-dom';
 import axios from 'axios';
 import {
     ArrowLeft, FileText, Save, Loader2, AlertTriangle, CheckCircle2,
     Barcode, Box, Search, X, Camera, Filter, Tag, LogOut
 } from 'lucide-react';
+// IMPORTANTE: Asegúrate de que esta ruta sea correcta según tu estructura
+import { BatchPrintButton } from '../components/labels/BatchPrintButton';
 import { BarcodeScanner } from '../components/BarcodeScanner';
 import { API_URL } from '../config';
 
@@ -416,9 +418,14 @@ export function BatchDetails() {
                         </div>
                     </div>
                 </div>
-                <div className="flex items-center gap-3 w-full md:w-auto">
+                <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
+
+                    {/* BOTÓN DE IMPRESIÓN NUEVO */}
+                    <BatchPrintButton products={products} />
+
                     {hasChanges && <span className="text-orange-500 text-xs font-bold animate-pulse flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Sin guardar</span>}
                     {successMsg && <span className="text-green-600 dark:text-green-400 text-xs font-bold animate-pulse flex items-center gap-1 bg-green-50 dark:bg-green-900/20 px-3 py-2 rounded-lg whitespace-nowrap"><CheckCircle2 className="w-4 h-4" /> {successMsg}</span>}
+
                     <button onClick={() => handleSave()} disabled={saving} className={`flex-1 md:flex-none hover:bg-green-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg shadow-green-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 text-sm md:text-base ${hasChanges ? 'bg-green-600 ring-2 ring-green-400 ring-offset-2 dark:ring-offset-gray-900' : 'bg-green-600'}`}>
                         {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                         {saving ? 'Guardando...' : 'Guardar Cambios'}

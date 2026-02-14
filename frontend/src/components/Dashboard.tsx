@@ -1,4 +1,4 @@
-import { FileText, Search, PlusCircle, Users, History, ArrowRight } from 'lucide-react';
+import { FileText, Search, PlusCircle, Users, History, ArrowRight, Tag } from 'lucide-react';
 
 interface Props {
     onNavigate: (view: string) => void;
@@ -22,8 +22,7 @@ export function Dashboard({ onNavigate }: Props) {
             {/* GRID PRINCIPAL */}
             <div className="grid grid-cols-2 gap-3">
 
-                {/* 1. CARGAR XML (BANNER HORIZONTAL) 
-                    Ocupa las 2 columnas (col-span-2) pero es bajito (h-20) */}
+                {/* 1. CARGAR XML (BANNER HORIZONTAL) */}
                 {can('upload') && (
                     <button
                         onClick={() => onNavigate('upload')}
@@ -45,7 +44,7 @@ export function Dashboard({ onNavigate }: Props) {
                     </button>
                 )}
 
-                {/* 2. HISTORIAL (CUADRADO) */}
+                {/* 2. HISTORIAL */}
                 {(can('history') || can('dashboard')) && (
                     <button
                         onClick={() => onNavigate('history')}
@@ -63,7 +62,7 @@ export function Dashboard({ onNavigate }: Props) {
                     </button>
                 )}
 
-                {/* 3. BUSCADOR (CUADRADO) */}
+                {/* 3. BUSCADOR */}
                 {can('search') && (
                     <button
                         onClick={() => onNavigate('search')}
@@ -81,7 +80,7 @@ export function Dashboard({ onNavigate }: Props) {
                     </button>
                 )}
 
-                {/* 4. MANUAL (CUADRADO) */}
+                {/* 4. MANUAL */}
                 {can('manual') && (
                     <button
                         onClick={() => onNavigate('manual')}
@@ -99,7 +98,24 @@ export function Dashboard({ onNavigate }: Props) {
                     </button>
                 )}
 
-                {/* 5. USUARIOS (SOLO ADMIN - CUADRADO) */}
+                {/* 5. DISEÑADOR DE ETIQUETAS (NUEVO) */}
+                {/* Se muestra para todos, o puedes restringirlo con can('labels') si prefieres */}
+                <button
+                    onClick={() => onNavigate('labels')}
+                    className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 h-28 p-3 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm active:scale-95 flex flex-col justify-between text-left group"
+                >
+                    <div className="bg-cyan-50 dark:bg-cyan-900/20 text-cyan-600 dark:text-cyan-400 p-2 rounded-xl w-fit">
+                        <Tag className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-gray-900 dark:text-white text-sm">Etiquetas</h3>
+                        <span className="text-[10px] text-gray-400 group-hover:text-cyan-600 transition-colors flex items-center gap-1">
+                            Configurar <ArrowRight className="w-2 h-2" />
+                        </span>
+                    </div>
+                </button>
+
+                {/* 6. USUARIOS (SOLO ADMIN) */}
                 {isAdmin && (
                     <button
                         onClick={() => onNavigate('admin')}

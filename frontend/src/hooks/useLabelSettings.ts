@@ -1,39 +1,46 @@
 import { useState, useEffect } from 'react';
 
-// 1. Exportar los TIPOS (Fundamental para que otros archivos los vean)
-export type LabelSize = '1.5x1' | '2x1';
-export type NameSource = 'always_name' | 'always_alias' | 'alias_if_available';
-
-// 2. Exportar la INTERFAZ
+// Definimos la "forma" que tendrán nuestros ajustes
 export interface LabelSettings {
-    companyName: string;
-    size: LabelSize;
-    nameSource: NameSource;
+    size: '1.5x1' | '2x1' | '50x25mm';
+    showPrice: boolean;
+    showSku: boolean;
+    showDate: boolean;
+    showName: boolean; // Agregué este por si acaso quieres etiquetas minimalistas
+    boldPrice: boolean;
+    fontSize: 'small' | 'normal' | 'large';
 }
 
 const DEFAULT_SETTINGS: LabelSettings = {
-    companyName: "PlantArte",
-    size: '1.5x1',
-    nameSource: 'alias_if_available'
+    size: '50x25mm',
+    showPrice: true,
+    showSku: true,
+    showDate: true,
+    showName: true,
+    boldPrice: true,
+    fontSize: 'normal'
 };
 
-// 3. Exportar el HOOK (La función principal)
 export function useLabelSettings() {
-    const [settings, setSettings] = useState<LabelSettings>(() => {
-        try {
-            const saved = localStorage.getItem('label_settings');
-            return saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
-        } catch (e) {
-            return DEFAULT_SETTINGS;
-        }
-    });
+    const [settings, setSettings] = useState<LabelSettings>(DEFAULT_SETTINGS);
 
+    // Cargar al inicio
     useEffect(() => {
-        localStorage.setItem('label_settings', JSON.stringify(settings));
-    }, [settings]);
+        const saved = localStorage.getItem('radar_label_settings_v2'); // Usamos v2 para limpiar configuraciones viejas
+        if (saved) {
+            try {
+                setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(saved) });
+            } catch (e) {
+                console.error("Error cargando settings", e);
+            }
+        }
+    }, []);
 
+    // Guardar cambios automáticamente
     const updateSettings = (newSettings: Partial<LabelSettings>) => {
-        setSettings(prev => ({ ...prev, ...newSettings }));
+        const updated = { ...settings, ...newSettings };
+        setSettings(updated);
+        localStorage.setItem('radar_label_settings_v2', JSON.stringify(updated));
     };
 
     return { settings, updateSettings };

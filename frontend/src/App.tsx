@@ -22,6 +22,7 @@ import { Login } from './components/UserLogin';
 import { Logo } from './components/Logo';
 import { History } from './components/History';
 import { BatchDetails } from './pages/BatchDetails';
+import LabelDesigner from './pages/LabelDesigner';
 // Borramos ProtectedRoute porque ya no lo usamos aquí
 
 // --- UTILIDADES ---
@@ -251,6 +252,10 @@ const router = createBrowserRouter(
       <Route path="search" element={<PermissionGuard module="search"><SearchWrapper /></PermissionGuard>} />
 
       <Route path="manual" element={<PermissionGuard module="manual"><ManualEntry /></PermissionGuard>} />
+
+      {/* --- NUEVA RUTA: DISEÑADOR DE ETIQUETAS --- */}
+      {/* No le puse PermissionGuard para que cualquier usuario pueda configurar su propia impresora local */}
+      <Route path="labels" element={<LabelDesigner />} />
 
       <Route path="admin" element={<AdminGuard><AdminUsers /></AdminGuard>} />
 

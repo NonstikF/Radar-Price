@@ -4,10 +4,10 @@ import {
     X, Save, Barcode, Hash,
     ArrowRight, Camera, Trash2, Loader2, Tag, Printer, Settings, AlertTriangle
 } from 'lucide-react';
-import { useReactToPrint } from 'react-to-print';
-import { ProductLabel } from './ProductLabel';
+import { usePrintLabel } from '../hooks/usePrintLabel';
+import { ProductLabel } from './labels/ProductLabel';
 import { useLabelSettings } from '../hooks/useLabelSettings';
-import { LabelSettingsModal } from './LabelSettingsModal';
+import { LabelSettingsModal } from './labels/LabelSettingsModal';
 import { API_URL } from '../config';
 import { BarcodeScanner } from './BarcodeScanner';
 
@@ -46,11 +46,7 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
             .catch(err => console.error("Error historial", err));
     }, [product.id]);
 
-    const handlePrint = useReactToPrint({
-        contentRef: labelRef,
-        documentTitle: product.alias || product.name || 'Etiqueta',
-        onAfterPrint: () => showToast("Enviado a impresión"),
-    });
+    const handlePrint = usePrintLabel(labelRef, product.alias || product.name);
 
     // Lógica simplificada de "Hay cambios sin guardar"
     const hasUnsavedChanges = () => {
