@@ -1,5 +1,5 @@
 import { X, Save, Tag, Type, Ruler, Building2 } from 'lucide-react';
-import { useLabelSettings, type LabelSize } from '../hooks/useLabelSettings'; interface Props {
+import { useLabelSettings, type LabelSize } from '../../hooks/useLabelSettings'; interface Props {
     onClose: () => void;
 }
 
