@@ -22,12 +22,13 @@ export const ProductLabel = forwardRef<HTMLDivElement, Props>((props, ref) => {
 
     const displayName = getProductName();
 
-    // 2. LÓGICA DE TAMAÑO DE FUENTE "ADAPTABLE"
+    // 2. LÓGICA DE TAMAÑO DE FUENTE "ADAPTABLE" PARA EL NOMBRE
     const getNameStyle = (text: string) => {
         const length = text.length;
-        if (length < 20) return 'text-[11px] leading-tight font-bold';
-        if (length < 40) return 'text-[9px] leading-tight font-semibold';
-        return 'text-[7px] leading-tight font-medium tracking-tight';
+        // Ajustamos los tamaños para que se parezca más a la imagen de referencia
+        if (length < 20) return 'text-[12px] leading-tight font-bold';
+        if (length < 35) return 'text-[10px] leading-tight font-bold';
+        return 'text-[8px] leading-tight font-bold tracking-tight';
     };
 
     // Diccionario de dimensiones
@@ -40,11 +41,10 @@ export const ProductLabel = forwardRef<HTMLDivElement, Props>((props, ref) => {
     const safeSize = settings?.size || '50x25mm';
     const containerSize = sizeClasses[safeSize] || sizeClasses['50x25mm'];
 
-    // Separamos enteros y decimales para dar estilo
-    const price = product.selling_price || product.price || 0;
-    const priceParts = price.toFixed(2).split('.');
-    const integerPart = priceParts[0];
-    const decimalPart = priceParts[1];
+    // 3. PRECIO SIN CENTAVOS (Redondeado)
+    const rawPrice = product.selling_price || product.price || 0;
+    // Usamos Math.round para redondear al entero más cercano (ej: 79.90 -> 80)
+    const finalPrice = Math.round(rawPrice);
 
     return (
         <div ref={ref} className="bg-white p-0.5 mx-auto overflow-hidden">
@@ -52,37 +52,34 @@ export const ProductLabel = forwardRef<HTMLDivElement, Props>((props, ref) => {
 
                 {/* --- SECCIÓN SUPERIOR: EMPRESA --- */}
                 {settings.companyName && (
-                    <div className="w-full text-center border-b border-black pb-0.5 mb-0.5">
-                        <p className="text-[7px] font-bold uppercase tracking-widest text-black truncate px-1">
+                    <div className="w-full text-center pt-0.5">
+                        {/* Fuente un poco más grande y bold como en la imagen */}
+                        <p className="text-[9px] font-extrabold uppercase tracking-wider text-black truncate px-1 leading-none">
                             {settings.companyName}
                         </p>
                     </div>
                 )}
 
-                {/* --- SECCIÓN CENTRAL: PRECIO GIGANTE --- */}
-                {/* Al quitar el código de barras, usamos flex-1 para centrar el precio verticalmente */}
-                <div className="flex-1 flex flex-col items-center justify-center min-h-0">
+                {/* --- SECCIÓN CENTRAL: PRECIO GIGANTE SIN CENTAVOS --- */}
+                <div className="flex-1 flex flex-col items-center justify-center min-h-0 -mt-1">
                     {settings.showPrice && (
-                        <div className="flex items-start leading-none -mt-1">
-                            <span className="text-xs font-bold mt-1.5 mr-0.5">$</span>
+                        <div className="flex items-start leading-none">
+                            {/* Signo de pesos ajustado */}
+                            <span className="text-base font-bold mt-1 mr-0.5">$</span>
 
-                            {/* Precio Entero GIGANTE */}
-                            <span className={`text-4xl tracking-tighter ${settings.boldPrice ? 'font-black' : 'font-bold'}`}>
-                                {integerPart}
-                            </span>
-
-                            {/* Decimales pequeños arriba */}
-                            <span className="text-xs font-bold mt-1.5 underline decoration-2">
-                                {decimalPart}
+                            {/* Precio Entero GIGANTE (text-5xl para que se vea enorme) */}
+                            <span className={`text-5xl tracking-tighter ${settings.boldPrice ? 'font-black' : 'font-extrabold'}`}>
+                                {finalPrice}
                             </span>
                         </div>
                     )}
                 </div>
 
-                {/* --- SECCIÓN INFERIOR: DESCRIPCIÓN --- */}
+                {/* --- SECCIÓN INFERIOR: NOMBRE DEL PRODUCTO --- */}
                 {settings.showName && (
-                    <div className={`w-full text-center px-1 pb-1 pt-0.5 border-t border-gray-200 mt-auto`}>
-                        <p className={`${getNameStyle(displayName)} break-words uppercase text-black`}>
+                    // Borde negro grueso superior como en la imagen
+                    <div className={`w-full text-center px-0.5 pb-0.5 pt-0.5 border-t-2 border-black mt-auto leading-none items-center flex min-h-[18px]`}>
+                        <p className={`${getNameStyle(displayName)} break-words uppercase text-black w-full`}>
                             {displayName}
                         </p>
                     </div>
