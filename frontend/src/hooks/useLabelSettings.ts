@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-// Agregamos 'custom' a las opciones
+// Definimos los tipos permitidos, incluyendo 'custom'
 export type LabelSize = '1.5x1' | '2x1' | '50x25mm' | 'custom';
 
 export interface LabelSettings {
@@ -14,9 +14,9 @@ export interface LabelSettings {
     companyName?: string;
     nameSource?: string;
 
-    // NUEVOS CAMPOS para medida personalizada
-    customWidth?: string;  // Ej: "2.1in"
-    customHeight?: string; // Ej: "1in"
+    // CAMPOS NUEVOS PARA MEDIDA PERSONALIZADA
+    customWidth?: string;
+    customHeight?: string;
 }
 
 const DEFAULT_SETTINGS: LabelSettings = {
@@ -30,16 +30,17 @@ const DEFAULT_SETTINGS: LabelSettings = {
     companyName: '',
     nameSource: 'alias_if_available',
 
-    // Valores por defecto para personalizado
+    // Valores por defecto
     customWidth: '2in',
     customHeight: '1in'
 };
 
 export function useLabelSettings() {
+    // Usamos una clave nueva (v3) para evitar conflictos con configuraciones viejas
     const [settings, setSettings] = useState<LabelSettings>(DEFAULT_SETTINGS);
 
     useEffect(() => {
-        const saved = localStorage.getItem('radar_label_settings_v3'); // Cambié a v3 para limpiar caché viejo
+        const saved = localStorage.getItem('radar_label_settings_v3');
         if (saved) {
             try {
                 setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(saved) });
