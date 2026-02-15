@@ -1,10 +1,10 @@
 import { useState, useRef } from 'react';
 import {
     Settings, RotateCcw, Layout, Eye, Tag,
-    Printer, PenTool, Box
+    Printer, PenTool, Box, Building2
 } from 'lucide-react';
 import { ProductLabel } from '../components/labels/ProductLabel';
-import { useLabelSettings } from '../hooks/useLabelSettings';
+import { useLabelSettings, type LabelSize } from '../hooks/useLabelSettings';
 import { usePrintLabel } from '../hooks/usePrintLabel';
 
 export default function LabelDesigner() {
@@ -21,12 +21,10 @@ export default function LabelDesigner() {
         bottomText: 'TEXTO PERSONALIZADO'
     });
 
-    // Hook de impresión para el modo libre
+    // Hook de impresión
     const handlePrintFree = usePrintLabel(printRef, `Etiqueta_Libre_${new Date().toLocaleTimeString()}`);
 
-    // --- LÓGICA DEL PRODUCTO A MOSTRAR ---
-    // Si estamos en preview, usamos un producto dummy fijo.
-    // Si estamos en free, creamos un "producto falso" con lo que escribas.
+    // Configuración del producto dummy
     const productToRender = mode === 'preview' ? {
         name: "Maceta Rattan Redonda D20 Chocolate Premium",
         price: 185.50,
@@ -35,18 +33,15 @@ export default function LabelDesigner() {
         upc: "7501234567890",
         alias: "Rattan Choco"
     } : {
-        // En modo libre, el "nombre" y "alias" son tu texto de abajo
         name: customData.bottomText,
         alias: customData.bottomText,
-        // El precio es lo que escribas
         selling_price: parseFloat(customData.price) || 0,
         price: parseFloat(customData.price) || 0,
         sku: "0000",
         upc: "0000"
     };
 
-    // Ajustes modificados al vuelo para el modo libre
-    // (Para que el texto de arriba obedezca al input manual y no a la config global)
+    // Ajustes al vuelo
     const settingsToRender = mode === 'free'
         ? { ...settings, companyName: customData.topText }
         : settings;
@@ -60,7 +55,7 @@ export default function LabelDesigner() {
                         <Tag className="text-blue-600" /> Diseñador de Etiquetas
                     </h1>
                     <p className="text-gray-500 mt-1">
-                        {mode === 'preview' ? 'Personaliza el diseño general.' : 'Crea etiquetas rápidas manualmente.'}
+                        {mode === 'preview' ? 'Configura el diseño global de tus etiquetas.' : 'Crea etiquetas rápidas manualmente.'}
                     </p>
                 </div>
 
@@ -83,15 +78,14 @@ export default function LabelDesigner() {
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
-                {/* COLUMNA IZQUIERDA: PREVISUALIZACIÓN */}
+                {/* COLUMNA IZQUIERDA: VISUALIZADOR */}
                 <div className="lg:col-span-7 space-y-6">
                     <div className="bg-gray-100 dark:bg-gray-800/50 rounded-3xl p-8 flex flex-col items-center justify-center min-h-[400px] border-2 border-dashed border-gray-300 dark:border-gray-700 relative group">
 
                         <span className="absolute top-4 left-4 text-xs font-bold text-gray-400 uppercase tracking-widest">
-                            {mode === 'preview' ? 'Vista Previa (Ejemplo)' : 'Listo para Imprimir'}
+                            {mode === 'preview' ? 'Vista Previa' : 'Listo para Imprimir'}
                         </span>
 
-                        {/* ZONA DE IMPRESIÓN (usamos ref aquí para capturar esto al imprimir en modo libre) */}
                         <div className="shadow-xl transition-all duration-300 hover:scale-105">
                             <div ref={printRef}>
                                 <ProductLabel
@@ -102,11 +96,10 @@ export default function LabelDesigner() {
                         </div>
 
                         <p className="mt-8 text-xs text-gray-400 text-center max-w-xs">
-                            * {mode === 'preview' ? 'Así se verán tus productos del inventario.' : 'Lo que ves es lo que se imprimirá.'}
+                            * {mode === 'preview' ? 'Así se verán tus productos.' : 'Lo que ves es lo que se imprimirá.'}
                         </p>
                     </div>
 
-                    {/* BOTÓN IMPRIMIR (SOLO MODO LIBRE) */}
                     {mode === 'free' && (
                         <button
                             onClick={handlePrintFree}
@@ -120,8 +113,8 @@ export default function LabelDesigner() {
                 {/* COLUMNA DERECHA: CONTROLES */}
                 <div className="lg:col-span-5 space-y-6">
 
-                    {/* SI ESTAMOS EN MODO LIBRE: MOSTRAR INPUTS MANUALES */}
                     {mode === 'free' ? (
+                        // --- MODO LIBRE ---
                         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-purple-100 dark:border-gray-700 p-6 animate-fade-in">
                             <div className="flex items-center gap-2 mb-6 border-b border-gray-100 dark:border-gray-700 pb-4">
                                 <PenTool className="w-5 h-5 text-purple-600" />
@@ -130,41 +123,36 @@ export default function LabelDesigner() {
 
                             <div className="space-y-4">
                                 <div>
-                                    <label className="text-xs font-bold text-gray-400 uppercase block mb-1">Texto Superior (Empresa/Título)</label>
+                                    <label className="text-xs font-bold text-gray-400 uppercase block mb-1">Título Superior</label>
                                     <input
                                         type="text"
                                         value={customData.topText}
                                         onChange={(e) => setCustomData({ ...customData, topText: e.target.value })}
                                         className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-3 font-bold text-center"
-                                        placeholder="Ej: OFERTA"
                                     />
                                 </div>
-
                                 <div>
-                                    <label className="text-xs font-bold text-gray-400 uppercase block mb-1">Número Central (Precio)</label>
+                                    <label className="text-xs font-bold text-gray-400 uppercase block mb-1">Precio</label>
                                     <input
                                         type="number"
                                         value={customData.price}
                                         onChange={(e) => setCustomData({ ...customData, price: e.target.value })}
                                         className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-3 font-black text-3xl text-center"
-                                        placeholder="0"
                                     />
                                 </div>
-
                                 <div>
-                                    <label className="text-xs font-bold text-gray-400 uppercase block mb-1">Texto Inferior (Descripción)</label>
+                                    <label className="text-xs font-bold text-gray-400 uppercase block mb-1">Texto Inferior</label>
                                     <textarea
                                         rows={2}
                                         value={customData.bottomText}
                                         onChange={(e) => setCustomData({ ...customData, bottomText: e.target.value })}
                                         className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-3 font-bold text-center uppercase"
-                                        placeholder="Descripción..."
                                     />
                                 </div>
                             </div>
                         </div>
                     ) : (
-                        /* SI ESTAMOS EN MODO PREVIEW: MOSTRAR CONFIGURACIÓN GLOBAL */
+                        // --- MODO CONFIGURACIÓN GLOBAL ---
                         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 animate-fade-in">
                             <div className="flex items-center gap-2 mb-6 border-b border-gray-100 dark:border-gray-700 pb-4">
                                 <Settings className="w-5 h-5 text-blue-600" />
@@ -172,40 +160,65 @@ export default function LabelDesigner() {
                             </div>
 
                             <div className="space-y-6">
-                                {/* SECCIÓN: TAMAÑO Y FUENTE */}
-                                <div className="space-y-4">
-                                    <label className="text-xs font-bold text-gray-400 uppercase flex items-center gap-2">
-                                        <Layout className="w-3 h-3" /> Dimensiones
+
+                                {/* 1. TÍTULO EMPRESA (NUEVO AQUÍ) */}
+                                <div>
+                                    <label className="text-xs font-bold text-gray-400 uppercase flex items-center gap-2 mb-2">
+                                        <Building2 className="w-3 h-3" /> Título de la Etiqueta
                                     </label>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div>
-                                            <label className="text-xs text-gray-500 mb-1 block">Tamaño Papel</label>
-                                            <select
-                                                value={settings.size}
-                                                onChange={(e) => updateSettings({ size: e.target.value as any })}
-                                                className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-2.5 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-                                            >
-                                                <option value="50x25mm">50mm x 25mm (Estándar)</option>
-                                                <option value="2x1">2" x 1" (Pulgadas)</option>
-                                                <option value="1.5x1">1.5" x 1" (Pequeña)</option>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="text-xs text-gray-500 mb-1 block">Tamaño Letra</label>
-                                            <select
-                                                value={settings.fontSize}
-                                                onChange={(e) => updateSettings({ fontSize: e.target.value as any })}
-                                                className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-2.5 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-                                            >
-                                                <option value="small">Pequeña (8px)</option>
-                                                <option value="normal">Normal (10px)</option>
-                                                <option value="large">Grande (12px)</option>
-                                            </select>
-                                        </div>
-                                    </div>
+                                    <input
+                                        type="text"
+                                        value={settings.companyName || ''}
+                                        onChange={(e) => updateSettings({ companyName: e.target.value })}
+                                        className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-3 font-bold text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                        placeholder="Nombre de tu Empresa"
+                                    />
                                 </div>
 
-                                {/* SECCIÓN: VISIBILIDAD */}
+                                {/* 2. TAMAÑO (ACTUALIZADO con PERSONALIZADO) */}
+                                <div>
+                                    <label className="text-xs font-bold text-gray-400 uppercase flex items-center gap-2 mb-2">
+                                        <Layout className="w-3 h-3" /> Dimensiones
+                                    </label>
+                                    <select
+                                        value={settings.size}
+                                        onChange={(e) => updateSettings({ size: e.target.value as LabelSize })}
+                                        className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 dark:text-white mb-2"
+                                    >
+                                        <option value="50x25mm">50mm x 25mm (Estándar)</option>
+                                        <option value="2x1">2" x 1" (Pulgadas)</option>
+                                        <option value="1.5x1">1.5" x 1" (Pequeña)</option>
+                                        <option value="custom">📏 Medida Personalizada</option>
+                                    </select>
+
+                                    {/* Inputs condicionales para medida personalizada */}
+                                    {settings.size === 'custom' && (
+                                        <div className="grid grid-cols-2 gap-3 p-3 bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-100 dark:border-blue-800 animate-fade-in">
+                                            <div>
+                                                <label className="text-[10px] font-bold text-blue-600 uppercase block mb-1">Ancho</label>
+                                                <input
+                                                    type="text"
+                                                    value={settings.customWidth || ''}
+                                                    onChange={(e) => updateSettings({ customWidth: e.target.value })}
+                                                    className="w-full p-2 text-sm font-bold rounded border border-blue-200 text-center"
+                                                    placeholder="Ej: 2in"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] font-bold text-blue-600 uppercase block mb-1">Alto</label>
+                                                <input
+                                                    type="text"
+                                                    value={settings.customHeight || ''}
+                                                    onChange={(e) => updateSettings({ customHeight: e.target.value })}
+                                                    className="w-full p-2 text-sm font-bold rounded border border-blue-200 text-center"
+                                                    placeholder="Ej: 0.95in"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* 3. VISIBILIDAD (SIN SKU/UPC) */}
                                 <div className="space-y-3">
                                     <label className="text-xs font-bold text-gray-400 uppercase flex items-center gap-2">
                                         <Eye className="w-3 h-3" /> Elementos Visibles
@@ -221,24 +234,18 @@ export default function LabelDesigner() {
                                         checked={settings.showPrice}
                                         onChange={(v) => updateSettings({ showPrice: v })}
                                     />
-                                    <ToggleOption
-                                        label="Mostrar Código SKU/UPC"
-                                        checked={settings.showSku}
-                                        onChange={(v) => updateSettings({ showSku: v })}
-                                    />
+                                    {/* Eliminado: Mostrar SKU/UPC */}
                                 </div>
                             </div>
 
-                            {/* BOTÓN RESTAURAR */}
                             <button
                                 onClick={() => updateSettings({
                                     size: '50x25mm',
                                     showPrice: true,
-                                    showSku: true,
-                                    showDate: true,
+                                    showSku: false,
                                     showName: true,
                                     boldPrice: true,
-                                    fontSize: 'normal'
+                                    companyName: ''
                                 })}
                                 className="w-full mt-6 py-3 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-sm font-bold flex items-center justify-center gap-2"
                             >
