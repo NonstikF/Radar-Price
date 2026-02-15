@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 
-// Exportamos los tipos para que los puedan usar otros componentes
-export type LabelSize = '1.5x1' | '2x1' | '50x25mm';
+// Agregamos 'custom' a las opciones
+export type LabelSize = '1.5x1' | '2x1' | '50x25mm' | 'custom';
 
 export interface LabelSettings {
     size: LabelSize;
@@ -11,10 +11,12 @@ export interface LabelSettings {
     showName: boolean;
     boldPrice: boolean;
     fontSize: 'small' | 'normal' | 'large';
+    companyName?: string;
+    nameSource?: string;
 
-    // --- NUEVOS CAMPOS AGREGADOS PARA CORREGIR EL ERROR ---
-    companyName?: string;      // Opcional: Nombre de la tienda en la etiqueta
-    nameSource?: string;       // Opcional: 'product' o 'alias'
+    // NUEVOS CAMPOS para medida personalizada
+    customWidth?: string;  // Ej: "2.1in"
+    customHeight?: string; // Ej: "1in"
 }
 
 const DEFAULT_SETTINGS: LabelSettings = {
@@ -25,20 +27,21 @@ const DEFAULT_SETTINGS: LabelSettings = {
     showName: true,
     boldPrice: true,
     fontSize: 'normal',
-
-    // Valores por defecto para los nuevos campos
     companyName: '',
-    nameSource: 'product'
+    nameSource: 'alias_if_available',
+
+    // Valores por defecto para personalizado
+    customWidth: '2in',
+    customHeight: '1in'
 };
 
 export function useLabelSettings() {
     const [settings, setSettings] = useState<LabelSettings>(DEFAULT_SETTINGS);
 
     useEffect(() => {
-        const saved = localStorage.getItem('radar_label_settings_v2');
+        const saved = localStorage.getItem('radar_label_settings_v3'); // Cambié a v3 para limpiar caché viejo
         if (saved) {
             try {
-                // Usamos ...DEFAULT_SETTINGS primero para asegurar que si faltan campos nuevos, se rellenen
                 setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(saved) });
             } catch (e) {
                 console.error("Error cargando settings", e);
@@ -49,7 +52,7 @@ export function useLabelSettings() {
     const updateSettings = (newSettings: Partial<LabelSettings>) => {
         const updated = { ...settings, ...newSettings };
         setSettings(updated);
-        localStorage.setItem('radar_label_settings_v2', JSON.stringify(updated));
+        localStorage.setItem('radar_label_settings_v3', JSON.stringify(updated));
     };
 
     return { settings, updateSettings };

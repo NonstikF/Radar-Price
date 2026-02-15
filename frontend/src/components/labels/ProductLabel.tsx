@@ -9,7 +9,7 @@ interface Props {
 export const ProductLabel = forwardRef<HTMLDivElement, Props>((props, ref) => {
     const { product, settings } = props;
 
-    // 1. LÓGICA DE NOMBRE
+    // 1. OBTENER NOMBRE
     const getProductName = () => {
         const source = settings.nameSource || 'alias_if_available';
         const alias = product.alias ? product.alias.trim() : '';
@@ -22,21 +22,41 @@ export const ProductLabel = forwardRef<HTMLDivElement, Props>((props, ref) => {
 
     const displayName = getProductName();
 
-    // 2. FUENTE ADAPTABLE (Optimizada para legibilidad en borde inferior)
+    // 2. ESTILOS DE FUENTE
     const getNameStyle = (text: string) => {
         const length = text.length;
-        if (length < 15) return 'text-[14px] leading-none font-black';
-        if (length < 25) return 'text-[12px] leading-none font-bold';
-        if (length < 40) return 'text-[10px] leading-none font-bold';
+        if (length < 15) return 'text-[13px] leading-none font-black';
+        if (length < 25) return 'text-[11px] leading-none font-bold';
         return 'text-[9px] leading-none font-bold tracking-tight';
     };
 
-    // 3. DIMENSIONES
-    const width = settings.size === '1.5x1' ? '1.5in' : (settings.size === '2x1' ? '2in' : '50mm');
-    const height = settings.size === '1.5x1' ? '1in' : (settings.size === '2x1' ? '1in' : '25mm');
+    // 3. CÁLCULO DE DIMENSIONES (LA SOLUCIÓN A TU PROBLEMA)
+    const getDimensions = () => {
+        if (settings.size === 'custom') {
+            // Si es personalizado, usamos lo que escribiste en los inputs
+            // Si está vacío, usamos valores de seguridad (2in x 1in)
+            return {
+                w: settings.customWidth || '2in',
+                h: settings.customHeight || '1in'
+            };
+        }
+        // Medidas predeterminadas
+        const sizeClasses: Record<string, { w: string, h: string }> = {
+            '1.5x1': { w: '1.5in', h: '1in' },
+            '2x1': { w: '2in', h: '1in' },
+            '50x25mm': { w: '50mm', h: '25mm' },
+        };
+        return sizeClasses[settings.size] || { w: '50mm', h: '25mm' };
+    };
+
+    const { w: width, h: height } = getDimensions();
 
     const rawPrice = product.selling_price || product.price || 0;
     const finalPrice = Math.round(rawPrice);
+
+    // Ajuste de tamaño de fuente del precio
+    const priceLength = finalPrice.toString().length;
+    const priceFontSize = priceLength > 2 ? 'text-[4rem]' : 'text-[5rem]';
 
     return (
         <>
@@ -59,40 +79,31 @@ export const ProductLabel = forwardRef<HTMLDivElement, Props>((props, ref) => {
                     className="bg-white text-black overflow-hidden relative"
                 >
 
-                    {/* --- 1. TÍTULO (Pegado Arriba) --- */}
+                    {/* --- TÍTULO --- */}
                     {settings.companyName && (
-                        // top-[-1px] para subirlo al máximo posible
-                        <div className="absolute top-[-1px] left-0 w-full text-center z-20">
+                        <div className="absolute top-0 left-0 w-full text-center z-20 bg-white pb-[1px]">
                             <p className="text-[10px] font-black uppercase tracking-wide text-black truncate px-1 leading-none pt-[2px]">
                                 {settings.companyName}
                             </p>
                         </div>
                     )}
 
-                    {/* --- 2. PRECIO (Expandido) --- */}
+                    {/* --- PRECIO --- */}
                     {settings.showPrice && (
                         <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-                            {/* translate-y-1 baja el precio un poco para centrarlo respecto a los textos */}
-                            <div className="flex items-start leading-none translate-y-1">
+                            <div className={`flex items-start leading-none -translate-y-2`}>
                                 <span className="text-xl font-bold mt-2 mr-1">$</span>
-                                {/* Aumentamos a 5.5rem para llenar más espacio visual */}
-                                <span className={`text-[5.5rem] tracking-tighter leading-none ${settings.boldPrice ? 'font-black' : 'font-extrabold'}`}>
+                                <span className={`${priceFontSize} tracking-tighter leading-[0.75] ${settings.boldPrice ? 'font-black' : 'font-extrabold'}`}>
                                     {finalPrice}
                                 </span>
                             </div>
                         </div>
                     )}
 
-                    {/* --- 3. TEXTO INFERIOR (Pegado Abajo agresivamente) --- */}
+                    {/* --- TEXTO INFERIOR --- */}
                     {settings.showName && (
-                        // CAMBIO CLAVE: bottom-[-1px] fuerza al texto a bajar más allá del límite teórico
-                        // Quitamos pb (padding-bottom) para ganar esos milímetros extra.
-                        <div className="absolute bottom-[-1px] left-0 w-full text-center px-1 z-20 bg-white/60">
-
-                            {/* Línea divisoria */}
+                        <div className="absolute bottom-0 left-0 w-full text-center px-1 z-20 bg-white">
                             <div className="border-t-2 border-black w-full mb-[1px]"></div>
-
-                            {/* Texto pegado al borde */}
                             <p className={`${getNameStyle(displayName)} break-words uppercase text-black w-full pb-[1px]`}>
                                 {displayName}
                             </p>
