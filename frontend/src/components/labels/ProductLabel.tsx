@@ -1,9 +1,5 @@
 import { forwardRef } from 'react';
-import BarcodeLib from 'react-barcode';
 import type { LabelSettings } from '../../hooks/useLabelSettings';
-
-// Parche para la librería de código de barras
-const Barcode = BarcodeLib as any;
 
 interface Props {
     product: any;
@@ -13,88 +9,85 @@ interface Props {
 export const ProductLabel = forwardRef<HTMLDivElement, Props>((props, ref) => {
     const { product, settings } = props;
 
-    // --- LÓGICA INTELIGENTE PARA EL NOMBRE ---
+    // 1. LÓGICA PARA OBTENER EL NOMBRE CORRECTO
     const getProductName = () => {
-        const source = settings.nameSource || 'alias_if_available'; // Por defecto
+        const source = settings.nameSource || 'alias_if_available';
         const alias = product.alias ? product.alias.trim() : '';
         const originalName = product.name || '';
 
-        if (source === 'always_alias') {
-            return alias; // Si no hay alias, saldrá vacío (útil para imprimir etiquetas mudas)
-        }
-        if (source === 'always_name') {
-            return originalName;
-        }
-        // 'alias_if_available'
+        if (source === 'always_alias') return alias;
+        if (source === 'always_name') return originalName;
         return alias.length > 0 ? alias : originalName;
     };
 
     const displayName = getProductName();
 
-    // Diccionario de tamaños
+    // 2. LÓGICA DE TAMAÑO DE FUENTE "ADAPTABLE"
+    const getNameStyle = (text: string) => {
+        const length = text.length;
+        if (length < 20) return 'text-[11px] leading-tight font-bold';
+        if (length < 40) return 'text-[9px] leading-tight font-semibold';
+        return 'text-[7px] leading-tight font-medium tracking-tight';
+    };
+
+    // Diccionario de dimensiones
     const sizeClasses: Record<string, string> = {
         '1.5x1': 'w-[1.5in] h-[1in]',
         '2x1': 'w-[2in] h-[1in]',
         '50x25mm': 'w-[50mm] h-[25mm]',
     };
 
-    // Diccionario de fuentes para el nombre del producto
-    const fontSizes: Record<string, string> = {
-        small: 'text-[8px]',
-        normal: 'text-[10px]',
-        large: 'text-[12px]',
-    };
-
     const safeSize = settings?.size || '50x25mm';
-    const safeFont = settings?.fontSize || 'normal';
-
     const containerSize = sizeClasses[safeSize] || sizeClasses['50x25mm'];
-    const textSize = fontSizes[safeFont] || fontSizes['normal'];
+
+    // Separamos enteros y decimales para dar estilo
+    const price = product.selling_price || product.price || 0;
+    const priceParts = price.toFixed(2).split('.');
+    const integerPart = priceParts[0];
+    const decimalPart = priceParts[1];
 
     return (
-        <div ref={ref} className="bg-white p-1 mx-auto overflow-hidden">
-            <div className={`${containerSize} flex flex-col items-center justify-center border border-gray-100 bg-white text-black leading-tight overflow-hidden text-center`}>
+        <div ref={ref} className="bg-white p-0.5 mx-auto overflow-hidden">
+            <div className={`${containerSize} flex flex-col bg-white text-black border border-gray-100 overflow-hidden relative`}>
 
-                {/* 1. NOMBRE DE LA EMPRESA (NUEVO) */}
+                {/* --- SECCIÓN SUPERIOR: EMPRESA --- */}
                 {settings.companyName && (
-                    <div className="text-[7px] font-bold uppercase tracking-wider mb-0.5 text-gray-600">
-                        {settings.companyName}
+                    <div className="w-full text-center border-b border-black pb-0.5 mb-0.5">
+                        <p className="text-[7px] font-bold uppercase tracking-widest text-black truncate px-1">
+                            {settings.companyName}
+                        </p>
                     </div>
                 )}
 
-                {/* 2. NOMBRE DEL PRODUCTO (Con lógica de Alias) */}
-                {settings?.showName && displayName && (
-                    <h3 className={`${textSize} font-bold line-clamp-2 px-1 mb-0.5 leading-none`}>
-                        {displayName}
-                    </h3>
-                )}
+                {/* --- SECCIÓN CENTRAL: PRECIO GIGANTE --- */}
+                {/* Al quitar el código de barras, usamos flex-1 para centrar el precio verticalmente */}
+                <div className="flex-1 flex flex-col items-center justify-center min-h-0">
+                    {settings.showPrice && (
+                        <div className="flex items-start leading-none -mt-1">
+                            <span className="text-xs font-bold mt-1.5 mr-0.5">$</span>
 
-                {/* 3. CÓDIGO DE BARRAS */}
-                <div className="flex-1 flex items-center justify-center w-full overflow-hidden min-h-0">
-                    <Barcode
-                        value={product.upc || product.sku || "000000"}
-                        width={safeSize === '1.5x1' ? 1 : 1.3}
-                        height={20} // Un poco más bajo para dar espacio a la empresa
-                        fontSize={8}
-                        margin={0}
-                        displayValue={settings?.showSku ?? true}
-                    />
-                </div>
+                            {/* Precio Entero GIGANTE */}
+                            <span className={`text-4xl tracking-tighter ${settings.boldPrice ? 'font-black' : 'font-bold'}`}>
+                                {integerPart}
+                            </span>
 
-                {/* 4. PRECIO Y FECHA */}
-                <div className="flex justify-between items-end w-full px-2 mt-0.5">
-                    {settings?.showDate ? (
-                        <span className="text-[7px] text-gray-500">
-                            {new Date().toLocaleDateString('es-MX')}
-                        </span>
-                    ) : <span></span>}
-
-                    {settings?.showPrice && (
-                        <span className={`${settings?.boldPrice ? 'font-black' : 'font-medium'} text-lg leading-none`}>
-                            ${(product.selling_price || product.price || 0).toFixed(2)}
-                        </span>
+                            {/* Decimales pequeños arriba */}
+                            <span className="text-xs font-bold mt-1.5 underline decoration-2">
+                                {decimalPart}
+                            </span>
+                        </div>
                     )}
                 </div>
+
+                {/* --- SECCIÓN INFERIOR: DESCRIPCIÓN --- */}
+                {settings.showName && (
+                    <div className={`w-full text-center px-1 pb-1 pt-0.5 border-t border-gray-200 mt-auto`}>
+                        <p className={`${getNameStyle(displayName)} break-words uppercase text-black`}>
+                            {displayName}
+                        </p>
+                    </div>
+                )}
+
             </div>
         </div>
     );
