@@ -45,7 +45,6 @@ export const ProductLabel = forwardRef<HTMLDivElement, Props>((props, ref) => {
     const finalPrice = Math.round(rawPrice);
 
     return (
-        // IMPORTANTE: Quitamos p-0.5 y bordes externos para evitar que la impresora detecte "2 páginas"
         <div ref={ref} className="bg-white mx-auto overflow-hidden">
             <div className={`${containerSize} flex flex-col bg-white text-black overflow-hidden relative`}>
 
