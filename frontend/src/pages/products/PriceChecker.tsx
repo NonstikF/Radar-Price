@@ -3,10 +3,10 @@ import {
     Search, X, Camera, Filter, PackageOpen, Loader2, ArrowDownAZ, ArrowUpAZ,
     CheckCircle2, AlertTriangle, Tag
 } from 'lucide-react';
-import { BarcodeScanner } from './BarcodeScanner';
-import { useProductSearch } from '../hooks/useProductSearch';
-import { ProductDetailModal } from './ProductDetailModal';
-import { TOAST_DURATION } from '../config/constants';
+import { BarcodeScanner } from '../../components/ui/BarcodeScanner';
+import { useProductSearch } from '../../hooks/useProductSearch';
+import { ProductDetailModal } from '../../components/modals/ProductDetailModal';
+import { TOAST_DURATION } from '../../config/constants';
 
 interface Props {
     initialFilter?: boolean;

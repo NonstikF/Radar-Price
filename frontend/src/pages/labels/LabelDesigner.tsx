@@ -3,9 +3,9 @@ import {
     Settings, RotateCcw, Layout, Eye, Tag,
     Printer, PenTool, Box, Building2
 } from 'lucide-react';
-import { ProductLabel } from '../components/labels/ProductLabel';
-import { useLabelSettings, type LabelSize } from '../hooks/useLabelSettings';
-import { usePrintLabel } from '../hooks/usePrintLabel';
+import { ProductLabel } from '../../components/labels/ProductLabel';
+import { useLabelSettings, type LabelSize } from '../../hooks/useLabelSettings';
+import { usePrintLabel } from '../../hooks/usePrintLabel';
 
 export default function LabelDesigner() {
     const { settings, updateSettings } = useLabelSettings();

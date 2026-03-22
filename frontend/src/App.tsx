@@ -13,21 +13,21 @@ import {
 } from 'react-router-dom';
 
 // --- COMPONENTES ---
-import { InvoiceUploader } from './components/InvoiceUploader';
-import { ManualEntry } from './components/ManualEntry';
-import { PriceChecker } from './components/PriceChecker';
-import { Dashboard } from './components/Dashboard';
-import { AdminUsers } from './components/AdminUsers';
-import { Login } from './components/UserLogin';
-import { Logo } from './components/Logo';
-import { History } from './components/History';
-import { BatchDetails } from './pages/BatchDetails';
-import LabelDesigner from './pages/LabelDesigner';
+import { InvoiceUploader } from './pages/invoices/InvoiceUploader';
+import { ManualEntry } from './pages/products/ManualEntry';
+import { PriceChecker } from './pages/products/PriceChecker';
+import { Dashboard } from './pages/dashboard/Dashboard';
+import { AdminUsers } from './pages/admin/AdminUsers';
+import { Login } from './pages/auth/Login';
+import { Logo } from './components/ui/Logo';
+import { History } from './pages/history/History';
+import { BatchDetails } from './pages/invoices/BatchDetails';
+import LabelDesigner from './pages/labels/LabelDesigner';
 // Borramos ProtectedRoute porque ya no lo usamos aquí
 
 // --- UTILIDADES ---
 import { LayoutGrid, FileText, Search, PlusCircle, Moon, Sun, Users, LogOut } from 'lucide-react';
-import { API_URL } from './config';
+import { API_URL } from './config/api';
 
 // =========================================================================
 // 1. ROOT LAYOUT: Maneja la Estructura (Header, State, Auth)

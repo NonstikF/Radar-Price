@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import axios from 'axios';
 import { User, Lock, Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
-import { API_URL } from '../config';
+import { API_URL } from '../../config/api';
 
 interface Props {
     onLoginSuccess: (userData: any) => void;

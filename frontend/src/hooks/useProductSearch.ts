@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { API_URL } from '../config';
+import { API_URL } from '../config/api';
 import { DEBOUNCE_DELAY, PRODUCTS_LIMIT } from '../config/constants';
 
 export function useProductSearch(initialFilter = false) {

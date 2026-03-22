@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import axios from 'axios';
 import { AlertTriangle, Key } from 'lucide-react'; // Iconos bonitos
-import { API_URL } from '../config'
+import { API_URL } from '../../config/api'
 
 interface Props {
     isOpen: boolean;

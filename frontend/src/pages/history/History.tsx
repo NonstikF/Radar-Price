@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Calendar, FileText, ArrowRight, CheckCircle2, AlertTriangle, ChevronLeft, Loader2, Package, Pencil, X, Check } from 'lucide-react';
-import { API_URL } from '../config';
+import { API_URL } from '../../config/api';
 
 interface Props {
     onBack: () => void;

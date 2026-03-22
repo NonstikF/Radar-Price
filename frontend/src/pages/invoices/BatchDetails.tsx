@@ -5,10 +5,9 @@ import {
     ArrowLeft, FileText, Save, Loader2, AlertTriangle, CheckCircle2,
     Barcode, Box, Search, X, Camera, Filter, Tag, LogOut
 } from 'lucide-react';
-// IMPORTANTE: Asegúrate de que esta ruta sea correcta según tu estructura
-import { BatchPrintButton } from '../components/labels/BatchPrintButton';
-import { BarcodeScanner } from '../components/BarcodeScanner';
-import { API_URL } from '../config';
+import { BatchPrintButton } from '../../components/labels/BatchPrintButton';
+import { BarcodeScanner } from '../../components/ui/BarcodeScanner';
+import { API_URL } from '../../config/api';
 
 // ==========================================
 // 1. SUB-COMPONENTE: Tarjeta Móvil

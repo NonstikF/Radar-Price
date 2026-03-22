@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd:*)",
+      "Bash(cd /c/Users/admin/Radar-Price/frontend && npx tsc --noEmit 2>&1)",
+      "Bash(curl:*)",
+      "Bash(cd /c/Users/admin/Radar-Price/frontend && npx vite build 2>&1)",
+      "Bash(true:*)",
+      "Bash(cd /c/Users/admin/Radar-Price/backend && venv/Scripts/python.exe -c \"import uvicorn; from app.main import app; print\\('Import OK'\\)\" 2>&1)",
+      "Bash(cd /c/Users/admin/Radar-Price/backend && venv/Scripts/python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 2>&1)",
+      "Bash(tail:*)",
+      "Bash(cd /c/Users/admin/Radar-Price/backend && venv/Scripts/pip.exe install \"bcrypt==4.0.1\" 2>&1)",
+      "Bash(echo exit: $?:*)",
+      "Bash(pkill:*)",
+      "Bash(netstat:*)",
+      "Bash(taskkill:*)",
+      "Bash(cmd.exe:*)",
+      "Bash(cd /c/Users/admin/Radar-Price/backend && venv/Scripts/python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8001 2>&1)",
+      "Bash(powershell.exe:*)",
+      "Bash(grep:*)",
+      "Bash(powershell.exe -Command \"Stop-Process -Id 23384 -Force\" && sleep 1 && cd /c/Users/admin/Radar-Price/backend && venv/Scripts/python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 2>&1)"
+    ]
+  }
+}

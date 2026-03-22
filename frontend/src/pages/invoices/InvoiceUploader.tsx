@@ -5,7 +5,7 @@ import {
     GitMerge, ArrowRight, CheckCircle2, Trash2, Database, AlertCircle,
     FileStack, History, X, Link
 } from 'lucide-react';
-import { API_URL } from '../config';
+import { API_URL } from '../../config/api';
 
 interface Props {
     products: any[];

@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import axios from 'axios';
 import { Save, Barcode, Hash, Tag, PlusCircle, CheckCircle2, Loader2, AlertCircle, Camera, Trash2 } from 'lucide-react'; // <--- AGREGAMOS TRASH2
-import { BarcodeScanner } from './BarcodeScanner';
+import { BarcodeScanner } from '../../components/ui/BarcodeScanner';
 
 // IMPORTAMOS LA CONFIGURACIÓN CENTRALIZADA
-import { API_URL } from '../config';
+import { API_URL } from '../../config/api';
 
 export function ManualEntry() {
     const [loading, setLoading] = useState(false);

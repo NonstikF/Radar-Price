@@ -6,7 +6,7 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+import bcrypt as _bcrypt_lib
 from pydantic import BaseModel
 from sqlalchemy import Column, Integer, String, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -21,7 +21,6 @@ SECRET_KEY = "1234hola"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
 
 
@@ -84,11 +83,11 @@ class UserResponse(BaseModel):
 
 # --- 4. HELPER FUNCTIONS ---
 def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
+    return _bcrypt_lib.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
 
 
 def get_password_hash(password):
-    return pwd_context.hash(password)
+    return _bcrypt_lib.hashpw(password.encode("utf-8"), _bcrypt_lib.gensalt()).decode("utf-8")
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
@@ -120,12 +119,10 @@ async def startup_event():
 app = FastAPI(on_startup=[startup_event])
 
 # --- 7. CORS ---
-origins = ["*"]  # Abierto para desarrollo
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

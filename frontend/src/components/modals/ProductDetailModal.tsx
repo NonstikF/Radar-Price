@@ -4,12 +4,12 @@ import {
     X, Save, Barcode, Hash,
     ArrowRight, Camera, Trash2, Loader2, Tag, Printer, Settings, AlertTriangle
 } from 'lucide-react';
-import { usePrintLabel } from '../hooks/usePrintLabel';
-import { ProductLabel } from './labels/ProductLabel';
-import { useLabelSettings } from '../hooks/useLabelSettings';
-import { LabelSettingsModal } from './labels/LabelSettingsModal';
-import { API_URL } from '../config';
-import { BarcodeScanner } from './BarcodeScanner';
+import { usePrintLabel } from '../../hooks/usePrintLabel';
+import { ProductLabel } from '../labels/ProductLabel';
+import { useLabelSettings } from '../../hooks/useLabelSettings';
+import { LabelSettingsModal } from '../labels/LabelSettingsModal';
+import { API_URL } from '../../config/api';
+import { BarcodeScanner } from '../ui/BarcodeScanner';
 
 interface Props {
     product: any;

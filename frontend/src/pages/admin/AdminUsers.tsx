@@ -3,7 +3,7 @@ import axios from 'axios';
 import {
     UserPlus, Trash2, User, Loader2, X, AlertTriangle, Shield, Square, Edit3, Key, CheckCircle2
 } from 'lucide-react';
-import { API_URL } from '../config';
+import { API_URL } from '../../config/api';
 
 const AVAILABLE_PERMISSIONS = [
     { id: 'dashboard', label: 'Ver Panel Financiero' },
