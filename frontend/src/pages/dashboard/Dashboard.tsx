@@ -1,4 +1,4 @@
-import { FileText, Search, PlusCircle, Users, History, ArrowRight, Tag } from 'lucide-react';
+import { FileText, Search, PlusCircle, Users, History, ArrowRight, Tag, ShoppingCart, Truck } from 'lucide-react';
 
 interface Props {
     onNavigate: (view: string) => void;
@@ -115,7 +115,43 @@ export function Dashboard({ onNavigate }: Props) {
                     </div>
                 </button>
 
-                {/* 6. USUARIOS (SOLO ADMIN) */}
+                {/* 6. LISTA DE COMPRAS */}
+                {can('shopping') && (
+                    <button
+                        onClick={() => onNavigate('shopping')}
+                        className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 h-28 p-3 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm active:scale-95 flex flex-col justify-between text-left group"
+                    >
+                        <div className="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 p-2 rounded-xl w-fit">
+                            <ShoppingCart className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-gray-900 dark:text-white text-sm">Compras</h3>
+                            <span className="text-[10px] text-gray-400 group-hover:text-emerald-600 transition-colors flex items-center gap-1">
+                                Listas <ArrowRight className="w-2 h-2" />
+                            </span>
+                        </div>
+                    </button>
+                )}
+
+                {/* 7. PROVEEDORES (SOLO ADMIN) */}
+                {isAdmin && (
+                    <button
+                        onClick={() => onNavigate('suppliers')}
+                        className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 h-28 p-3 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm active:scale-95 flex flex-col justify-between text-left group"
+                    >
+                        <div className="bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 p-2 rounded-xl w-fit">
+                            <Truck className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-gray-900 dark:text-white text-sm">Proveedores</h3>
+                            <span className="text-[10px] text-gray-400 group-hover:text-orange-600 transition-colors flex items-center gap-1">
+                                Gestionar <ArrowRight className="w-2 h-2" />
+                            </span>
+                        </div>
+                    </button>
+                )}
+
+                {/* 8. USUARIOS (SOLO ADMIN) */}
                 {isAdmin && (
                     <button
                         onClick={() => onNavigate('admin')}

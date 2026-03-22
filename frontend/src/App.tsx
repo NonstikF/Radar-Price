@@ -24,6 +24,7 @@ import { History } from './pages/history/History';
 import { BatchDetails } from './pages/invoices/BatchDetails';
 import LabelDesigner from './pages/labels/LabelDesigner';
 import { ShoppingLists } from './pages/shopping/ShoppingLists';
+import { Suppliers } from './pages/suppliers/Suppliers';
 
 // --- UTILIDADES ---
 import { LayoutGrid, FileText, Search, PlusCircle, Moon, Sun, Users, LogOut, ShoppingCart } from 'lucide-react';
@@ -256,6 +257,7 @@ const router = createBrowserRouter(
       <Route path="manual" element={<PermissionGuard module="manual"><ManualEntry /></PermissionGuard>} />
 
       <Route path="shopping" element={<PermissionGuard module="shopping"><ShoppingLists /></PermissionGuard>} />
+      <Route path="suppliers" element={<AdminGuard><Suppliers /></AdminGuard>} />
 
       {/* --- DISEÑADOR DE ETIQUETAS --- */}
       <Route path="labels" element={<LabelDesigner />} />

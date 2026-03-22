@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import func
-from typing import Optional
+from sqlalchemy import func, update, or_
+from typing import Optional, List
 from pydantic import BaseModel
 
 from app.core.database import get_db
@@ -96,3 +96,54 @@ async def delete_supplier(supplier_id: int, db: AsyncSession = Depends(get_db)):
     await db.delete(supplier)
     await db.commit()
     return {"message": "Proveedor eliminado"}
+
+
+# --- ASIGNACIÓN MASIVA DE PROVEEDOR ---
+class BulkAssignRequest(BaseModel):
+    product_ids: List[int]
+    supplier_id: int
+
+
+@router.post("/bulk-assign")
+async def bulk_assign_supplier(
+    data: BulkAssignRequest, db: AsyncSession = Depends(get_db)
+):
+    supplier = await db.get(Supplier, data.supplier_id)
+    if not supplier:
+        raise HTTPException(404, "Proveedor no encontrado")
+
+    await db.execute(
+        update(Product)
+        .where(Product.id.in_(data.product_ids))
+        .values(supplier_id=data.supplier_id)
+    )
+    await db.commit()
+    return {"message": f"{len(data.product_ids)} productos asignados a {supplier.name}"}
+
+
+# --- PRODUCTOS SIN PROVEEDOR ---
+@router.get("/unassigned-products")
+async def get_unassigned_products(
+    q: Optional[str] = None, db: AsyncSession = Depends(get_db)
+):
+    stmt = select(Product).where(
+        or_(Product.supplier_id == None, Product.supplier_id == 0)
+    )
+    if q:
+        stmt = stmt.where(
+            or_(
+                Product.name.ilike(f"%{q}%"),
+                Product.sku.ilike(f"%{q}%"),
+            )
+        )
+    stmt = stmt.order_by(Product.name.asc()).limit(200)
+    result = await db.execute(stmt)
+    return [
+        {
+            "id": p.id,
+            "name": p.name,
+            "sku": p.sku or "",
+            "price": p.price,
+        }
+        for p in result.scalars().all()
+    ]
