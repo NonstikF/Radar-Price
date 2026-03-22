@@ -2,9 +2,11 @@ import { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import {
     X, Save, Barcode, Hash,
-    ArrowRight, Camera, Trash2, Loader2, Tag, Printer, Settings, AlertTriangle
+    ArrowRight, Camera, Trash2, Loader2, Tag, Printer, Settings, AlertTriangle,
+    ShoppingCart, Truck
 } from 'lucide-react';
 import { usePrintLabel } from '../../hooks/usePrintLabel';
+import { useShoppingList } from '../../hooks/useShoppingList';
 import { ProductLabel } from '../labels/ProductLabel';
 import { useLabelSettings } from '../../hooks/useLabelSettings';
 import { LabelSettingsModal } from '../labels/LabelSettingsModal';
@@ -35,15 +37,22 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
     const [showHistory, setShowHistory] = useState(false);
     const [showScanner, setShowScanner] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
+    const [suppliers, setSuppliers] = useState<any[]>([]);
+    const [editSupplierId, setEditSupplierId] = useState<string>(product.supplier_id ? String(product.supplier_id) : "");
+    const [addQty, setAddQty] = useState(1);
 
     const { settings } = useLabelSettings();
+    const { addToList, adding } = useShoppingList();
     const labelRef = useRef<HTMLDivElement>(null);
 
-    // Cargar historial al montar
+    // Cargar historial y proveedores al montar
     useEffect(() => {
         axios.get(`${API_URL}/invoices/products/${product.id}/history`)
             .then(res => setHistory(res.data))
             .catch(err => console.error("Error historial", err));
+        axios.get(`${API_URL}/suppliers`)
+            .then(res => setSuppliers(res.data))
+            .catch(err => console.error("Error proveedores", err));
     }, [product.id]);
 
     const handlePrint = usePrintLabel(labelRef, product.alias || product.name);
@@ -206,6 +215,83 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
                                 onChange={setEditSku} onSave={() => handleSaveField('sku')}
                                 saving={saving}
                             />
+
+                            {/* PROVEEDOR */}
+                            <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-2xl">
+                                <label className="flex items-center gap-2 text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase mb-3 tracking-wide">
+                                    <Truck className="w-4 h-4 text-emerald-500" /> Proveedor
+                                </label>
+                                <div className="flex gap-2">
+                                    <select
+                                        value={editSupplierId}
+                                        onChange={(e) => setEditSupplierId(e.target.value)}
+                                        className="flex-1 bg-white dark:bg-gray-900 border-none p-3 rounded-xl text-sm outline-none ring-1 ring-transparent focus:ring-blue-500 text-gray-900 dark:text-white transition-all shadow-inner"
+                                    >
+                                        <option value="">Sin proveedor</option>
+                                        {suppliers.map((s: any) => (
+                                            <option key={s.id} value={s.id}>{s.name} ({s.rfc})</option>
+                                        ))}
+                                    </select>
+                                    {String(editSupplierId) !== String(product.supplier_id || "") && (
+                                        <button
+                                            onClick={async () => {
+                                                setSaving(true);
+                                                try {
+                                                    await axios.put(`${API_URL}/invoices/products/${product.id}`, {
+                                                        supplier_id: editSupplierId || null
+                                                    });
+                                                    onUpdate({ ...product, supplier_id: editSupplierId ? Number(editSupplierId) : null, supplier_name: suppliers.find((s: any) => s.id === Number(editSupplierId))?.name || "" });
+                                                    showToast("PROVEEDOR ACTUALIZADO");
+                                                } catch (err: any) {
+                                                    showToast(err.response?.data?.detail || "Error", "error");
+                                                } finally {
+                                                    setSaving(false);
+                                                }
+                                            }}
+                                            disabled={saving}
+                                            className="px-4 rounded-xl flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white transition-colors shadow-sm"
+                                        >
+                                            <Save className="w-5 h-5" />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* AGREGAR A LISTA DE COMPRAS */}
+                            <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-2xl">
+                                <label className="flex items-center gap-2 text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase mb-3 tracking-wide">
+                                    <ShoppingCart className="w-4 h-4" /> Agregar a Lista de Compras
+                                </label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        value={addQty}
+                                        onChange={(e) => setAddQty(Math.max(1, parseInt(e.target.value) || 1))}
+                                        className="w-20 bg-white dark:bg-gray-900 border-none p-3 rounded-xl text-sm text-center outline-none ring-1 ring-transparent focus:ring-emerald-500 text-gray-900 dark:text-white shadow-inner font-bold"
+                                    />
+                                    <button
+                                        onClick={async () => {
+                                            if (!product.supplier_id && !editSupplierId) {
+                                                showToast("Asigna un proveedor primero", "error");
+                                                return;
+                                            }
+                                            try {
+                                                const result = await addToList(product.id, addQty);
+                                                showToast(`Agregado a lista de ${result.supplier_name}`);
+                                                setAddQty(1);
+                                            } catch (err: any) {
+                                                showToast(err.response?.data?.detail || "Error al agregar", "error");
+                                            }
+                                        }}
+                                        disabled={adding}
+                                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50"
+                                    >
+                                        {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingCart className="w-4 h-4" />}
+                                        Agregar a lista
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     ) : (
                         <HistoryList history={history} />

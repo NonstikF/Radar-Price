@@ -23,10 +23,10 @@ import { Logo } from './components/ui/Logo';
 import { History } from './pages/history/History';
 import { BatchDetails } from './pages/invoices/BatchDetails';
 import LabelDesigner from './pages/labels/LabelDesigner';
-// Borramos ProtectedRoute porque ya no lo usamos aquí
+import { ShoppingLists } from './pages/shopping/ShoppingLists';
 
 // --- UTILIDADES ---
-import { LayoutGrid, FileText, Search, PlusCircle, Moon, Sun, Users, LogOut } from 'lucide-react';
+import { LayoutGrid, FileText, Search, PlusCircle, Moon, Sun, Users, LogOut, ShoppingCart } from 'lucide-react';
 import { API_URL } from './config/api';
 
 // =========================================================================
@@ -134,6 +134,7 @@ function RootLayout() {
               {checkPermission('upload') && <NavButton active={location.pathname === '/upload'} onClick={() => navigate('/upload')} icon={<FileText className="w-4 h-4" />} label="Cargar XML" />}
               {checkPermission('search') && <NavButton active={location.pathname === '/search'} onClick={() => navigate('/search')} icon={<Search className="w-4 h-4" />} label="Buscador" />}
               {checkPermission('manual') && <NavButton active={location.pathname === '/manual'} onClick={() => navigate('/manual')} icon={<PlusCircle className="w-4 h-4" />} label="Manual" />}
+              {checkPermission('shopping') && <NavButton active={location.pathname === '/shopping'} onClick={() => navigate('/shopping')} icon={<ShoppingCart className="w-4 h-4" />} label="Compras" />}
               {isAdmin && <NavButton active={location.pathname === '/admin'} onClick={() => navigate('/admin')} icon={<Users className="w-4 h-4" />} label="Usuarios" />}
             </nav>
 
@@ -166,6 +167,7 @@ function RootLayout() {
         {checkPermission('upload') && <MobileNavBtn onClick={() => navigate('/upload')} icon={<FileText className="w-5 h-5" />} active={location.pathname === '/upload'} />}
         {checkPermission('search') && <MobileNavBtn onClick={() => navigate('/search')} icon={<Search className="w-5 h-5" />} active={location.pathname === '/search'} />}
         {checkPermission('manual') && <MobileNavBtn onClick={() => navigate('/manual')} icon={<PlusCircle className="w-5 h-5" />} active={location.pathname === '/manual'} />}
+        {checkPermission('shopping') && <MobileNavBtn onClick={() => navigate('/shopping')} icon={<ShoppingCart className="w-5 h-5" />} active={location.pathname === '/shopping'} />}
         {isAdmin && <MobileNavBtn onClick={() => navigate('/admin')} icon={<Users className="w-5 h-5" />} active={location.pathname === '/admin'} />}
       </div>
     </div>
@@ -253,8 +255,9 @@ const router = createBrowserRouter(
 
       <Route path="manual" element={<PermissionGuard module="manual"><ManualEntry /></PermissionGuard>} />
 
-      {/* --- NUEVA RUTA: DISEÑADOR DE ETIQUETAS --- */}
-      {/* No le puse PermissionGuard para que cualquier usuario pueda configurar su propia impresora local */}
+      <Route path="shopping" element={<PermissionGuard module="shopping"><ShoppingLists /></PermissionGuard>} />
+
+      {/* --- DISEÑADOR DE ETIQUETAS --- */}
       <Route path="labels" element={<LabelDesigner />} />
 
       <Route path="admin" element={<AdminGuard><AdminUsers /></AdminGuard>} />

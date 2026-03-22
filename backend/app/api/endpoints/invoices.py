@@ -13,7 +13,7 @@ from typing import List, Dict, Optional, Set
 from pydantic import BaseModel
 from app.core.database import get_db
 from app.services.xml_service import XmlInvoiceParser
-from app.domain.models import Product, PriceHistory, ImportBatch, ImportBatchItem
+from app.domain.models import Product, PriceHistory, ImportBatch, ImportBatchItem, Supplier
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -28,6 +28,7 @@ class ManualProductSchema(BaseModel):
     price: float = 0.0
     selling_price: float = 0.0
     stock: int = 0
+    supplier_id: Optional[int] = None
 
 
 class BatchUpdateSchema(BaseModel):
@@ -91,10 +92,25 @@ async def upload_invoice(
     # 2. Leer XML
     content = await file.read()
     try:
-        extracted_items = await parser.extract_data(content, db)
+        extracted = await parser.extract_data(content, db)
+        extracted_items = extracted["items"]
+        emisor_info = extracted.get("emisor")
     except Exception as e:
         logger.error(f"Error XML: {e}")
         raise HTTPException(500, f"Error leyendo estructura XML: {str(e)}")
+
+    # 2.5 Crear/obtener proveedor desde emisor
+    supplier_id = None
+    if emisor_info and emisor_info.get("rfc"):
+        rfc_clean = emisor_info["rfc"].strip().upper()
+        stmt_sup = select(Supplier).where(Supplier.rfc == rfc_clean)
+        sup_result = await db.execute(stmt_sup)
+        supplier = sup_result.scalar_one_or_none()
+        if not supplier:
+            supplier = Supplier(rfc=rfc_clean, name=emisor_info.get("nombre", rfc_clean))
+            db.add(supplier)
+            await db.flush()
+        supplier_id = supplier.id
 
     # 3. Crear Lote
     new_batch = ImportBatch(filename=file.filename, created_at=datetime.now())
@@ -183,6 +199,10 @@ async def upload_invoice(
             if not existing_product.upc and data.get("upc"):
                 existing_product.upc = data.get("upc")
 
+            # Asignar proveedor si no tiene
+            if supplier_id and not existing_product.supplier_id:
+                existing_product.supplier_id = supplier_id
+
             existing_product.stock_quantity += data["qty"]  # Sumar Stock Global
 
             if abs(existing_product.price - data["cost"]) > 0.1:
@@ -260,6 +280,7 @@ async def upload_invoice(
                 price=data["cost"],
                 stock_quantity=data["qty"],
                 selling_price=0.0,
+                supplier_id=supplier_id,
             )
             new_products_buffer.append(new_p)
 
@@ -411,7 +432,9 @@ async def get_products(
     limit: int = 50,
     db: AsyncSession = Depends(get_db),
 ):
-    stmt = select(Product)
+    stmt = select(Product, Supplier.name.label("supplier_name")).outerjoin(
+        Supplier, Product.supplier_id == Supplier.id
+    )
 
     # --- 2. LÓGICA DE BÚSQUEDA SIN ACENTOS ---
     if q:
@@ -460,8 +483,10 @@ async def get_products(
             "price": p.price,
             "selling_price": p.selling_price,
             "stock": p.stock_quantity,
+            "supplier_id": p.supplier_id,
+            "supplier_name": supplier_name or "",
         }
-        for p in result.scalars().all()
+        for p, supplier_name in result.all()
     ]
 
 
@@ -495,6 +520,8 @@ async def update_product_single(
                     )
                 )
                 p.selling_price = np
+        if "supplier_id" in data:
+            p.supplier_id = int(data["supplier_id"]) if data["supplier_id"] else None
         await db.commit()
         await db.refresh(p)
         return {"msg": "Actualizado", "id": p.id, "new_price": p.selling_price}
@@ -578,6 +605,7 @@ async def create_manual(item: ManualProductSchema, db: AsyncSession = Depends(ge
         price=item.price,
         selling_price=item.selling_price,
         stock_quantity=item.stock,
+        supplier_id=item.supplier_id,
     )
     db.add(new_p)
     await db.commit()

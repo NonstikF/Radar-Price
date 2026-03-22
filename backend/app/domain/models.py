@@ -4,6 +4,19 @@ from datetime import datetime
 from app.core.database import Base
 
 
+# --- PROVEEDOR ---
+class Supplier(Base):
+    __tablename__ = "suppliers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    rfc = Column(String, unique=True, index=True)
+    name = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    products = relationship("Product", back_populates="supplier")
+    shopping_lists = relationship("ShoppingList", back_populates="supplier")
+
+
 class Product(Base):
     __tablename__ = "products"
 
@@ -17,6 +30,9 @@ class Product(Base):
     price = Column(Float, default=0.0)  # Costo actual
     selling_price = Column(Float, default=0.0)  # Precio Venta actual
     stock_quantity = Column(Integer, default=0)
+
+    supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=True)
+    supplier = relationship("Supplier", back_populates="products")
 
     # Relación con el historial
     history = relationship(
@@ -63,3 +79,33 @@ class ImportBatchItem(Base):
     quantity = Column(Float, default=0)
     batch = relationship("ImportBatch", back_populates="items")
     product = relationship("Product")  # Para poder acceder a los datos del producto
+
+
+# --- LISTA DE COMPRAS ---
+class ShoppingList(Base):
+    __tablename__ = "shopping_lists"
+
+    id = Column(Integer, primary_key=True, index=True)
+    supplier_id = Column(Integer, ForeignKey("suppliers.id"))
+    status = Column(String, default="active")  # active, completed, cancelled
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    notes = Column(String, nullable=True)
+
+    supplier = relationship("Supplier", back_populates="shopping_lists")
+    items = relationship(
+        "ShoppingListItem", back_populates="shopping_list", cascade="all, delete-orphan"
+    )
+
+
+class ShoppingListItem(Base):
+    __tablename__ = "shopping_list_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    list_id = Column(Integer, ForeignKey("shopping_lists.id"))
+    product_id = Column(Integer, ForeignKey("products.id"))
+    quantity = Column(Integer, default=1)
+    added_at = Column(DateTime, default=datetime.utcnow)
+
+    shopping_list = relationship("ShoppingList", back_populates="items")
+    product = relationship("Product")

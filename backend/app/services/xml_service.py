@@ -1,19 +1,35 @@
 import xml.etree.ElementTree as ET
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 class XmlInvoiceParser:
-    async def extract_data(self, file_content: bytes, db=None) -> List[Dict[str, Any]]:
+    async def extract_data(self, file_content: bytes, db=None) -> Dict[str, Any]:
+        """Retorna { emisor: {rfc, nombre} | None, items: [...] }"""
         print("--- LEYENDO XML CON DESGLOSE DE IMPUESTOS ---")
-        
+
         try:
             tree = ET.ElementTree(ET.fromstring(file_content.decode('utf-8')))
             root = tree.getroot()
-            
-            # Namespaces obligatorios del SAT
+
+            # Namespaces obligatorios del SAT (v4 y v3)
             ns = {'cfdi': 'http://www.sat.gob.mx/cfd/4'}
+            ns3 = {'cfdi3': 'http://www.sat.gob.mx/cfd/3'}
+
+            # Extraer datos del Emisor (Proveedor)
+            emisor_data = None
+            emisor_node = root.find('.//cfdi:Emisor', ns)
+            if emisor_node is None:
+                emisor_node = root.find('.//cfdi3:Emisor', ns3)
+            if emisor_node is not None:
+                emisor_data = {
+                    "rfc": emisor_node.get("Rfc", "").strip(),
+                    "nombre": emisor_node.get("Nombre", "").strip(),
+                }
+                print(f"Emisor detectado: {emisor_data['nombre']} ({emisor_data['rfc']})")
 
             items = []
             conceptos = root.findall('.//cfdi:Concepto', ns)
+            if not conceptos:
+                conceptos = root.findall('.//cfdi3:Concepto', ns3)
 
             for c in conceptos:
                 # 1. Datos Básicos
@@ -58,7 +74,7 @@ class XmlInvoiceParser:
                 })
 
             print(f"Productos procesados: {len(items)}")
-            return items
+            return {"emisor": emisor_data, "items": items}
 
         except Exception as e:
             print(f"Error leyendo XML: {e}")
