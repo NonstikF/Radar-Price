@@ -75,13 +75,15 @@ async def bulk_assign_supplier(
     if not supplier:
         raise HTTPException(404, "Proveedor no encontrado")
 
+    supplier_name = supplier.name  # Guardar antes del commit
+
     await db.execute(
         update(Product)
         .where(Product.id.in_(data.product_ids))
         .values(supplier_id=data.supplier_id)
     )
     await db.commit()
-    return {"message": f"{len(data.product_ids)} productos asignados a {supplier.name}"}
+    return {"message": f"{len(data.product_ids)} productos asignados a {supplier_name}"}
 
 
 @router.get("/unassigned-products")
@@ -112,6 +114,42 @@ async def get_unassigned_products(
 
 
 # --- RUTAS DINÁMICAS CON /{supplier_id} ---
+
+@router.get("/{supplier_id}")
+async def get_supplier_detail(supplier_id: int, db: AsyncSession = Depends(get_db)):
+    supplier = await db.get(Supplier, supplier_id)
+    if not supplier:
+        raise HTTPException(404, "Proveedor no encontrado")
+
+    stmt = (
+        select(Product)
+        .where(Product.supplier_id == supplier_id)
+        .order_by(Product.name.asc())
+    )
+    result = await db.execute(stmt)
+    products = [
+        {
+            "id": p.id,
+            "name": p.name,
+            "alias": p.alias or "",
+            "sku": p.sku or "",
+            "upc": p.upc or "",
+            "price": p.price,
+            "selling_price": p.selling_price,
+            "stock": p.stock_quantity,
+        }
+        for p in result.scalars().all()
+    ]
+
+    return {
+        "id": supplier.id,
+        "rfc": supplier.rfc,
+        "name": supplier.name,
+        "created_at": supplier.created_at,
+        "products": products,
+        "product_count": len(products),
+    }
+
 
 @router.put("/{supplier_id}")
 async def update_supplier(

@@ -164,14 +164,18 @@ async def add_item_to_list(data: AddItemRequest, db: AsyncSession = Depends(get_
     # Actualizar timestamp de la lista
     shopping_list.updated_at = datetime.utcnow()
 
+    # Guardar valores antes del commit para evitar MissingGreenlet
+    saved_supplier_id = product.supplier_id
+    saved_list_id = shopping_list.id
+
     await db.commit()
 
-    # Obtener nombre del proveedor
-    supplier = await db.get(Supplier, product.supplier_id)
+    # Obtener nombre del proveedor usando el valor guardado
+    supplier = await db.get(Supplier, saved_supplier_id)
 
     return {
         "message": "Agregado a lista de compras",
-        "list_id": shopping_list.id,
+        "list_id": saved_list_id,
         "supplier_name": supplier.name if supplier else "",
     }
 
