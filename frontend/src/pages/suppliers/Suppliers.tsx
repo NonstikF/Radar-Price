@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
     Truck, Plus, Edit3, Trash2, X, Loader2, CheckCircle2, AlertTriangle,
-    Search, Package, Square, CheckSquare, ChevronLeft, Tag, Barcode
+    Search, Package, Square, CheckSquare, ChevronLeft, Tag, Barcode, UserMinus
 } from 'lucide-react';
 import { API_URL } from '../../config/api';
 import { TOAST_DURATION } from '../../config/constants';
@@ -226,6 +226,24 @@ export function Suppliers() {
         }
     };
 
+    // --- DESASIGNAR PRODUCTO ---
+    const handleUnassign = async (productId: number, productName: string) => {
+        try {
+            await axios.put(`${API_URL}/invoices/products/${productId}`, { supplier_id: null });
+            showToast(`"${productName}" desasignado`);
+            // Actualizar detalle localmente
+            if (detail) {
+                setDetail({
+                    ...detail,
+                    products: detail.products.filter(p => p.id !== productId),
+                    product_count: detail.product_count - 1,
+                });
+            }
+        } catch (err: any) {
+            showToast(err.response?.data?.detail || "Error al desasignar", "error");
+        }
+    };
+
     // --- MODAL ASIGNACIÓN MASIVA (como JSX variable, no componente, para evitar remontaje) ---
     const bulkAssignModalContent = (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
@@ -374,7 +392,7 @@ export function Suppliers() {
                 ) : (
                     <div className="space-y-2 px-2 md:px-0">
                         {filtered.map((p) => (
-                            <div key={p.id} className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-xl shadow-sm border border-gray-100 dark:border-transparent flex justify-between items-center">
+                            <div key={p.id} className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-xl shadow-sm border border-gray-100 dark:border-transparent flex justify-between items-center group">
                                 <div className="flex-1 min-w-0 pr-3">
                                     <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm leading-tight mb-1 line-clamp-2">{p.name}</h3>
                                     <div className="flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400">
@@ -392,12 +410,21 @@ export function Suppliers() {
                                         <span>Stock: {p.stock}</span>
                                     </div>
                                 </div>
-                                <div className="text-right shrink-0">
-                                    {p.selling_price > 0 ? (
-                                        <span className="text-lg font-black text-blue-600 dark:text-blue-400">${p.selling_price.toFixed(2)}</span>
-                                    ) : (
-                                        <span className="bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 px-2 py-1 rounded-lg text-xs font-bold">Sin Precio</span>
-                                    )}
+                                <div className="flex items-center gap-2 shrink-0">
+                                    <button
+                                        onClick={() => handleUnassign(p.id, p.name)}
+                                        title="Quitar de este proveedor"
+                                        className="p-2 rounded-lg text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors md:opacity-0 md:group-hover:opacity-100"
+                                    >
+                                        <UserMinus className="w-4 h-4" />
+                                    </button>
+                                    <div className="text-right">
+                                        {p.selling_price > 0 ? (
+                                            <span className="text-lg font-black text-blue-600 dark:text-blue-400">${p.selling_price.toFixed(2)}</span>
+                                        ) : (
+                                            <span className="bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 px-2 py-1 rounded-lg text-xs font-bold">Sin Precio</span>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         ))}
