@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import {
     Search, X, Camera, Filter, PackageOpen, Loader2, ArrowDownAZ, ArrowUpAZ,
-    CheckCircle2, AlertTriangle, Tag
+    CheckCircle2, AlertTriangle, Tag, ShoppingCart
 } from 'lucide-react';
 import { BarcodeScanner } from '../../components/ui/BarcodeScanner';
 import { useProductSearch } from '../../hooks/useProductSearch';
+import { useShoppingList } from '../../hooks/useShoppingList';
 import { ProductDetailModal } from '../../components/modals/ProductDetailModal';
 import { TOAST_DURATION } from '../../config/constants';
 
@@ -19,6 +20,8 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
         products, loading, searchTerm, setSearchTerm, filters, setFilters,
         clearFilters, setProducts
     } = useProductSearch(initialFilter);
+
+    const { addToList, adding } = useShoppingList();
 
     // 2. Estado local solo para UI del componente principal
     const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
@@ -49,6 +52,20 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
         setProducts(prev => prev.filter(p => p.id !== selectedProduct.id));
         setSelectedProduct(null);
         showToast("Producto eliminado");
+    };
+
+    const handleQuickAddToCart = async (e: React.MouseEvent, product: any) => {
+        e.stopPropagation();
+        if (!product.supplier_id) {
+            showToast("Asigna un proveedor primero", "error");
+            return;
+        }
+        try {
+            const result = await addToList(product.id, 1);
+            showToast(`Agregado a lista de ${result.supplier_name}`);
+        } catch (err: any) {
+            showToast(err.response?.data?.detail || "Error al agregar", "error");
+        }
     };
 
     return (
@@ -170,13 +187,21 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                                     {(!product.selling_price) && <span className="bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 px-2 rounded flex items-center gap-1 font-bold"><AlertTriangle className="w-3 h-3" /> Sin precio</span>}
                                 </div>
                             </div>
-                            <div className="text-right">
-                                {(!product.selling_price) ?
-                                    /* Etiqueta Sin Precio Grande: Fondo naranja translúcido */
-                                    <span className="bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 px-2 py-1 rounded-lg text-xs font-bold">Sin Precio</span> :
-                                    /* Precio: Azul más suave en modo oscuro */
-                                    <div className="text-2xl font-black text-blue-600 dark:text-blue-400 tracking-tight">${product.selling_price?.toFixed(2)}</div>
-                                }
+                            <div className="flex items-center gap-2 shrink-0">
+                                <button
+                                    onClick={(e) => handleQuickAddToCart(e, product)}
+                                    disabled={adding}
+                                    title={product.supplier_id ? "Agregar a lista de compras" : "Sin proveedor asignado"}
+                                    className={`p-2 rounded-xl transition-all active:scale-90 ${product.supplier_id ? 'text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20' : 'text-gray-300 dark:text-gray-600 cursor-not-allowed'}`}
+                                >
+                                    <ShoppingCart className="w-5 h-5" />
+                                </button>
+                                <div className="text-right">
+                                    {(!product.selling_price) ?
+                                        <span className="bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 px-2 py-1 rounded-lg text-xs font-bold">Sin Precio</span> :
+                                        <div className="text-2xl font-black text-blue-600 dark:text-blue-400 tracking-tight">${product.selling_price?.toFixed(2)}</div>
+                                    }
+                                </div>
                             </div>
                         </div>
                     ))}

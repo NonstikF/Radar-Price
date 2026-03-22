@@ -34,7 +34,7 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
     const [showExitConfirm, setShowExitConfirm] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [history, setHistory] = useState<any[]>([]);
-    const [showHistory, setShowHistory] = useState(false);
+    const [activeTab, setActiveTab] = useState<'general' | 'history' | 'shopping'>('general');
     const [showScanner, setShowScanner] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
     const [suppliers, setSuppliers] = useState<any[]>([]);
@@ -178,14 +178,21 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
                 </div>
 
                 {/* TABS NAVEGACIÓN */}
-                <div className="bg-blue-50 dark:bg-gray-900 p-2 flex gap-2">
-                    <button onClick={() => setShowHistory(false)} className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase transition-all ${!showHistory ? 'bg-white dark:bg-gray-800 shadow-sm text-blue-700 dark:text-blue-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}>Datos Generales</button>
-                    <button onClick={() => setShowHistory(true)} className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase transition-all ${showHistory ? 'bg-white dark:bg-gray-800 shadow-sm text-blue-700 dark:text-blue-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}>Historial</button>
+                <div className="bg-blue-50 dark:bg-gray-900 p-2 flex gap-1">
+                    {(['general', 'history', 'shopping'] as const).map((tab) => (
+                        <button
+                            key={tab}
+                            onClick={() => setActiveTab(tab)}
+                            className={`flex-1 py-2 rounded-lg text-[11px] font-bold uppercase transition-all ${activeTab === tab ? 'bg-white dark:bg-gray-800 shadow-sm text-blue-700 dark:text-blue-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
+                        >
+                            {tab === 'general' ? 'Datos Generales' : tab === 'history' ? 'Historial' : 'Compras'}
+                        </button>
+                    ))}
                 </div>
 
                 {/* CONTENIDO SCROLLABLE */}
                 <div className="p-4 md:p-6 space-y-6 bg-white dark:bg-gray-800 overflow-y-auto">
-                    {!showHistory ? (
+                    {activeTab === 'general' && (
                         <div className="space-y-4">
                             {/* CAJA DEL NOMBRE DEL PRODUCTO */}
                             <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-2xl">
@@ -256,45 +263,24 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
                                     )}
                                 </div>
                             </div>
-
-                            {/* AGREGAR A LISTA DE COMPRAS */}
-                            <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-2xl">
-                                <label className="flex items-center gap-2 text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase mb-3 tracking-wide">
-                                    <ShoppingCart className="w-4 h-4" /> Agregar a Lista de Compras
-                                </label>
-                                <div className="flex gap-2">
-                                    <input
-                                        type="number"
-                                        min={1}
-                                        value={addQty}
-                                        onChange={(e) => setAddQty(Math.max(1, parseInt(e.target.value) || 1))}
-                                        className="w-20 bg-white dark:bg-gray-900 border-none p-3 rounded-xl text-sm text-center outline-none ring-1 ring-transparent focus:ring-emerald-500 text-gray-900 dark:text-white shadow-inner font-bold"
-                                    />
-                                    <button
-                                        onClick={async () => {
-                                            if (!product.supplier_id && !editSupplierId) {
-                                                showToast("Asigna un proveedor primero", "error");
-                                                return;
-                                            }
-                                            try {
-                                                const result = await addToList(product.id, addQty);
-                                                showToast(`Agregado a lista de ${result.supplier_name}`);
-                                                setAddQty(1);
-                                            } catch (err: any) {
-                                                showToast(err.response?.data?.detail || "Error al agregar", "error");
-                                            }
-                                        }}
-                                        disabled={adding}
-                                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50"
-                                    >
-                                        {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingCart className="w-4 h-4" />}
-                                        Agregar a lista
-                                    </button>
-                                </div>
-                            </div>
                         </div>
-                    ) : (
+                    )}
+
+                    {activeTab === 'history' && (
                         <HistoryList history={history} />
+                    )}
+
+                    {activeTab === 'shopping' && (
+                        <ShoppingTab
+                            product={product}
+                            editSupplierId={editSupplierId}
+                            suppliers={suppliers}
+                            addQty={addQty}
+                            setAddQty={setAddQty}
+                            addToList={addToList}
+                            adding={adding}
+                            showToast={showToast}
+                        />
                     )}
                 </div>
 
@@ -374,6 +360,84 @@ const EditField = ({ label, icon, value, original, onChange, onSave, saving, has
                     <Save className="w-5 h-5" />
                 </button>
             </div>
+        </div>
+    );
+};
+
+// Tab de Compras
+const ShoppingTab = ({ product, editSupplierId, suppliers, addQty, setAddQty, addToList, adding, showToast }: any) => {
+    const supplierName = suppliers.find((s: any) => s.id === Number(editSupplierId || product.supplier_id))?.name;
+    const hasSupplier = !!(product.supplier_id || editSupplierId);
+
+    return (
+        <div className="space-y-4">
+            {/* Info del proveedor */}
+            <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-2xl">
+                <label className="flex items-center gap-2 text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase mb-2 tracking-wide">
+                    <Truck className="w-4 h-4 text-emerald-500" /> Proveedor asignado
+                </label>
+                {hasSupplier ? (
+                    <p className="text-sm font-bold text-gray-800 dark:text-gray-100">{supplierName || 'Proveedor'}</p>
+                ) : (
+                    <p className="text-sm text-orange-600 dark:text-orange-400 font-medium">Sin proveedor asignado. Asigna uno en "Datos Generales".</p>
+                )}
+            </div>
+
+            {/* Agregar a lista */}
+            <div className="bg-emerald-50 dark:bg-emerald-900/20 p-5 rounded-2xl">
+                <label className="flex items-center gap-2 text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase mb-4 tracking-wide">
+                    <ShoppingCart className="w-4 h-4" /> Agregar a Lista de Compras
+                </label>
+
+                <div className="flex items-center gap-3 mb-4">
+                    <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Cantidad</span>
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => setAddQty(Math.max(1, addQty - 1))}
+                            className="w-10 h-10 rounded-xl bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 font-bold text-lg shadow-sm hover:bg-gray-100 dark:hover:bg-gray-800 transition-all active:scale-95"
+                        >-</button>
+                        <input
+                            type="number"
+                            min={1}
+                            value={addQty}
+                            onChange={(e) => setAddQty(Math.max(1, parseInt(e.target.value) || 1))}
+                            className="w-16 bg-white dark:bg-gray-900 border-none p-2 rounded-xl text-sm text-center outline-none ring-1 ring-transparent focus:ring-emerald-500 text-gray-900 dark:text-white shadow-inner font-bold"
+                        />
+                        <button
+                            onClick={() => setAddQty(addQty + 1)}
+                            className="w-10 h-10 rounded-xl bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 font-bold text-lg shadow-sm hover:bg-gray-100 dark:hover:bg-gray-800 transition-all active:scale-95"
+                        >+</button>
+                    </div>
+                </div>
+
+                <button
+                    onClick={async () => {
+                        if (!hasSupplier) {
+                            showToast("Asigna un proveedor primero", "error");
+                            return;
+                        }
+                        try {
+                            const result = await addToList(product.id, addQty);
+                            showToast(`Agregado a lista de ${result.supplier_name}`);
+                            setAddQty(1);
+                        } catch (err: any) {
+                            showToast(err.response?.data?.detail || "Error al agregar", "error");
+                        }
+                    }}
+                    disabled={adding || !hasSupplier}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+                >
+                    {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingCart className="w-4 h-4" />}
+                    Agregar a lista
+                </button>
+            </div>
+
+            {/* Info contextual */}
+            {hasSupplier && (
+                <p className="text-xs text-gray-400 dark:text-gray-500 text-center px-4">
+                    Se agregará a la lista activa de <span className="font-bold text-gray-500 dark:text-gray-400">{supplierName}</span>. Si no existe, se creará una nueva.
+                </p>
+            )}
         </div>
     );
 };

@@ -226,6 +226,83 @@ export function Suppliers() {
         }
     };
 
+    // --- MODAL ASIGNACIÓN MASIVA (como JSX variable, no componente, para evitar remontaje) ---
+    const bulkAssignModalContent = (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-lg shadow-2xl relative animate-scale-in flex flex-col max-h-[85vh]">
+                {/* Header */}
+                <div className="p-6 border-b border-gray-100 dark:border-gray-700 shrink-0">
+                    <button onClick={() => setShowBulkModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 bg-gray-100 dark:bg-gray-700 p-2 rounded-full">
+                        <X className="w-5 h-5" />
+                    </button>
+                    <h2 className="text-lg font-black text-gray-900 dark:text-white">Asignar productos a</h2>
+                    <p className="text-sm text-emerald-600 dark:text-emerald-400 font-bold">{bulkSupplierName}</p>
+
+                    <div className="relative mt-4">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                        <input
+                            type="text"
+                            placeholder="Buscar productos sin proveedor..."
+                            value={searchUnassigned}
+                            onChange={(e) => setSearchUnassigned(e.target.value)}
+                            className="w-full pl-10 pr-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-transparent rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-900 dark:text-white"
+                        />
+                    </div>
+                </div>
+
+                {/* Lista */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-1">
+                    {loadingUnassigned ? (
+                        <div className="text-center py-10"><Loader2 className="animate-spin h-6 w-6 text-blue-600 mx-auto" /></div>
+                    ) : unassignedProducts.length === 0 ? (
+                        <div className="text-center py-10 text-gray-400">
+                            <Package className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                            <p className="text-sm">No hay productos sin proveedor</p>
+                        </div>
+                    ) : (
+                        <>
+                            <button
+                                onClick={toggleAll}
+                                className="w-full flex items-center gap-3 p-3 rounded-xl text-sm font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors mb-2"
+                            >
+                                {selectedProductIds.size === unassignedProducts.length ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+                                {selectedProductIds.size === unassignedProducts.length ? 'Deseleccionar todos' : `Seleccionar todos (${unassignedProducts.length})`}
+                            </button>
+
+                            {unassignedProducts.map((p) => (
+                                <div
+                                    key={p.id}
+                                    onClick={() => toggleProduct(p.id)}
+                                    className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all ${selectedProductIds.has(p.id) ? 'bg-blue-50 dark:bg-blue-900/20 ring-1 ring-blue-200 dark:ring-blue-800' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}
+                                >
+                                    {selectedProductIds.has(p.id) ? <CheckSquare className="w-4 h-4 text-blue-600 shrink-0" /> : <Square className="w-4 h-4 text-gray-400 shrink-0" />}
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium text-gray-800 dark:text-gray-100 line-clamp-1">{p.name}</p>
+                                        <div className="flex gap-2 text-xs text-gray-400">
+                                            {p.sku && <span className="font-mono">{p.sku}</span>}
+                                            <span>${p.price.toFixed(2)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </>
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div className="p-4 border-t border-gray-100 dark:border-gray-700 shrink-0">
+                    <button
+                        onClick={handleBulkAssign}
+                        disabled={assigning || selectedProductIds.size === 0}
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white font-bold py-3 rounded-xl flex justify-center items-center gap-2 transition-all"
+                    >
+                        {assigning ? <Loader2 className="animate-spin w-5 h-5" /> : <><Package className="w-5 h-5" /> Asignar {selectedProductIds.size > 0 ? `${selectedProductIds.size} productos` : ''}</>}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+
     // --- VISTA DETALLE DE PROVEEDOR ---
     if (detail) {
         const filtered = detailSearch
@@ -328,7 +405,7 @@ export function Suppliers() {
                 )}
 
                 {/* MODAL ASIGNACIÓN MASIVA (compartido) */}
-                {showBulkModal && <BulkAssignModal />}
+                {showBulkModal && bulkAssignModalContent}
             </div>
         );
     }
@@ -461,86 +538,7 @@ export function Suppliers() {
             )}
 
             {/* MODAL ASIGNACIÓN MASIVA */}
-            {showBulkModal && <BulkAssignModal />}
+            {showBulkModal && bulkAssignModalContent}
         </div>
     );
-
-    // --- MODAL ASIGNACIÓN MASIVA (EXTRAÍDO) ---
-    function BulkAssignModal() {
-        return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-                <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-lg shadow-2xl relative animate-scale-in flex flex-col max-h-[85vh]">
-                    {/* Header */}
-                    <div className="p-6 border-b border-gray-100 dark:border-gray-700 shrink-0">
-                        <button onClick={() => setShowBulkModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 bg-gray-100 dark:bg-gray-700 p-2 rounded-full">
-                            <X className="w-5 h-5" />
-                        </button>
-                        <h2 className="text-lg font-black text-gray-900 dark:text-white">Asignar productos a</h2>
-                        <p className="text-sm text-emerald-600 dark:text-emerald-400 font-bold">{bulkSupplierName}</p>
-
-                        <div className="relative mt-4">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                            <input
-                                type="text"
-                                placeholder="Buscar productos sin proveedor..."
-                                value={searchUnassigned}
-                                onChange={(e) => setSearchUnassigned(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-transparent rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-900 dark:text-white"
-                            />
-                        </div>
-                    </div>
-
-                    {/* Lista */}
-                    <div className="flex-1 overflow-y-auto p-4 space-y-1">
-                        {loadingUnassigned ? (
-                            <div className="text-center py-10"><Loader2 className="animate-spin h-6 w-6 text-blue-600 mx-auto" /></div>
-                        ) : unassignedProducts.length === 0 ? (
-                            <div className="text-center py-10 text-gray-400">
-                                <Package className="w-10 h-10 mx-auto mb-2 opacity-50" />
-                                <p className="text-sm">No hay productos sin proveedor</p>
-                            </div>
-                        ) : (
-                            <>
-                                <button
-                                    onClick={toggleAll}
-                                    className="w-full flex items-center gap-3 p-3 rounded-xl text-sm font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors mb-2"
-                                >
-                                    {selectedProductIds.size === unassignedProducts.length ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
-                                    {selectedProductIds.size === unassignedProducts.length ? 'Deseleccionar todos' : `Seleccionar todos (${unassignedProducts.length})`}
-                                </button>
-
-                                {unassignedProducts.map((p) => (
-                                    <div
-                                        key={p.id}
-                                        onClick={() => toggleProduct(p.id)}
-                                        className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all ${selectedProductIds.has(p.id) ? 'bg-blue-50 dark:bg-blue-900/20 ring-1 ring-blue-200 dark:ring-blue-800' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}
-                                    >
-                                        {selectedProductIds.has(p.id) ? <CheckSquare className="w-4 h-4 text-blue-600 shrink-0" /> : <Square className="w-4 h-4 text-gray-400 shrink-0" />}
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-medium text-gray-800 dark:text-gray-100 line-clamp-1">{p.name}</p>
-                                            <div className="flex gap-2 text-xs text-gray-400">
-                                                {p.sku && <span className="font-mono">{p.sku}</span>}
-                                                <span>${p.price.toFixed(2)}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </>
-                        )}
-                    </div>
-
-                    {/* Footer */}
-                    <div className="p-4 border-t border-gray-100 dark:border-gray-700 shrink-0">
-                        <button
-                            onClick={handleBulkAssign}
-                            disabled={assigning || selectedProductIds.size === 0}
-                            className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white font-bold py-3 rounded-xl flex justify-center items-center gap-2 transition-all"
-                        >
-                            {assigning ? <Loader2 className="animate-spin w-5 h-5" /> : <><Package className="w-5 h-5" /> Asignar {selectedProductIds.size > 0 ? `${selectedProductIds.size} productos` : ''}</>}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        );
-    }
 }
