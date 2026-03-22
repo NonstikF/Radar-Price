@@ -256,18 +256,7 @@ export function Suppliers() {
 
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
-                                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">RFC</label>
-                                <input
-                                    type="text"
-                                    value={formData.rfc}
-                                    onChange={(e) => setFormData({ ...formData, rfc: e.target.value })}
-                                    placeholder="ABC123456XYZ"
-                                    className="w-full mt-1 p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-transparent rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm text-gray-900 dark:text-white uppercase"
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Nombre</label>
+                                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Nombre <span className="text-red-400">*</span></label>
                                 <input
                                     type="text"
                                     value={formData.name}
@@ -275,6 +264,16 @@ export function Suppliers() {
                                     placeholder="Distribuidora SA de CV"
                                     className="w-full mt-1 p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-transparent rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-sm text-gray-900 dark:text-white"
                                     required
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">RFC <span className="text-gray-300 dark:text-gray-600 font-normal text-[10px]">(opcional)</span></label>
+                                <input
+                                    type="text"
+                                    value={formData.rfc}
+                                    onChange={(e) => setFormData({ ...formData, rfc: e.target.value })}
+                                    placeholder="ABC123456XYZ"
+                                    className="w-full mt-1 p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-transparent rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm text-gray-900 dark:text-white uppercase"
                                 />
                             </div>
                             <button type="submit" disabled={processing} className="w-full bg-blue-600 text-white font-bold py-3 rounded-xl flex justify-center gap-2 hover:bg-blue-700 transition-all">

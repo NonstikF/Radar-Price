@@ -12,14 +12,21 @@ router = APIRouter()
 
 
 class SupplierCreate(BaseModel):
-    rfc: str
     name: str
+    rfc: Optional[str] = None
 
 
 class SupplierUpdate(BaseModel):
     rfc: Optional[str] = None
     name: Optional[str] = None
 
+
+class BulkAssignRequest(BaseModel):
+    product_ids: List[int]
+    supplier_id: int
+
+
+# --- RUTAS FIJAS PRIMERO (antes de /{supplier_id}) ---
 
 @router.get("")
 async def get_suppliers(db: AsyncSession = Depends(get_db)):
@@ -44,18 +51,67 @@ async def get_suppliers(db: AsyncSession = Depends(get_db)):
 
 @router.post("")
 async def create_supplier(data: SupplierCreate, db: AsyncSession = Depends(get_db)):
-    existing = await db.execute(
-        select(Supplier).where(Supplier.rfc == data.rfc.strip().upper())
-    )
-    if existing.scalar_one_or_none():
-        raise HTTPException(400, "Ya existe un proveedor con ese RFC")
+    clean_rfc = data.rfc.strip().upper() if data.rfc and data.rfc.strip() else None
 
-    supplier = Supplier(rfc=data.rfc.strip().upper(), name=data.name.strip())
+    if clean_rfc:
+        existing = await db.execute(
+            select(Supplier).where(Supplier.rfc == clean_rfc)
+        )
+        if existing.scalar_one_or_none():
+            raise HTTPException(400, "Ya existe un proveedor con ese RFC")
+
+    supplier = Supplier(rfc=clean_rfc, name=data.name.strip())
     db.add(supplier)
     await db.commit()
     await db.refresh(supplier)
     return {"id": supplier.id, "rfc": supplier.rfc, "name": supplier.name}
 
+
+@router.post("/bulk-assign")
+async def bulk_assign_supplier(
+    data: BulkAssignRequest, db: AsyncSession = Depends(get_db)
+):
+    supplier = await db.get(Supplier, data.supplier_id)
+    if not supplier:
+        raise HTTPException(404, "Proveedor no encontrado")
+
+    await db.execute(
+        update(Product)
+        .where(Product.id.in_(data.product_ids))
+        .values(supplier_id=data.supplier_id)
+    )
+    await db.commit()
+    return {"message": f"{len(data.product_ids)} productos asignados a {supplier.name}"}
+
+
+@router.get("/unassigned-products")
+async def get_unassigned_products(
+    q: Optional[str] = None, db: AsyncSession = Depends(get_db)
+):
+    stmt = select(Product).where(
+        or_(Product.supplier_id == None, Product.supplier_id == 0)
+    )
+    if q:
+        stmt = stmt.where(
+            or_(
+                Product.name.ilike(f"%{q}%"),
+                Product.sku.ilike(f"%{q}%"),
+            )
+        )
+    stmt = stmt.order_by(Product.name.asc()).limit(200)
+    result = await db.execute(stmt)
+    return [
+        {
+            "id": p.id,
+            "name": p.name,
+            "sku": p.sku or "",
+            "price": p.price,
+        }
+        for p in result.scalars().all()
+    ]
+
+
+# --- RUTAS DINÁMICAS CON /{supplier_id} ---
 
 @router.put("/{supplier_id}")
 async def update_supplier(
@@ -96,54 +152,3 @@ async def delete_supplier(supplier_id: int, db: AsyncSession = Depends(get_db)):
     await db.delete(supplier)
     await db.commit()
     return {"message": "Proveedor eliminado"}
-
-
-# --- ASIGNACIÓN MASIVA DE PROVEEDOR ---
-class BulkAssignRequest(BaseModel):
-    product_ids: List[int]
-    supplier_id: int
-
-
-@router.post("/bulk-assign")
-async def bulk_assign_supplier(
-    data: BulkAssignRequest, db: AsyncSession = Depends(get_db)
-):
-    supplier = await db.get(Supplier, data.supplier_id)
-    if not supplier:
-        raise HTTPException(404, "Proveedor no encontrado")
-
-    await db.execute(
-        update(Product)
-        .where(Product.id.in_(data.product_ids))
-        .values(supplier_id=data.supplier_id)
-    )
-    await db.commit()
-    return {"message": f"{len(data.product_ids)} productos asignados a {supplier.name}"}
-
-
-# --- PRODUCTOS SIN PROVEEDOR ---
-@router.get("/unassigned-products")
-async def get_unassigned_products(
-    q: Optional[str] = None, db: AsyncSession = Depends(get_db)
-):
-    stmt = select(Product).where(
-        or_(Product.supplier_id == None, Product.supplier_id == 0)
-    )
-    if q:
-        stmt = stmt.where(
-            or_(
-                Product.name.ilike(f"%{q}%"),
-                Product.sku.ilike(f"%{q}%"),
-            )
-        )
-    stmt = stmt.order_by(Product.name.asc()).limit(200)
-    result = await db.execute(stmt)
-    return [
-        {
-            "id": p.id,
-            "name": p.name,
-            "sku": p.sku or "",
-            "price": p.price,
-        }
-        for p in result.scalars().all()
-    ]

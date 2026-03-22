@@ -9,7 +9,7 @@ class Supplier(Base):
     __tablename__ = "suppliers"
 
     id = Column(Integer, primary_key=True, index=True)
-    rfc = Column(String, unique=True, index=True)
+    rfc = Column(String, unique=True, nullable=True, index=True)
     name = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
 
