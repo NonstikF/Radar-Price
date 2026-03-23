@@ -109,3 +109,30 @@ class ShoppingListItem(Base):
 
     shopping_list = relationship("ShoppingList", back_populates="items")
     product = relationship("Product")
+
+
+# --- UBICACIONES / INVENTARIO ---
+class Location(Base):
+    __tablename__ = "locations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String, unique=True, index=True)  # Ej: R1B2, R1B3
+    description = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    product_locations = relationship(
+        "ProductLocation", back_populates="location", cascade="all, delete-orphan"
+    )
+
+
+class ProductLocation(Base):
+    __tablename__ = "product_locations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    location_id = Column(Integer, ForeignKey("locations.id"))
+    product_id = Column(Integer, ForeignKey("products.id"))
+    quantity = Column(Integer, default=0)
+    added_at = Column(DateTime, default=datetime.utcnow)
+
+    location = relationship("Location", back_populates="product_locations")
+    product = relationship("Product")
