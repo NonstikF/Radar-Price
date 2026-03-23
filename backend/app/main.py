@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 # --- IMPORTS ---
 # Asegúrate de que estos archivos existen y son correctos
-from app.api.endpoints import invoices, suppliers, shopping_lists
+from app.api.endpoints import invoices, suppliers, shopping_lists, locations
 from app.core.database import engine, Base
 
 # --- 1. SECURITY CONFIGURATION ---
@@ -158,7 +158,7 @@ async def login_for_access_token(
                 hashed_password=get_password_hash("admin123"),
                 role="admin",
                 permissions=json.dumps(
-                    ["dashboard", "upload", "search", "manual", "users", "shopping"]
+                    ["dashboard", "upload", "search", "manual", "users", "shopping", "inventory"]
                 ),
                 created_at=datetime.now(timezone.utc).isoformat(),
             )
@@ -250,7 +250,7 @@ async def register_user(
     clean_role = user.role.lower().strip()
 
     if clean_role == "admin":
-        perms_str = json.dumps(["dashboard", "upload", "search", "manual", "users", "shopping"])
+        perms_str = json.dumps(["dashboard", "upload", "search", "manual", "users", "shopping", "inventory"])
 
     new_user = UserDB(
         username=user.username,
@@ -303,7 +303,7 @@ async def update_user(
         # Si cambia a admin, reseteamos permisos visuales o los llenamos todos
         if user.role == "admin":
             user.permissions = json.dumps(
-                ["dashboard", "upload", "search", "manual", "users", "shopping"]
+                ["dashboard", "upload", "search", "manual", "users", "shopping", "inventory"]
             )
 
     if user_data.permissions is not None and user.role != "admin":
@@ -337,3 +337,4 @@ async def delete_user(
 app.include_router(invoices.router, prefix="/invoices", tags=["invoices"])
 app.include_router(suppliers.router, prefix="/suppliers", tags=["suppliers"])
 app.include_router(shopping_lists.router, prefix="/shopping-lists", tags=["shopping-lists"])
+app.include_router(locations.router, prefix="/locations", tags=["locations"])

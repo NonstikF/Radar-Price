@@ -18,7 +18,8 @@
       "Bash(cd /c/Users/admin/Radar-Price/backend && venv/Scripts/python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8001 2>&1)",
       "Bash(powershell.exe:*)",
       "Bash(grep:*)",
-      "Bash(powershell.exe -Command \"Stop-Process -Id 23384 -Force\" && sleep 1 && cd /c/Users/admin/Radar-Price/backend && venv/Scripts/python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 2>&1)"
+      "Bash(powershell.exe -Command \"Stop-Process -Id 23384 -Force\" && sleep 1 && cd /c/Users/admin/Radar-Price/backend && venv/Scripts/python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 2>&1)",
+      "Bash(npx tsc:*)"
     ]
   }
 }
