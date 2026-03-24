@@ -11,6 +11,11 @@ from app.domain.models import Location, ProductLocation, Product
 router = APIRouter()
 
 
+def sanitize_code(raw: str) -> str:
+    """Limpia código de ubicación: quita espacios, guiones y pasa a mayúsculas."""
+    return raw.strip().replace("-", "").upper()
+
+
 class LocationCreate(BaseModel):
     code: str
     description: Optional[str] = None
@@ -51,7 +56,7 @@ async def get_locations(db: AsyncSession = Depends(get_db)):
 
 @router.post("")
 async def create_location(data: LocationCreate, db: AsyncSession = Depends(get_db)):
-    clean_code = data.code.strip().upper()
+    clean_code = sanitize_code(data.code)
     if not clean_code:
         raise HTTPException(400, "El código es requerido")
 
@@ -99,7 +104,7 @@ async def search_locations(q: str = "", db: AsyncSession = Depends(get_db)):
 
 @router.get("/by-code/{code}")
 async def get_location_by_code(code: str, db: AsyncSession = Depends(get_db)):
-    clean_code = code.strip().upper()
+    clean_code = sanitize_code(code)
     result = await db.execute(
         select(Location).where(Location.code == clean_code)
     )
@@ -220,7 +225,7 @@ async def update_location(
         raise HTTPException(404, "Ubicación no encontrada")
 
     if data.code is not None:
-        clean_code = data.code.strip().upper()
+        clean_code = sanitize_code(data.code)
         if not clean_code:
             raise HTTPException(400, "El código no puede estar vacío")
         dup = await db.execute(
