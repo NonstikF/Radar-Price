@@ -149,6 +149,27 @@ async def search_products_for_location(
     ]
 
 
+@router.get("/product/{product_id}/locations")
+async def get_product_locations(product_id: int, db: AsyncSession = Depends(get_db)):
+    """Obtiene todas las ubicaciones donde está un producto."""
+    stmt = (
+        select(ProductLocation, Location)
+        .join(Location, ProductLocation.location_id == Location.id)
+        .where(ProductLocation.product_id == product_id)
+        .order_by(Location.code.asc())
+    )
+    result = await db.execute(stmt)
+    return [
+        {
+            "location_id": loc.id,
+            "code": loc.code,
+            "description": loc.description,
+            "quantity": pl.quantity,
+        }
+        for pl, loc in result.all()
+    ]
+
+
 # --- RUTAS DINÁMICAS ---
 
 @router.get("/{location_id}")
@@ -271,9 +292,13 @@ async def add_product_to_location(
     return {"message": f"{product_name} agregado a {location_code}"}
 
 
+class UpdateQuantity(BaseModel):
+    quantity: int
+
+
 @router.put("/{location_id}/products/{product_id}")
 async def update_product_quantity(
-    location_id: int, product_id: int, quantity: int, db: AsyncSession = Depends(get_db)
+    location_id: int, product_id: int, data: UpdateQuantity, db: AsyncSession = Depends(get_db)
 ):
     result = await db.execute(
         select(ProductLocation).where(
@@ -285,7 +310,7 @@ async def update_product_quantity(
     if not item:
         raise HTTPException(404, "Producto no encontrado en esta ubicación")
 
-    item.quantity = quantity
+    item.quantity = data.quantity
     await db.commit()
     return {"message": "Cantidad actualizada"}
 
