@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
     MapPin, Plus, Edit3, Trash2, X, Loader2, CheckCircle2, AlertTriangle,
-    Search, Package, ChevronLeft, Tag, Barcode, QrCode, UserMinus, ChevronDown, ChevronRight,
+    Search, Package, ChevronLeft, QrCode, ChevronDown, ChevronRight,
     Filter, ImageOff
 } from 'lucide-react';
 import { BarcodeScanner } from '../../components/ui/BarcodeScanner';
