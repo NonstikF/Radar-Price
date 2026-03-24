@@ -2,9 +2,10 @@ import { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import {
     Search, QrCode, Package, MapPin, ChevronLeft, Loader2,
-    CheckCircle2, AlertTriangle, Camera, ArrowRight, Plus, X
+    CheckCircle2, AlertTriangle, Camera, ArrowRight, Plus
 } from 'lucide-react';
 import { BarcodeScanner } from '../../components/ui/BarcodeScanner';
+import { ManualEntry } from '../products/ManualEntry';
 import { API_URL } from '../../config/api';
 import { TOAST_DURATION } from '../../config/constants';
 import { useNavigate } from 'react-router-dom';
@@ -63,11 +64,14 @@ export function AssignProduct() {
     const [assigning, setAssigning] = useState(false);
     const [assignedSuccess, setAssignedSuccess] = useState(false);
 
+    // Cantidad a asignar
+    const [assignQty, setAssignQty] = useState(1);
+    const [pendingLocationId, setPendingLocationId] = useState<number | null>(null);
+    const [pendingLocationCode, setPendingLocationCode] = useState('');
+
     // Crear producto
     const [showCreateProduct, setShowCreateProduct] = useState(false);
     const [scannedBarcode, setScannedBarcode] = useState('');
-    const [createForm, setCreateForm] = useState({ name: '', sku: '', price: '' });
-    const [creating, setCreating] = useState(false);
 
     // Toast
     const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({ show: false, message: '', type: 'success' });
@@ -126,19 +130,27 @@ export function AssignProduct() {
         fetchProductLocations(p.id);
     };
 
-    // --- Asignar producto a ubicación ---
-    const assignToLocation = async (locationId: number) => {
-        if (!selectedProduct) return;
+    // --- Seleccionar ubicación (muestra control de cantidad) ---
+    const selectLocation = (locationId: number, code: string) => {
+        setPendingLocationId(locationId);
+        setPendingLocationCode(code);
+        setAssignQty(1);
+    };
+
+    // --- Confirmar asignación con cantidad ---
+    const confirmAssign = async () => {
+        if (!selectedProduct || !pendingLocationId) return;
         setAssigning(true);
         try {
-            const res = await axios.post(`${API_URL}/locations/${locationId}/products`, {
+            const res = await axios.post(`${API_URL}/locations/${pendingLocationId}/products`, {
                 product_id: selectedProduct.id,
-                quantity: 1,
+                quantity: assignQty,
             });
             showToast(res.data.message || "Producto asignado");
             await fetchProductLocations(selectedProduct.id);
             setLocationQuery('');
             setLocationResults([]);
+            setPendingLocationId(null);
             setAssignedSuccess(true);
         } catch (err: any) {
             showToast(err.response?.data?.detail || "Error al asignar", "error");
@@ -167,9 +179,7 @@ export function AssignProduct() {
                     setProductQuery(code);
                     setProductResults(res.data);
                 } else {
-                    // No encontrado, ofrecer crear
                     setScannedBarcode(code);
-                    setCreateForm({ name: '', sku: code, price: '' });
                     setShowCreateProduct(true);
                 }
             } catch {
@@ -179,47 +189,31 @@ export function AssignProduct() {
         } else {
             // Buscar ubicación por código QR
             if (selectedProduct) {
-                // Intentar asignar directo
                 try {
                     const res = await axios.get(`${API_URL}/locations/by-code/${code}`);
                     if (res.data?.id) {
-                        await assignToLocation(res.data.id);
+                        selectLocation(res.data.id, res.data.code);
                     }
                 } catch {
-                    // Ubicación no existe, preguntar si crear
                     showToast(`Ubicación ${code} no encontrada`, "error");
                 }
             }
         }
     };
 
-    // --- Crear producto nuevo ---
-    const handleCreateProduct = async () => {
-        if (!createForm.name.trim()) { showToast("El nombre es requerido", "error"); return; }
-        setCreating(true);
-        try {
-            const res = await axios.post(`${API_URL}/invoices/products/manual`, {
-                name: createForm.name.trim(),
-                sku: createForm.sku.trim() || null,
-                price: parseFloat(createForm.price) || 0,
-            });
-            showToast("Producto creado");
-            setShowCreateProduct(false);
-            // Seleccionar el producto recién creado
-            selectProduct({
-                id: res.data.id,
-                name: res.data.name,
-                sku: res.data.sku || '',
-                price: parseFloat(createForm.price) || 0,
-                selling_price: null,
-                alias: null,
-                image_url: null,
-            });
-        } catch (err: any) {
-            showToast(err.response?.data?.detail || "Error al crear producto", "error");
-        } finally {
-            setCreating(false);
-        }
+    // --- Producto creado desde ManualEntry ---
+    const handleProductCreated = (product: { id: number; name: string; sku: string }) => {
+        setShowCreateProduct(false);
+        showToast("Producto creado");
+        selectProduct({
+            id: product.id,
+            name: product.name,
+            sku: product.sku,
+            price: 0,
+            selling_price: null,
+            alias: null,
+            image_url: null,
+        });
     };
 
     // --- Limpiar producto ---
@@ -229,6 +223,7 @@ export function AssignProduct() {
         setLocationQuery('');
         setLocationResults([]);
         setAssignedSuccess(false);
+        setPendingLocationId(null);
     };
 
     const Toast = () => (
@@ -317,7 +312,6 @@ export function AssignProduct() {
                                 <button
                                     onClick={() => {
                                         setScannedBarcode(productQuery);
-                                        setCreateForm({ name: '', sku: productQuery, price: '' });
                                         setShowCreateProduct(true);
                                     }}
                                     className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-xl text-sm font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors"
@@ -411,8 +405,7 @@ export function AssignProduct() {
                                     return (
                                         <button
                                             key={loc.id}
-                                            onClick={() => assignToLocation(loc.id)}
-                                            disabled={assigning}
+                                            onClick={() => selectLocation(loc.id, loc.code)}
                                             className="w-full flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/10 transition-colors text-left"
                                         >
                                             <div className="flex items-center gap-3">
@@ -424,13 +417,7 @@ export function AssignProduct() {
                                                     {loc.description && <p className="text-xs text-gray-400">{loc.description}</p>}
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-2 shrink-0">
-                                                {alreadyIn && <span className="text-[10px] font-bold bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full">Ya asignado</span>}
-                                                {assigning
-                                                    ? <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
-                                                    : <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">+1</span>
-                                                }
-                                            </div>
+                                            {alreadyIn && <span className="text-[10px] font-bold bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full shrink-0">Ya asignado</span>}
                                         </button>
                                     );
                                 })}
@@ -440,6 +427,52 @@ export function AssignProduct() {
                             <p className="text-sm text-gray-400 text-center py-6">No se encontraron ubicaciones</p>
                         )}
                     </div>
+
+                    {/* Control de cantidad antes de asignar */}
+                    {pendingLocationId && !assignedSuccess && (
+                        <div className="bg-indigo-50 dark:bg-indigo-900/15 rounded-2xl p-5">
+                            <div className="flex items-center gap-2 mb-4">
+                                <MapPin className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                                <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider">
+                                    Asignar a {pendingLocationCode}
+                                </span>
+                            </div>
+                            <label className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">Cantidad</label>
+                            <div className="flex items-center justify-center gap-4 mt-3">
+                                <button
+                                    onClick={() => setAssignQty(Math.max(1, assignQty - 1))}
+                                    className="w-12 h-12 rounded-xl bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 font-bold text-xl shadow-sm hover:shadow-md transition-all active:scale-90 flex items-center justify-center select-none border border-gray-100 dark:border-gray-700"
+                                >−</button>
+                                <input
+                                    type="number"
+                                    min={1}
+                                    value={assignQty}
+                                    onChange={(e) => setAssignQty(Math.max(1, parseInt(e.target.value) || 1))}
+                                    className="w-20 h-12 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl text-center text-2xl font-black outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 dark:text-white shadow-sm"
+                                />
+                                <button
+                                    onClick={() => setAssignQty(assignQty + 1)}
+                                    className="w-12 h-12 rounded-xl bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 font-bold text-xl shadow-sm hover:shadow-md transition-all active:scale-90 flex items-center justify-center select-none border border-gray-100 dark:border-gray-700"
+                                >+</button>
+                            </div>
+                            <div className="flex gap-2 mt-4">
+                                <button
+                                    onClick={() => setPendingLocationId(null)}
+                                    className="px-4 py-3 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 font-bold rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={confirmAssign}
+                                    disabled={assigning}
+                                    className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg shadow-indigo-600/25"
+                                >
+                                    {assigning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                                    Asignar {assignQty > 1 ? `(${assignQty})` : ''}
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Éxito - Asignar otro */}
                     {assignedSuccess && (
@@ -466,63 +499,17 @@ export function AssignProduct() {
             )}
 
             {/* Scanner */}
-            {/* Modal crear producto */}
+            {/* Modal crear producto - reutiliza ManualEntry */}
             {showCreateProduct && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowCreateProduct(false)}>
-                    <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-sm shadow-2xl relative animate-scale-in p-6" onClick={(e) => e.stopPropagation()}>
-                        <button onClick={() => setShowCreateProduct(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                            <X className="w-5 h-5" />
+                    <div className="bg-gray-50 dark:bg-gray-900 rounded-3xl w-full max-w-2xl shadow-2xl relative animate-scale-in max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => setShowCreateProduct(false)} className="absolute top-4 right-4 z-10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                            <span className="text-sm font-bold">Cancelar</span>
                         </button>
-
-                        <div className="text-center mb-5">
-                            <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center mx-auto mb-3">
-                                <Plus className="w-6 h-6" />
-                            </div>
-                            <h2 className="text-lg font-black text-gray-900 dark:text-white">Producto no encontrado</h2>
-                            <p className="text-sm text-gray-400 mt-1">Código escaneado: <span className="font-mono font-bold text-gray-600 dark:text-gray-300">{scannedBarcode}</span></p>
-                        </div>
-
-                        <div className="space-y-3">
-                            <div>
-                                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Nombre <span className="text-red-400">*</span></label>
-                                <input
-                                    type="text"
-                                    value={createForm.name}
-                                    onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
-                                    placeholder="Nombre del producto"
-                                    className="w-full mt-1 p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-gray-900 dark:text-white"
-                                    autoFocus
-                                />
-                            </div>
-                            <div>
-                                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">SKU / Código de barras</label>
-                                <input
-                                    type="text"
-                                    value={createForm.sku}
-                                    onChange={(e) => setCreateForm({ ...createForm, sku: e.target.value })}
-                                    className="w-full mt-1 p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-mono text-gray-900 dark:text-white"
-                                />
-                            </div>
-                            <div>
-                                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Precio</label>
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    value={createForm.price}
-                                    onChange={(e) => setCreateForm({ ...createForm, price: e.target.value })}
-                                    placeholder="0.00"
-                                    className="w-full mt-1 p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-gray-900 dark:text-white"
-                                />
-                            </div>
-                            <button
-                                onClick={handleCreateProduct}
-                                disabled={creating || !createForm.name.trim()}
-                                className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] mt-2"
-                            >
-                                {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                                Crear y seleccionar
-                            </button>
-                        </div>
+                        <ManualEntry
+                            initialSku={scannedBarcode}
+                            onCreated={handleProductCreated}
+                        />
                     </div>
                 </div>
             )}

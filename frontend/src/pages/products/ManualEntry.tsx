@@ -6,7 +6,13 @@ import { BarcodeScanner } from '../../components/ui/BarcodeScanner';
 // IMPORTAMOS LA CONFIGURACIÓN CENTRALIZADA
 import { API_URL } from '../../config/api';
 
-export function ManualEntry() {
+interface ManualEntryProps {
+    initialSku?: string;
+    initialUpc?: string;
+    onCreated?: (product: { id: number; name: string; sku: string }) => void;
+}
+
+export function ManualEntry({ initialSku, initialUpc, onCreated }: ManualEntryProps = {}) {
     const [loading, setLoading] = useState(false);
     const [successMsg, setSuccessMsg] = useState("");
     const [errorMsg, setErrorMsg] = useState("");
@@ -15,8 +21,8 @@ export function ManualEntry() {
     // 1. ESTADO INICIAL DEFINIDO
     const initialState = {
         name: "",
-        sku: "",
-        upc: "",
+        sku: initialSku || "",
+        upc: initialUpc || "",
         price: "",        // Costo
         selling_price: "", // Venta
         stock: ""
@@ -64,7 +70,12 @@ export function ManualEntry() {
                 stock: parseInt(formData.stock) || 0
             };
 
-            await axios.post(`${API_URL}/invoices/products/manual`, payload);
+            const res = await axios.post(`${API_URL}/invoices/products/manual`, payload);
+
+            if (onCreated && res.data.id) {
+                onCreated({ id: res.data.id, name: res.data.name, sku: res.data.sku || '' });
+                return;
+            }
 
             setSuccessMsg(`Producto "${formData.name}" agregado con éxito.`);
             setFormData(initialState); // Limpiar tras éxito
@@ -133,7 +144,7 @@ export function ManualEntry() {
                                 value={formData.sku}
                                 onChange={handleChange}
                                 className="w-full pl-12 pr-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-100 dark:border-gray-600 rounded-2xl focus:bg-white dark:focus:bg-gray-600 focus:border-blue-500 dark:focus:border-blue-500 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none transition-all"
-                                placeholder="Auto-generar"
+                                placeholder="Ej. 12345"
                             />
                         </div>
                     </div>
