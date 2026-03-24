@@ -613,7 +613,8 @@ async def create_manual(item: ManualProductSchema, db: AsyncSession = Depends(ge
     )
     db.add(new_p)
     await db.commit()
-    return {"message": "Creado"}
+    await db.refresh(new_p)
+    return {"message": "Creado", "id": new_p.id, "name": new_p.name, "sku": new_p.sku or ""}
 
 
 # --- 8. ELIMINAR ---

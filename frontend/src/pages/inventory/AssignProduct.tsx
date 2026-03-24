@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import {
     Search, QrCode, Package, MapPin, ChevronLeft, Loader2,
-    CheckCircle2, AlertTriangle, Camera, ArrowRight
+    CheckCircle2, AlertTriangle, Camera, ArrowRight, Plus, X
 } from 'lucide-react';
 import { BarcodeScanner } from '../../components/ui/BarcodeScanner';
 import { API_URL } from '../../config/api';
@@ -61,6 +61,12 @@ export function AssignProduct() {
 
     // Asignando
     const [assigning, setAssigning] = useState(false);
+
+    // Crear producto
+    const [showCreateProduct, setShowCreateProduct] = useState(false);
+    const [scannedBarcode, setScannedBarcode] = useState('');
+    const [createForm, setCreateForm] = useState({ name: '', sku: '', price: '' });
+    const [creating, setCreating] = useState(false);
 
     // Toast
     const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({ show: false, message: '', type: 'success' });
@@ -153,14 +159,16 @@ export function AssignProduct() {
             try {
                 const res = await axios.get(`${API_URL}/locations/search-products`, { params: { q: code } });
                 if (res.data.length === 1) {
-                    // Match exacto, seleccionar directo
                     const p = res.data[0];
                     selectProduct(p);
                 } else if (res.data.length > 1) {
                     setProductQuery(code);
                     setProductResults(res.data);
                 } else {
-                    showToast("Producto no encontrado", "error");
+                    // No encontrado, ofrecer crear
+                    setScannedBarcode(code);
+                    setCreateForm({ name: '', sku: code, price: '' });
+                    setShowCreateProduct(true);
                 }
             } catch {
                 showToast("Error al buscar producto", "error");
@@ -180,6 +188,35 @@ export function AssignProduct() {
                     showToast(`Ubicación ${code} no encontrada`, "error");
                 }
             }
+        }
+    };
+
+    // --- Crear producto nuevo ---
+    const handleCreateProduct = async () => {
+        if (!createForm.name.trim()) { showToast("El nombre es requerido", "error"); return; }
+        setCreating(true);
+        try {
+            const res = await axios.post(`${API_URL}/invoices/products/manual`, {
+                name: createForm.name.trim(),
+                sku: createForm.sku.trim() || null,
+                price: parseFloat(createForm.price) || 0,
+            });
+            showToast("Producto creado");
+            setShowCreateProduct(false);
+            // Seleccionar el producto recién creado
+            selectProduct({
+                id: res.data.id,
+                name: res.data.name,
+                sku: res.data.sku || '',
+                price: parseFloat(createForm.price) || 0,
+                selling_price: null,
+                alias: null,
+                image_url: null,
+            });
+        } catch (err: any) {
+            showToast(err.response?.data?.detail || "Error al crear producto", "error");
+        } finally {
+            setCreating(false);
         }
     };
 
@@ -272,7 +309,19 @@ export function AssignProduct() {
                             </div>
                         )}
                         {!loadingProducts && productQuery.trim() && productResults.length === 0 && (
-                            <p className="text-sm text-gray-400 text-center py-6">No se encontraron productos</p>
+                            <div className="text-center py-6">
+                                <p className="text-sm text-gray-400 mb-3">No se encontraron productos</p>
+                                <button
+                                    onClick={() => {
+                                        setScannedBarcode(productQuery);
+                                        setCreateForm({ name: '', sku: productQuery, price: '' });
+                                        setShowCreateProduct(true);
+                                    }}
+                                    className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-xl text-sm font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors"
+                                >
+                                    <Plus className="w-4 h-4" /> Crear producto nuevo
+                                </button>
+                            </div>
                         )}
                     </div>
                 </div>
@@ -387,6 +436,68 @@ export function AssignProduct() {
                         {!loadingLocations && locationQuery.trim() && locationResults.length === 0 && (
                             <p className="text-sm text-gray-400 text-center py-6">No se encontraron ubicaciones</p>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* Scanner */}
+            {/* Modal crear producto */}
+            {showCreateProduct && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowCreateProduct(false)}>
+                    <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-sm shadow-2xl relative animate-scale-in p-6" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => setShowCreateProduct(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                            <X className="w-5 h-5" />
+                        </button>
+
+                        <div className="text-center mb-5">
+                            <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                                <Plus className="w-6 h-6" />
+                            </div>
+                            <h2 className="text-lg font-black text-gray-900 dark:text-white">Producto no encontrado</h2>
+                            <p className="text-sm text-gray-400 mt-1">Código escaneado: <span className="font-mono font-bold text-gray-600 dark:text-gray-300">{scannedBarcode}</span></p>
+                        </div>
+
+                        <div className="space-y-3">
+                            <div>
+                                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Nombre <span className="text-red-400">*</span></label>
+                                <input
+                                    type="text"
+                                    value={createForm.name}
+                                    onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+                                    placeholder="Nombre del producto"
+                                    className="w-full mt-1 p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-gray-900 dark:text-white"
+                                    autoFocus
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">SKU / Código de barras</label>
+                                <input
+                                    type="text"
+                                    value={createForm.sku}
+                                    onChange={(e) => setCreateForm({ ...createForm, sku: e.target.value })}
+                                    className="w-full mt-1 p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-mono text-gray-900 dark:text-white"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Precio</label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    value={createForm.price}
+                                    onChange={(e) => setCreateForm({ ...createForm, price: e.target.value })}
+                                    placeholder="0.00"
+                                    className="w-full mt-1 p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-gray-900 dark:text-white"
+                                />
+                            </div>
+                            <button
+                                onClick={handleCreateProduct}
+                                disabled={creating || !createForm.name.trim()}
+                                className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] mt-2"
+                            >
+                                {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                                Crear y seleccionar
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
