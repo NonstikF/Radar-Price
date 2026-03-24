@@ -507,7 +507,7 @@ export function AssignProduct() {
                             <span className="text-sm font-bold">Cancelar</span>
                         </button>
                         <ManualEntry
-                            initialSku={scannedBarcode}
+                            initialUpc={scannedBarcode}
                             onCreated={handleProductCreated}
                         />
                     </div>
