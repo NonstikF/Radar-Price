@@ -3,7 +3,7 @@ import axios from 'axios';
 import {
     X, Save, Barcode, Hash,
     ArrowRight, Camera, Trash2, Loader2, Tag, Printer, Settings, AlertTriangle,
-    ShoppingCart, Truck
+    ShoppingCart, Truck, ImagePlus, ImageOff
 } from 'lucide-react';
 import { usePrintLabel } from '../../hooks/usePrintLabel';
 import { useShoppingList } from '../../hooks/useShoppingList';
@@ -40,6 +40,8 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
     const [suppliers, setSuppliers] = useState<any[]>([]);
     const [editSupplierId, setEditSupplierId] = useState<string>(product.supplier_id ? String(product.supplier_id) : "");
     const [addQty, setAddQty] = useState(1);
+    const [uploadingImage, setUploadingImage] = useState(false);
+    const imageInputRef = useRef<HTMLInputElement>(null);
 
     const { settings } = useLabelSettings();
     const { addToList, adding } = useShoppingList();
@@ -103,6 +105,62 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
             showToast(error.response?.data?.detail || "Error al guardar.", 'error');
         } finally {
             setSaving(false);
+        }
+    };
+
+    const compressImage = (file: File, maxWidth = 400, quality = 0.7): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const ratio = Math.min(maxWidth / img.width, maxWidth / img.height);
+                    canvas.width = img.width * (ratio < 1 ? ratio : 1);
+                    canvas.height = img.height * (ratio < 1 ? ratio : 1);
+                    const ctx = canvas.getContext('2d')!;
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    resolve(canvas.toDataURL('image/webp', quality));
+                };
+                img.onerror = reject;
+                img.src = e.target?.result as string;
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    };
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setUploadingImage(true);
+        try {
+            const compressed = await compressImage(file);
+            await axios.put(`${API_URL}/invoices/products/${product.id}`, {
+                image_url: compressed,
+            });
+            onUpdate({ ...product, image_url: compressed });
+            showToast("Imagen actualizada");
+        } catch (err: any) {
+            showToast(err.response?.data?.detail || "Error al subir imagen", "error");
+        } finally {
+            setUploadingImage(false);
+            if (imageInputRef.current) imageInputRef.current.value = '';
+        }
+    };
+
+    const handleRemoveImage = async () => {
+        setUploadingImage(true);
+        try {
+            await axios.put(`${API_URL}/invoices/products/${product.id}`, {
+                image_url: null,
+            });
+            onUpdate({ ...product, image_url: null });
+            showToast("Imagen eliminada");
+        } catch (err: any) {
+            showToast("Error al eliminar imagen", "error");
+        } finally {
+            setUploadingImage(false);
         }
     };
 
@@ -194,10 +252,64 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
                 <div className="p-4 md:p-6 space-y-6 bg-white dark:bg-gray-800 overflow-y-auto">
                     {activeTab === 'general' && (
                         <div className="space-y-4">
-                            {/* CAJA DEL NOMBRE DEL PRODUCTO */}
+                            {/* IMAGEN + NOMBRE */}
                             <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-2xl">
-                                <label className="block text-[10px] font-black text-gray-400 uppercase mb-2">Producto</label>
-                                <p className="text-gray-800 dark:text-gray-100 font-medium text-sm">{product.name}</p>
+                                <div className="flex gap-4 items-start">
+                                    {/* FOTO DEL PRODUCTO */}
+                                    <div className="relative group shrink-0">
+                                        <div className="w-20 h-20 rounded-xl bg-gray-200 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
+                                            {product.image_url ? (
+                                                <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <ImageOff className="w-8 h-8 text-gray-300 dark:text-gray-600" />
+                                            )}
+                                        </div>
+                                        {/* Overlay de acciones */}
+                                        <div className="absolute inset-0 bg-black/50 rounded-xl flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button
+                                                onClick={() => imageInputRef.current?.click()}
+                                                disabled={uploadingImage}
+                                                className="p-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-white transition-colors"
+                                                title="Subir foto"
+                                            >
+                                                {uploadingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
+                                            </button>
+                                            {product.image_url && (
+                                                <button
+                                                    onClick={handleRemoveImage}
+                                                    disabled={uploadingImage}
+                                                    className="p-1.5 bg-red-500/40 hover:bg-red-500/60 rounded-lg text-white transition-colors"
+                                                    title="Eliminar foto"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                        </div>
+                                        {/* Input oculto */}
+                                        <input
+                                            ref={imageInputRef}
+                                            type="file"
+                                            accept="image/*"
+                                            capture="environment"
+                                            onChange={handleImageUpload}
+                                            className="hidden"
+                                        />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Producto</label>
+                                        <p className="text-gray-800 dark:text-gray-100 font-medium text-sm">{product.name}</p>
+                                        {!product.image_url && (
+                                            <button
+                                                onClick={() => imageInputRef.current?.click()}
+                                                disabled={uploadingImage}
+                                                className="mt-2 text-xs text-blue-500 hover:text-blue-700 font-bold flex items-center gap-1"
+                                            >
+                                                {uploadingImage ? <Loader2 className="w-3 h-3 animate-spin" /> : <Camera className="w-3 h-3" />}
+                                                Agregar foto
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
 
                             {/* COMPONENTES DE EDICIÓN */}

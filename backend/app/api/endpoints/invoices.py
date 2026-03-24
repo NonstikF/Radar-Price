@@ -522,6 +522,10 @@ async def update_product_single(
                 p.selling_price = np
         if "supplier_id" in data:
             p.supplier_id = int(data["supplier_id"]) if data["supplier_id"] else None
+        if "alias" in data:
+            p.alias = str(data["alias"]).strip() if data["alias"] else None
+        if "image_url" in data:
+            p.image_url = data["image_url"] if data["image_url"] else None
         await db.commit()
         await db.refresh(p)
         return {"msg": "Actualizado", "id": p.id, "new_price": p.selling_price}
