@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import {
     MapPin, Plus, Edit3, Trash2, X, Loader2, CheckCircle2, AlertTriangle,
     Search, Package, ChevronLeft, QrCode, ChevronDown, ChevronRight,
-    Filter, ImageOff
+    Filter, ImageOff, Camera
 } from 'lucide-react';
 import { BarcodeScanner } from '../../components/ui/BarcodeScanner';
 import { API_URL } from '../../config/api';
@@ -229,6 +229,60 @@ export function Locations() {
         }
     };
 
+    // --- IMAGEN DE PRODUCTO ---
+    const imageInputRef = useRef<HTMLInputElement>(null);
+    const [imageTargetId, setImageTargetId] = useState<number | null>(null);
+
+    const compressImage = (file: File, maxWidth = 400, quality = 0.7): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const ratio = Math.min(maxWidth / img.width, maxWidth / img.height);
+                    canvas.width = img.width * (ratio < 1 ? ratio : 1);
+                    canvas.height = img.height * (ratio < 1 ? ratio : 1);
+                    const ctx = canvas.getContext('2d')!;
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    resolve(canvas.toDataURL('image/webp', quality));
+                };
+                img.onerror = reject;
+                img.src = e.target?.result as string;
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    };
+
+    const triggerImageUpload = (productId: number) => {
+        setImageTargetId(productId);
+        setTimeout(() => imageInputRef.current?.click(), 50);
+    };
+
+    const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !imageTargetId) return;
+        try {
+            const compressed = await compressImage(file);
+            await axios.put(`${API_URL}/invoices/products/${imageTargetId}`, { image_url: compressed });
+            showToast("Imagen actualizada");
+            if (detail) {
+                setDetail({
+                    ...detail,
+                    products: detail.products.map(p =>
+                        p.product_id === imageTargetId ? { ...p, image_url: compressed } : p
+                    ),
+                });
+            }
+        } catch {
+            showToast("Error al subir imagen", "error");
+        } finally {
+            setImageTargetId(null);
+            if (imageInputRef.current) imageInputRef.current.value = '';
+        }
+    };
+
     // --- PRODUCTOS EN UBICACIÓN ---
     const handleAddProduct = async (productId: number) => {
         if (!detail) return;
@@ -443,14 +497,26 @@ export function Locations() {
                                     key={p.id}
                                     className={`bg-white dark:bg-gray-800 p-3 md:p-4 rounded-xl shadow-sm border border-gray-100 dark:border-transparent flex items-center gap-3 md:gap-4 group transition-all ${p.quantity <= 0 ? 'opacity-50' : ''}`}
                                 >
-                                    {/* IMAGEN */}
-                                    <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl bg-gray-100 dark:bg-gray-900 flex items-center justify-center overflow-hidden shrink-0">
+                                    {/* IMAGEN (clickeable para subir) */}
+                                    <button
+                                        onClick={() => triggerImageUpload(p.product_id)}
+                                        className="w-12 h-12 md:w-14 md:h-14 rounded-xl bg-gray-100 dark:bg-gray-900 flex items-center justify-center overflow-hidden shrink-0 relative group/img cursor-pointer hover:ring-2 hover:ring-indigo-400 transition-all"
+                                        title="Cambiar foto"
+                                    >
                                         {p.image_url ? (
-                                            <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" />
+                                            <>
+                                                <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" />
+                                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity rounded-xl">
+                                                    <Camera className="w-4 h-4 text-white" />
+                                                </div>
+                                            </>
                                         ) : (
-                                            <ImageOff className="w-5 h-5 text-gray-300 dark:text-gray-600" />
+                                            <div className="flex flex-col items-center gap-0.5">
+                                                <Camera className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover/img:text-indigo-400 transition-colors" />
+                                                {imageTargetId === p.product_id && <Loader2 className="w-3 h-3 animate-spin text-indigo-500 absolute" />}
+                                            </div>
                                         )}
-                                    </div>
+                                    </button>
 
                                     {/* INFO */}
                                     <div className="flex-1 min-w-0">
@@ -491,6 +557,16 @@ export function Locations() {
                         </div>
                     </div>
                 )}
+
+                {/* Input oculto para subir imagen */}
+                <input
+                    ref={imageInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handleImageChange}
+                    className="hidden"
+                />
 
                 {addProductModalContent}
                 {showScanner && <BarcodeScanner onScan={handleScan} onClose={() => setShowScanner(false)} />}
