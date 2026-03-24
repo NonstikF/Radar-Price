@@ -61,6 +61,7 @@ export function AssignProduct() {
 
     // Asignando
     const [assigning, setAssigning] = useState(false);
+    const [assignedSuccess, setAssignedSuccess] = useState(false);
 
     // Crear producto
     const [showCreateProduct, setShowCreateProduct] = useState(false);
@@ -135,9 +136,10 @@ export function AssignProduct() {
                 quantity: 1,
             });
             showToast(res.data.message || "Producto asignado");
-            fetchProductLocations(selectedProduct.id);
+            await fetchProductLocations(selectedProduct.id);
             setLocationQuery('');
             setLocationResults([]);
+            setAssignedSuccess(true);
         } catch (err: any) {
             showToast(err.response?.data?.detail || "Error al asignar", "error");
         } finally {
@@ -226,6 +228,7 @@ export function AssignProduct() {
         setProductLocations([]);
         setLocationQuery('');
         setLocationResults([]);
+        setAssignedSuccess(false);
     };
 
     const Toast = () => (
@@ -437,6 +440,28 @@ export function AssignProduct() {
                             <p className="text-sm text-gray-400 text-center py-6">No se encontraron ubicaciones</p>
                         )}
                     </div>
+
+                    {/* Éxito - Asignar otro */}
+                    {assignedSuccess && (
+                        <div className="bg-emerald-50 dark:bg-emerald-900/15 rounded-2xl border border-emerald-200 dark:border-emerald-800 p-5 text-center">
+                            <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
+                            <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300 mb-4">Producto asignado correctamente</p>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={clearProduct}
+                                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+                                >
+                                    <Camera className="w-4 h-4" /> Asignar otro producto
+                                </button>
+                                <button
+                                    onClick={() => setAssignedSuccess(false)}
+                                    className="px-4 py-3 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 font-bold rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+                                >
+                                    Seguir aquí
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
