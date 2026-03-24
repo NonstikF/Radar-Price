@@ -123,6 +123,14 @@ async def startup_event():
             )
         except Exception:
             pass
+        try:
+            await conn.execute(
+                text(
+                    "ALTER TABLE products ADD COLUMN IF NOT EXISTS image_url VARCHAR"
+                )
+            )
+        except Exception:
+            pass
 
 
 app = FastAPI(on_startup=[startup_event])

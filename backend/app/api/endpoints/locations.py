@@ -171,6 +171,7 @@ async def get_location_detail(location_id: int, db: AsyncSession = Depends(get_d
             "name": p.name,
             "sku": p.sku or "",
             "alias": p.alias or "",
+            "image_url": p.image_url or "",
             "price": p.price,
             "selling_price": p.selling_price,
             "quantity": pl.quantity,

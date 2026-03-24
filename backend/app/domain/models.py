@@ -27,6 +27,8 @@ class Product(Base):
     alias = Column(String, nullable=True)
     description = Column(String, nullable=True)
 
+    image_url = Column(String, nullable=True)
+
     price = Column(Float, default=0.0)  # Costo actual
     selling_price = Column(Float, default=0.0)  # Precio Venta actual
     stock_quantity = Column(Integer, default=0)

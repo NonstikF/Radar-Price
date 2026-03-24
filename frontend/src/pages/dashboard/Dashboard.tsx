@@ -136,7 +136,7 @@ export function Dashboard({ onNavigate }: Props) {
                 {/* 7. INVENTARIO */}
                 {can('inventory') && (
                     <button
-                        onClick={() => onNavigate('inventory/locations')}
+                        onClick={() => onNavigate('inventory')}
                         className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 h-28 p-3 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm active:scale-95 flex flex-col justify-between text-left group"
                     >
                         <div className="bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 p-2 rounded-xl w-fit">
@@ -145,7 +145,7 @@ export function Dashboard({ onNavigate }: Props) {
                         <div>
                             <h3 className="font-bold text-gray-900 dark:text-white text-sm">Inventario</h3>
                             <span className="text-[10px] text-gray-400 group-hover:text-indigo-600 transition-colors flex items-center gap-1">
-                                Ubicaciones <ArrowRight className="w-2 h-2" />
+                                Módulos <ArrowRight className="w-2 h-2" />
                             </span>
                         </div>
                     </button>

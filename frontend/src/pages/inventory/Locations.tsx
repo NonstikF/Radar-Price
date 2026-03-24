@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
     MapPin, Plus, Edit3, Trash2, X, Loader2, CheckCircle2, AlertTriangle,
-    Search, Package, ChevronLeft, Tag, Barcode, QrCode, UserMinus, ChevronDown, ChevronRight
+    Search, Package, ChevronLeft, Tag, Barcode, QrCode, UserMinus, ChevronDown, ChevronRight,
+    Filter, ImageOff
 } from 'lucide-react';
 import { BarcodeScanner } from '../../components/ui/BarcodeScanner';
 import { API_URL } from '../../config/api';
@@ -22,6 +23,7 @@ interface LocationProduct {
     name: string;
     sku: string;
     alias: string;
+    image_url: string;
     price: number;
     selling_price: number;
     quantity: number;
@@ -64,6 +66,9 @@ export function Locations() {
 
     // Scanner QR
     const [showScanner, setShowScanner] = useState(false);
+
+    // Filtro existencia en detalle
+    const [showAll, setShowAll] = useState(false);
 
     // Modal agregar producto
     const [showAddProduct, setShowAddProduct] = useState(false);
@@ -323,13 +328,24 @@ export function Locations() {
 
     // --- VISTA DETALLE ---
     if (detail) {
-        const filtered = detailSearch
-            ? detail.products.filter(p =>
-                p.name.toLowerCase().includes(detailSearch.toLowerCase()) ||
-                p.sku.toLowerCase().includes(detailSearch.toLowerCase()) ||
-                p.alias.toLowerCase().includes(detailSearch.toLowerCase())
-            )
-            : detail.products;
+        let filtered = detail.products;
+
+        // Por defecto solo mostrar con existencia
+        if (!showAll) {
+            filtered = filtered.filter(p => p.quantity > 0);
+        }
+
+        // Filtro de búsqueda
+        if (detailSearch) {
+            const q = detailSearch.toLowerCase();
+            filtered = filtered.filter(p =>
+                p.name.toLowerCase().includes(q) ||
+                p.sku.toLowerCase().includes(q) ||
+                p.alias.toLowerCase().includes(q)
+            );
+        }
+
+        const outOfStockCount = detail.products.filter(p => p.quantity <= 0).length;
 
         return (
             <div className="w-full max-w-6xl mx-auto p-2 md:p-6 pb-24 animate-fade-in">
@@ -337,7 +353,7 @@ export function Locations() {
 
                 {/* HEADER */}
                 <div className="mb-6 px-2">
-                    <button onClick={() => { setDetail(null); fetchLocations(); }} className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 mb-4 transition-colors">
+                    <button onClick={() => { setDetail(null); setShowAll(false); fetchLocations(); }} className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 mb-4 transition-colors">
                         <ChevronLeft className="w-4 h-4" /> Volver a ubicaciones
                     </button>
                     <div className="flex items-start justify-between flex-wrap gap-3">
@@ -361,26 +377,42 @@ export function Locations() {
                     </div>
                 </div>
 
-                {/* BUSCADOR */}
+                {/* BUSCADOR + FILTRO */}
                 {detail.products.length > 0 && (
                     <div className="mb-4 px-2">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                            <input
-                                type="text"
-                                placeholder="Buscar en productos de esta ubicación..."
-                                value={detailSearch}
-                                onChange={(e) => setDetailSearch(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-transparent rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium text-gray-900 dark:text-white shadow-sm"
-                            />
+                        <div className="flex gap-2">
+                            <div className="relative flex-1">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                                <input
+                                    type="text"
+                                    placeholder="Buscar producto..."
+                                    value={detailSearch}
+                                    onChange={(e) => setDetailSearch(e.target.value)}
+                                    className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-transparent rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium text-gray-900 dark:text-white shadow-sm"
+                                />
+                            </div>
+                            <button
+                                onClick={() => setShowAll(!showAll)}
+                                className={`px-4 py-3 rounded-xl font-bold text-sm flex items-center gap-2 transition-all ${showAll ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400' : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-transparent'}`}
+                            >
+                                <Filter className="w-4 h-4" />
+                                <span className="hidden md:inline">{showAll ? 'Todos' : 'En existencia'}</span>
+                            </button>
                         </div>
-                        <p className="text-xs text-gray-400 mt-2 px-1">
-                            {filtered.length} de {detail.product_count} productos
-                        </p>
+                        <div className="flex items-center gap-3 mt-2 px-1">
+                            <p className="text-xs text-gray-400">
+                                {filtered.length} producto{filtered.length !== 1 ? 's' : ''}
+                            </p>
+                            {!showAll && outOfStockCount > 0 && (
+                                <button onClick={() => setShowAll(true)} className="text-xs text-indigo-500 hover:text-indigo-700 font-medium">
+                                    + {outOfStockCount} agotado{outOfStockCount !== 1 ? 's' : ''} oculto{outOfStockCount !== 1 ? 's' : ''}
+                                </button>
+                            )}
+                        </div>
                     </div>
                 )}
 
-                {/* CONTENIDO */}
+                {/* TABLA */}
                 {loadingDetail ? (
                     <div className="text-center py-20"><Loader2 className="animate-spin h-8 w-8 text-blue-600 mx-auto" /></div>
                 ) : detail.products.length === 0 ? (
@@ -389,46 +421,74 @@ export function Locations() {
                         <p className="text-xl font-medium text-gray-400">Sin productos</p>
                         <p className="text-sm text-gray-400 mt-2">Agrega productos a esta ubicación</p>
                     </div>
+                ) : filtered.length === 0 ? (
+                    <div className="text-center py-16 opacity-50 flex flex-col items-center">
+                        <Package className="w-12 h-12 mb-3 text-gray-300" />
+                        <p className="text-sm text-gray-400">{showAll ? 'Sin resultados' : 'Todos los productos están agotados'}</p>
+                        {!showAll && <button onClick={() => setShowAll(true)} className="text-sm text-indigo-500 font-bold mt-2">Mostrar todos</button>}
+                    </div>
                 ) : (
-                    <div className="space-y-2 px-2 md:px-0">
-                        {filtered.map((p) => (
-                            <div key={p.id} className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-xl shadow-sm border border-gray-100 dark:border-transparent flex justify-between items-center group">
-                                <div className="flex-1 min-w-0 pr-3">
-                                    <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm leading-tight mb-1 line-clamp-2">{p.name}</h3>
-                                    <div className="flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400">
-                                        {p.sku && (
-                                            <span className="bg-gray-100 dark:bg-gray-900 px-2 rounded font-mono flex items-center gap-1">
-                                                <Barcode className="w-3 h-3" /> {p.sku}
-                                            </span>
+                    <div className="px-2 md:px-0">
+                        {/* Header de tabla (desktop) */}
+                        <div className="hidden md:grid grid-cols-[56px_1fr_100px_80px] gap-4 px-4 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                            <span></span>
+                            <span>Producto</span>
+                            <span className="text-center">Cantidad</span>
+                            <span></span>
+                        </div>
+
+                        <div className="space-y-2">
+                            {filtered.map((p) => (
+                                <div
+                                    key={p.id}
+                                    className={`bg-white dark:bg-gray-800 p-3 md:p-4 rounded-xl shadow-sm border border-gray-100 dark:border-transparent flex items-center gap-3 md:gap-4 group transition-all ${p.quantity <= 0 ? 'opacity-50' : ''}`}
+                                >
+                                    {/* IMAGEN */}
+                                    <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl bg-gray-100 dark:bg-gray-900 flex items-center justify-center overflow-hidden shrink-0">
+                                        {p.image_url ? (
+                                            <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <ImageOff className="w-5 h-5 text-gray-300 dark:text-gray-600" />
                                         )}
-                                        {p.alias && (
-                                            <span className="bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 px-2 rounded font-bold flex items-center gap-1">
-                                                <Tag className="w-3 h-3" /> {p.alias}
-                                            </span>
-                                        )}
-                                        <span className="bg-indigo-100 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 px-2 rounded font-bold">
-                                            Qty: {p.quantity}
-                                        </span>
                                     </div>
-                                </div>
-                                <div className="flex items-center gap-2 shrink-0">
+
+                                    {/* INFO */}
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm leading-tight line-clamp-2">{p.name}</h3>
+                                        <div className="flex flex-wrap gap-1.5 mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                            {p.sku && (
+                                                <span className="bg-gray-100 dark:bg-gray-900 px-1.5 rounded font-mono">{p.sku}</span>
+                                            )}
+                                            {p.alias && (
+                                                <span className="bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 px-1.5 rounded font-bold">{p.alias}</span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* CANTIDAD */}
+                                    <div className="text-center shrink-0 w-16 md:w-24">
+                                        {p.quantity > 0 ? (
+                                            <span className="inline-block bg-emerald-100 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 px-3 py-1 rounded-lg text-sm font-black">
+                                                {p.quantity}
+                                            </span>
+                                        ) : (
+                                            <span className="inline-block bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-3 py-1 rounded-lg text-xs font-bold">
+                                                Agotado
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* ACCIONES */}
                                     <button
                                         onClick={() => handleRemoveProduct(p.product_id)}
                                         title="Quitar de esta ubicación"
-                                        className="p-2 rounded-lg text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors md:opacity-0 md:group-hover:opacity-100"
+                                        className="p-2 rounded-lg text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors md:opacity-0 md:group-hover:opacity-100 shrink-0"
                                     >
-                                        <UserMinus className="w-4 h-4" />
+                                        <Trash2 className="w-4 h-4" />
                                     </button>
-                                    <div className="text-right">
-                                        {p.selling_price > 0 ? (
-                                            <span className="text-lg font-black text-blue-600 dark:text-blue-400">${p.selling_price.toFixed(2)}</span>
-                                        ) : (
-                                            <span className="bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 px-2 py-1 rounded-lg text-xs font-bold">Sin Precio</span>
-                                        )}
-                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </div>
                 )}
 
