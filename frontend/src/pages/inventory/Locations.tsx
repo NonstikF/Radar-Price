@@ -628,12 +628,8 @@ export function Locations() {
 
                 {/* MODAL DE STOCK */}
                 {stockProduct && (
-                    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => { setStockProduct(null); setConfirmEmpty(false); }}>
-                        <div className="bg-white dark:bg-gray-800 rounded-t-3xl sm:rounded-3xl w-full max-w-sm shadow-2xl relative animate-scale-in" onClick={(e) => e.stopPropagation()}>
-                            {/* Drag indicator mobile */}
-                            <div className="sm:hidden flex justify-center pt-3 pb-1">
-                                <div className="w-10 h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
-                            </div>
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => { setStockProduct(null); setConfirmEmpty(false); }}>
+                        <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-sm shadow-2xl relative animate-scale-in max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
 
                             {/* Close */}
                             <button onClick={() => { setStockProduct(null); setConfirmEmpty(false); }} className="absolute top-4 right-4 z-10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
@@ -745,8 +741,6 @@ export function Locations() {
                                 )}
                             </div>
 
-                            {/* Safe area bottom padding on mobile */}
-                            <div className="sm:hidden h-2" />
                         </div>
                     </div>
                 )}
