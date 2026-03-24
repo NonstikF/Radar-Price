@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
     MapPin, Plus, Edit3, Trash2, X, Loader2, CheckCircle2, AlertTriangle,
-    Search, Package, ChevronLeft, Tag, Barcode, QrCode, UserMinus
+    Search, Package, ChevronLeft, Tag, Barcode, QrCode, UserMinus, ChevronDown, ChevronRight
 } from 'lucide-react';
 import { BarcodeScanner } from '../../components/ui/BarcodeScanner';
 import { API_URL } from '../../config/api';
@@ -156,12 +156,23 @@ export function Locations() {
     // --- QR SCAN ---
     const handleScan = async (code: string) => {
         setShowScanner(false);
+        const clean = code.trim().toUpperCase();
+        if (!clean) return;
+
         try {
-            const res = await axios.get(`${API_URL}/locations/by-code/${encodeURIComponent(code)}`);
+            // Buscar si ya existe
+            const res = await axios.get(`${API_URL}/locations/by-code/${encodeURIComponent(clean)}`);
             fetchDetail(res.data.id);
+            showToast(`Ubicación ${clean} encontrada`);
         } catch {
-            showToast(`Ubicación "${code}" no encontrada`, "error");
-            setSearchTerm(code);
+            // No existe, crearla automáticamente
+            try {
+                const createRes = await axios.post(`${API_URL}/locations`, { code: clean });
+                showToast(`Ubicación ${clean} creada`);
+                fetchDetail(createRes.data.id);
+            } catch (err: any) {
+                showToast(err.response?.data?.detail || "Error al crear ubicación", "error");
+            }
         }
     };
 
@@ -462,7 +473,7 @@ export function Locations() {
                 </div>
             </div>
 
-            {/* LISTA */}
+            {/* LISTA AGRUPADA POR LUGAR */}
             {loading ? (
                 <div className="text-center py-20"><Loader2 className="animate-spin h-8 w-8 text-indigo-600 mx-auto" /></div>
             ) : locations.length === 0 ? (
@@ -472,39 +483,13 @@ export function Locations() {
                     <p className="text-sm text-gray-400 mt-2">Crea una nueva o escanea un QR</p>
                 </div>
             ) : (
-                <div className="space-y-3">
-                    {locations.map((loc) => (
-                        <div
-                            key={loc.id}
-                            className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-transparent flex items-center gap-4 group hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all"
-                        >
-                            <div
-                                className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer"
-                                onClick={() => fetchDetail(loc.id)}
-                            >
-                                <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
-                                    <MapPin className="w-6 h-6" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <h3 className="font-black text-gray-800 dark:text-gray-100 text-base font-mono leading-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{loc.code}</h3>
-                                    <div className="flex flex-wrap gap-2 mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                        {loc.description && <span className="truncate max-w-[200px]">{loc.description}</span>}
-                                        <span className="flex items-center gap-1"><Package className="w-3 h-3" /> {loc.product_count} productos</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-1 shrink-0">
-                                <button onClick={() => openEditModal(loc)} className="p-2 rounded-lg text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
-                                    <Edit3 className="w-5 h-5" />
-                                </button>
-                                <button onClick={() => setDeleteId(loc.id)} className="p-2 rounded-lg text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                                    <Trash2 className="w-5 h-5" />
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                <GroupedLocations
+                    locations={locations}
+                    onSelect={(id) => fetchDetail(id)}
+                    onEdit={openEditModal}
+                    onDelete={(id) => setDeleteId(id)}
+                    searchTerm={searchTerm}
+                />
             )}
 
             {/* MODAL CREAR/EDITAR */}
@@ -570,6 +555,108 @@ export function Locations() {
 
             {/* SCANNER QR */}
             {showScanner && <BarcodeScanner onScan={handleScan} onClose={() => setShowScanner(false)} />}
+        </div>
+    );
+}
+
+// --- COMPONENTE AGRUPADO POR LUGAR ---
+function GroupedLocations({
+    locations,
+    onSelect,
+    onEdit,
+    onDelete,
+    searchTerm,
+}: {
+    locations: LocationItem[];
+    onSelect: (id: number) => void;
+    onEdit: (loc: LocationItem) => void;
+    onDelete: (id: number) => void;
+    searchTerm: string;
+}) {
+    const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
+    // Extraer prefijo del código (letras + números iniciales, ej: R1, R2, PISO1)
+    const getGroup = (code: string) => {
+        const match = code.match(/^([A-Z]+\d*)/i);
+        return match ? match[1].toUpperCase() : 'OTROS';
+    };
+
+    // Agrupar
+    const groups: Record<string, LocationItem[]> = {};
+    for (const loc of locations) {
+        const group = getGroup(loc.code);
+        if (!groups[group]) groups[group] = [];
+        groups[group].push(loc);
+    }
+
+    const sortedGroups = Object.keys(groups).sort();
+    const isSearching = searchTerm.trim().length > 0;
+
+    const toggle = (group: string) => {
+        setCollapsed(prev => ({ ...prev, [group]: !prev[group] }));
+    };
+
+    return (
+        <div className="space-y-4">
+            {sortedGroups.map((group) => {
+                const items = groups[group];
+                const isCollapsed = collapsed[group] && !isSearching;
+                const totalProducts = items.reduce((sum, l) => sum + l.product_count, 0);
+
+                return (
+                    <div key={group}>
+                        {/* Header del grupo */}
+                        <button
+                            onClick={() => toggle(group)}
+                            className="w-full flex items-center gap-3 px-3 py-2 mb-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        >
+                            {isCollapsed
+                                ? <ChevronRight className="w-4 h-4 text-gray-400" />
+                                : <ChevronDown className="w-4 h-4 text-gray-400" />
+                            }
+                            <span className="font-black text-indigo-600 dark:text-indigo-400 font-mono text-lg">{group}</span>
+                            <span className="text-xs text-gray-400 font-medium">{items.length} ubicaciones · {totalProducts} productos</span>
+                        </button>
+
+                        {/* Items del grupo */}
+                        {!isCollapsed && (
+                            <div className="space-y-2 ml-2 pl-4 border-l-2 border-indigo-100 dark:border-indigo-900/30">
+                                {items.map((loc) => (
+                                    <div
+                                        key={loc.id}
+                                        className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-xl shadow-sm border border-gray-100 dark:border-transparent flex items-center gap-3 group hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all"
+                                    >
+                                        <div
+                                            className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
+                                            onClick={() => onSelect(loc.id)}
+                                        >
+                                            <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+                                                <MapPin className="w-5 h-5" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm font-mono group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{loc.code}</h3>
+                                                <div className="flex flex-wrap gap-2 mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                                                    {loc.description && <span className="truncate max-w-[200px]">{loc.description}</span>}
+                                                    <span className="flex items-center gap-1"><Package className="w-3 h-3" /> {loc.product_count}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-1 shrink-0">
+                                            <button onClick={() => onEdit(loc)} className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
+                                                <Edit3 className="w-4 h-4" />
+                                            </button>
+                                            <button onClick={() => onDelete(loc.id)} className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                );
+            })}
         </div>
     );
 }
