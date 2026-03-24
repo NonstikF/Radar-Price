@@ -973,9 +973,6 @@ function GroupedLocations({
     };
 
     // Construir árbol: rack → section → locations[]
-    type SectionGroup = { section: string; items: LocationItem[] };
-    type RackGroup = { rack: string; sections: SectionGroup[]; standalone: LocationItem[] };
-
     const racks: Record<string, { sections: Record<string, LocationItem[]>; standalone: LocationItem[] }> = {};
 
     for (const loc of locations) {
