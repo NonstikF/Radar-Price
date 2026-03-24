@@ -84,6 +84,10 @@ export function Locations() {
     const [confirmEmpty, setConfirmEmpty] = useState(false);
     const [otherLocations, setOtherLocations] = useState<{ location_id: number; code: string; description: string | null; quantity: number }[]>([]);
     const [loadingOtherLocs, setLoadingOtherLocs] = useState(false);
+    const [showAddToLocation, setShowAddToLocation] = useState(false);
+    const [locSearchTerm, setLocSearchTerm] = useState('');
+    const [locSearchResults, setLocSearchResults] = useState<LocationItem[]>([]);
+    const [addingToLocId, setAddingToLocId] = useState<number | null>(null);
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => {
         setToast({ show: true, message, type });
@@ -238,10 +242,41 @@ export function Locations() {
     };
 
     // --- MODAL DE STOCK ---
+    const searchLocationsForAssign = async (q: string) => {
+        setLocSearchTerm(q);
+        if (!q.trim()) { setLocSearchResults([]); return; }
+        try {
+            const res = await axios.get(`${API_URL}/locations/search`, { params: { q } });
+            setLocSearchResults(res.data);
+        } catch { setLocSearchResults([]); }
+    };
+
+    const assignProductToLocation = async (locationId: number) => {
+        if (!stockProduct) return;
+        setAddingToLocId(locationId);
+        try {
+            await axios.post(`${API_URL}/locations/${locationId}/products`, { product_id: stockProduct.product_id, quantity: 1 });
+            showToast("Producto asignado a ubicación");
+            setShowAddToLocation(false);
+            setLocSearchTerm('');
+            setLocSearchResults([]);
+            // Refresh other locations
+            const res = await axios.get(`${API_URL}/locations/product/${stockProduct.product_id}/locations`);
+            setOtherLocations(res.data.filter((loc: any) => detail && loc.location_id !== detail.id));
+        } catch (err: any) {
+            showToast(err.response?.data?.detail || "Error al asignar", "error");
+        } finally {
+            setAddingToLocId(null);
+        }
+    };
+
     const openStockModal = async (p: LocationProduct) => {
         setStockProduct(p);
         setStockQty(p.quantity);
         setConfirmEmpty(false);
+        setShowAddToLocation(false);
+        setLocSearchTerm('');
+        setLocSearchResults([]);
         setOtherLocations([]);
         setLoadingOtherLocs(true);
         try {
@@ -712,9 +747,61 @@ export function Locations() {
 
                             {/* Otras ubicaciones */}
                             <div className="border-t border-gray-100 dark:border-gray-700 px-5 py-4">
-                                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
-                                    <MapPin className="w-3.5 h-3.5" /> Otras ubicaciones
-                                </label>
+                                <div className="flex items-center justify-between">
+                                    <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                                        <MapPin className="w-3.5 h-3.5" /> Otras ubicaciones
+                                    </label>
+                                    <button
+                                        onClick={() => setShowAddToLocation(!showAddToLocation)}
+                                        className="text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 p-1.5 rounded-lg transition-colors"
+                                        title="Agregar a otra ubicación"
+                                    >
+                                        <Plus className="w-4 h-4" />
+                                    </button>
+                                </div>
+
+                                {/* Buscador inline de ubicaciones */}
+                                {showAddToLocation && (
+                                    <div className="mt-2 mb-2">
+                                        <div className="relative">
+                                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                                            <input
+                                                type="text"
+                                                placeholder="Buscar ubicación (ej: R1B3)..."
+                                                value={locSearchTerm}
+                                                onChange={(e) => searchLocationsForAssign(e.target.value)}
+                                                className="w-full pl-8 pr-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 dark:text-white font-mono"
+                                                autoFocus
+                                            />
+                                        </div>
+                                        {locSearchResults.length > 0 && (
+                                            <div className="mt-1.5 max-h-32 overflow-y-auto space-y-1">
+                                                {locSearchResults
+                                                    .filter(l => detail && l.id !== detail.id && !otherLocations.some(o => o.location_id === l.id))
+                                                    .map(loc => (
+                                                        <button
+                                                            key={loc.id}
+                                                            onClick={() => assignProductToLocation(loc.id)}
+                                                            disabled={addingToLocId === loc.id}
+                                                            className="w-full flex items-center justify-between p-2.5 rounded-lg bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors text-left"
+                                                        >
+                                                            <div className="flex items-center gap-2">
+                                                                <MapPin className="w-3.5 h-3.5 text-indigo-500" />
+                                                                <span className="font-mono font-bold text-sm text-gray-800 dark:text-gray-100">{loc.code}</span>
+                                                                {loc.description && <span className="text-xs text-gray-400 truncate max-w-[80px]">{loc.description}</span>}
+                                                            </div>
+                                                            {addingToLocId === loc.id
+                                                                ? <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
+                                                                : <Plus className="w-4 h-4 text-indigo-500" />
+                                                            }
+                                                        </button>
+                                                    ))
+                                                }
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
                                 {loadingOtherLocs ? (
                                     <div className="text-center py-4"><Loader2 className="w-5 h-5 animate-spin text-gray-400 mx-auto" /></div>
                                 ) : otherLocations.length === 0 ? (
