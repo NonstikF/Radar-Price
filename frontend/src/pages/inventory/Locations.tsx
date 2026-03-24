@@ -3,7 +3,7 @@ import axios from 'axios';
 import {
     MapPin, Plus, Edit3, Trash2, X, Loader2, CheckCircle2, AlertTriangle,
     Search, Package, ChevronLeft, QrCode, ChevronDown, ChevronRight,
-    Filter, Camera
+    Filter, Camera, ImagePlus, ZoomIn
 } from 'lucide-react';
 import { BarcodeScanner } from '../../components/ui/BarcodeScanner';
 import { API_URL } from '../../config/api';
@@ -232,6 +232,7 @@ export function Locations() {
     // --- IMAGEN DE PRODUCTO ---
     const imageInputRef = useRef<HTMLInputElement>(null);
     const [imageTargetId, setImageTargetId] = useState<number | null>(null);
+    const [previewProduct, setPreviewProduct] = useState<LocationProduct | null>(null);
 
     const compressImage = (file: File, maxWidth = 400, quality = 0.7): Promise<string> => {
         return new Promise((resolve, reject) => {
@@ -268,12 +269,13 @@ export function Locations() {
             await axios.put(`${API_URL}/invoices/products/${imageTargetId}`, { image_url: compressed });
             showToast("Imagen actualizada");
             if (detail) {
-                setDetail({
-                    ...detail,
-                    products: detail.products.map(p =>
-                        p.product_id === imageTargetId ? { ...p, image_url: compressed } : p
-                    ),
-                });
+                const updated = detail.products.map(p =>
+                    p.product_id === imageTargetId ? { ...p, image_url: compressed } : p
+                );
+                setDetail({ ...detail, products: updated });
+                if (previewProduct?.product_id === imageTargetId) {
+                    setPreviewProduct({ ...previewProduct, image_url: compressed });
+                }
             }
         } catch {
             showToast("Error al subir imagen", "error");
@@ -497,17 +499,17 @@ export function Locations() {
                                     key={p.id}
                                     className={`bg-white dark:bg-gray-800 p-3 md:p-4 rounded-xl shadow-sm border border-gray-100 dark:border-transparent flex items-center gap-3 md:gap-4 group transition-all ${p.quantity <= 0 ? 'opacity-50' : ''}`}
                                 >
-                                    {/* IMAGEN (clickeable para subir) */}
+                                    {/* IMAGEN */}
                                     <button
-                                        onClick={() => triggerImageUpload(p.product_id)}
+                                        onClick={() => p.image_url ? setPreviewProduct(p) : triggerImageUpload(p.product_id)}
                                         className="w-12 h-12 md:w-14 md:h-14 rounded-xl bg-gray-100 dark:bg-gray-900 flex items-center justify-center overflow-hidden shrink-0 relative group/img cursor-pointer hover:ring-2 hover:ring-indigo-400 transition-all"
-                                        title="Cambiar foto"
+                                        title={p.image_url ? "Ver imagen" : "Agregar foto"}
                                     >
                                         {p.image_url ? (
                                             <>
                                                 <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" />
                                                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity rounded-xl">
-                                                    <Camera className="w-4 h-4 text-white" />
+                                                    <ZoomIn className="w-4 h-4 text-white" />
                                                 </div>
                                             </>
                                         ) : (
@@ -554,6 +556,64 @@ export function Locations() {
                                     </button>
                                 </div>
                             ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* LIGHTBOX IMAGEN */}
+                {previewProduct && (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={() => setPreviewProduct(null)}>
+                        <div className="relative max-w-lg w-full animate-scale-in" onClick={(e) => e.stopPropagation()}>
+                            {/* Imagen grande */}
+                            <div className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-2xl">
+                                {previewProduct.image_url ? (
+                                    <img src={previewProduct.image_url} alt={previewProduct.name} className="w-full max-h-[60vh] object-contain bg-gray-100 dark:bg-gray-900" />
+                                ) : (
+                                    <div className="w-full h-64 bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
+                                        <Camera className="w-16 h-16 text-gray-300 dark:text-gray-600" />
+                                    </div>
+                                )}
+                                <div className="p-4">
+                                    <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm line-clamp-2">{previewProduct.name}</h3>
+                                    <div className="flex gap-2 mt-3">
+                                        <button
+                                            onClick={() => { triggerImageUpload(previewProduct.product_id); }}
+                                            className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-95"
+                                        >
+                                            <ImagePlus className="w-4 h-4" /> {previewProduct.image_url ? 'Cambiar foto' : 'Subir foto'}
+                                        </button>
+                                        {previewProduct.image_url && (
+                                            <button
+                                                onClick={async () => {
+                                                    try {
+                                                        await axios.put(`${API_URL}/invoices/products/${previewProduct.product_id}`, { image_url: null });
+                                                        showToast("Imagen eliminada");
+                                                        if (detail) {
+                                                            setDetail({
+                                                                ...detail,
+                                                                products: detail.products.map(p =>
+                                                                    p.product_id === previewProduct.product_id ? { ...p, image_url: '' } : p
+                                                                ),
+                                                            });
+                                                        }
+                                                        setPreviewProduct(null);
+                                                    } catch {
+                                                        showToast("Error", "error");
+                                                    }
+                                                }}
+                                                className="bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-4 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-red-200 dark:hover:bg-red-900/40 transition-all"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Botón cerrar */}
+                            <button onClick={() => setPreviewProduct(null)} className="absolute -top-3 -right-3 bg-white dark:bg-gray-700 p-2 rounded-full shadow-lg text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white transition-colors">
+                                <X className="w-5 h-5" />
+                            </button>
                         </div>
                     </div>
                 )}
