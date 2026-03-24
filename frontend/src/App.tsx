@@ -27,6 +27,7 @@ import { ShoppingLists } from './pages/shopping/ShoppingLists';
 import { Suppliers } from './pages/suppliers/Suppliers';
 import { Inventory } from './pages/inventory/Inventory';
 import { Locations } from './pages/inventory/Locations';
+import { AssignProduct } from './pages/inventory/AssignProduct';
 
 // --- UTILIDADES ---
 import { LayoutGrid, FileText, Search, PlusCircle, Moon, Sun, Users, LogOut, ShoppingCart, Warehouse, MoreHorizontal, ChevronDown } from 'lucide-react';
@@ -348,6 +349,7 @@ const router = createBrowserRouter(
       {/* --- INVENTARIO --- */}
       <Route path="inventory" element={<PermissionGuard module="inventory"><Inventory /></PermissionGuard>} />
       <Route path="inventory/locations" element={<PermissionGuard module="inventory"><Locations /></PermissionGuard>} />
+      <Route path="inventory/assign" element={<PermissionGuard module="inventory"><AssignProduct /></PermissionGuard>} />
 
       <Route path="admin" element={<AdminGuard><AdminUsers /></AdminGuard>} />
 

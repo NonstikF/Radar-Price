@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { MapPin, ArrowRight, PackageSearch, ClipboardList } from 'lucide-react';
+import { MapPin, ArrowRight, PackageSearch, ClipboardList, ScanBarcode } from 'lucide-react';
 
 export function Inventory() {
     const navigate = useNavigate();
@@ -12,6 +12,15 @@ export function Inventory() {
             icon: MapPin,
             color: 'indigo',
             path: '/inventory/locations',
+            ready: true,
+        },
+        {
+            key: 'assign',
+            title: 'Asignar Productos',
+            description: 'Escanea productos y asígnalos a ubicaciones',
+            icon: ScanBarcode,
+            color: 'emerald',
+            path: '/inventory/assign',
             ready: true,
         },
         {
@@ -36,6 +45,7 @@ export function Inventory() {
 
     const colorMap: Record<string, { bg: string; icon: string; hover: string }> = {
         indigo: { bg: 'bg-indigo-50 dark:bg-indigo-900/20', icon: 'text-indigo-600 dark:text-indigo-400', hover: 'hover:border-indigo-200 dark:hover:border-indigo-800' },
+        emerald: { bg: 'bg-emerald-50 dark:bg-emerald-900/20', icon: 'text-emerald-600 dark:text-emerald-400', hover: 'hover:border-emerald-200 dark:hover:border-emerald-800' },
         amber: { bg: 'bg-amber-50 dark:bg-amber-900/20', icon: 'text-amber-600 dark:text-amber-400', hover: 'hover:border-amber-200 dark:hover:border-amber-800' },
         teal: { bg: 'bg-teal-50 dark:bg-teal-900/20', icon: 'text-teal-600 dark:text-teal-400', hover: 'hover:border-teal-200 dark:hover:border-teal-800' },
     };

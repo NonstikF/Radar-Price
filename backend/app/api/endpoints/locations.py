@@ -143,6 +143,7 @@ async def search_products_for_location(
             "name": p.name,
             "sku": p.sku or "",
             "price": p.price,
+            "image_url": p.image_url or "",
             "already_in_location": p.id in existing_ids,
         }
         for p in products
