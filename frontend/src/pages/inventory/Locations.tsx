@@ -940,7 +940,7 @@ export function Locations() {
     );
 }
 
-// --- COMPONENTE AGRUPADO POR LUGAR ---
+// --- COMPONENTE AGRUPADO JERÁRQUICO (R1 → A → A1, A2) ---
 function GroupedLocations({
     locations,
     onSelect,
@@ -955,84 +955,134 @@ function GroupedLocations({
     searchTerm: string;
 }) {
     const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
-
-    // Extraer prefijo del código (letras + números iniciales, ej: R1, R2, PISO1)
-    const getGroup = (code: string) => {
-        const match = code.match(/^([A-Z]+\d*)/i);
-        return match ? match[1].toUpperCase() : 'OTROS';
-    };
-
-    // Agrupar
-    const groups: Record<string, LocationItem[]> = {};
-    for (const loc of locations) {
-        const group = getGroup(loc.code);
-        if (!groups[group]) groups[group] = [];
-        groups[group].push(loc);
-    }
-
-    const sortedGroups = Object.keys(groups).sort();
     const isSearching = searchTerm.trim().length > 0;
 
-    const toggle = (group: string) => {
-        setCollapsed(prev => ({ ...prev, [group]: !prev[group] }));
+    const toggle = (key: string) => {
+        setCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
     };
 
+    // Parsear código: R1B2 → rack=R1, section=B, position=2
+    // R1A → rack=R1, section=A, position=null
+    // R1 → rack=R1, section=null, position=null
+    const parseCode = (code: string) => {
+        const match = code.match(/^([A-Z]+\d+)([A-Z])(\d+)?$/i);
+        if (match) return { rack: match[1].toUpperCase(), section: match[2].toUpperCase(), position: match[3] || null };
+        const match2 = code.match(/^([A-Z]+\d+)([A-Z])?$/i);
+        if (match2) return { rack: match2[1].toUpperCase(), section: match2[2]?.toUpperCase() || null, position: null };
+        return { rack: code.toUpperCase(), section: null, position: null };
+    };
+
+    // Construir árbol: rack → section → locations[]
+    type SectionGroup = { section: string; items: LocationItem[] };
+    type RackGroup = { rack: string; sections: SectionGroup[]; standalone: LocationItem[] };
+
+    const racks: Record<string, { sections: Record<string, LocationItem[]>; standalone: LocationItem[] }> = {};
+
+    for (const loc of locations) {
+        const { rack, section } = parseCode(loc.code);
+        if (!racks[rack]) racks[rack] = { sections: {}, standalone: [] };
+        if (section) {
+            if (!racks[rack].sections[section]) racks[rack].sections[section] = [];
+            racks[rack].sections[section].push(loc);
+        } else {
+            racks[rack].standalone.push(loc);
+        }
+    }
+
+    const sortedRacks = Object.keys(racks).sort();
+
+    const countProducts = (items: LocationItem[]) => items.reduce((s, l) => s + l.product_count, 0);
+    const countAll = (r: typeof racks[string]) => {
+        let total = r.standalone.length;
+        let products = countProducts(r.standalone);
+        for (const items of Object.values(r.sections)) {
+            total += items.length;
+            products += countProducts(items);
+        }
+        return { total, products };
+    };
+
+    const LocationRow = ({ loc }: { loc: LocationItem }) => (
+        <div className="bg-white dark:bg-gray-800 p-2.5 md:p-3 rounded-xl shadow-sm border border-gray-100 dark:border-transparent flex items-center gap-3 group hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all">
+            <div className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer" onClick={() => onSelect(loc.id)}>
+                <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm font-mono group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{loc.code}</h3>
+                    <div className="flex flex-wrap gap-2 mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                        {loc.description && <span className="truncate max-w-[200px]">{loc.description}</span>}
+                        <span className="flex items-center gap-1"><Package className="w-3 h-3" /> {loc.product_count}</span>
+                    </div>
+                </div>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+                <button onClick={() => onEdit(loc)} className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
+                    <Edit3 className="w-4 h-4" />
+                </button>
+                <button onClick={() => onDelete(loc.id)} className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                    <Trash2 className="w-4 h-4" />
+                </button>
+            </div>
+        </div>
+    );
+
     return (
-        <div className="space-y-4">
-            {sortedGroups.map((group) => {
-                const items = groups[group];
-                const isCollapsed = collapsed[group] && !isSearching;
-                const totalProducts = items.reduce((sum, l) => sum + l.product_count, 0);
+        <div className="space-y-3">
+            {sortedRacks.map((rack) => {
+                const data = racks[rack];
+                const { total, products } = countAll(data);
+                const rackKey = `rack-${rack}`;
+                const rackCollapsed = collapsed[rackKey] && !isSearching;
+                const sortedSections = Object.keys(data.sections).sort();
 
                 return (
-                    <div key={group}>
-                        {/* Header del grupo */}
+                    <div key={rack}>
+                        {/* Nivel 1: Rack (R1, R2) */}
                         <button
-                            onClick={() => toggle(group)}
-                            className="w-full flex items-center gap-3 px-3 py-2 mb-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                            onClick={() => toggle(rackKey)}
+                            className="w-full flex items-center gap-3 px-3 py-2 mb-1 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                         >
-                            {isCollapsed
+                            {rackCollapsed
                                 ? <ChevronRight className="w-4 h-4 text-gray-400" />
                                 : <ChevronDown className="w-4 h-4 text-gray-400" />
                             }
-                            <span className="font-black text-indigo-600 dark:text-indigo-400 font-mono text-lg">{group}</span>
-                            <span className="text-xs text-gray-400 font-medium">{items.length} ubicaciones · {totalProducts} productos</span>
+                            <span className="font-black text-indigo-600 dark:text-indigo-400 font-mono text-lg">{rack}</span>
+                            <span className="text-xs text-gray-400 font-medium">{total} ubicaciones · {products} productos</span>
                         </button>
 
-                        {/* Items del grupo */}
-                        {!isCollapsed && (
-                            <div className="space-y-2 ml-2 pl-4 border-l-2 border-indigo-100 dark:border-indigo-900/30">
-                                {items.map((loc) => (
-                                    <div
-                                        key={loc.id}
-                                        className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-xl shadow-sm border border-gray-100 dark:border-transparent flex items-center gap-3 group hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all"
-                                    >
-                                        <div
-                                            className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
-                                            onClick={() => onSelect(loc.id)}
-                                        >
-                                            <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
-                                                <MapPin className="w-5 h-5" />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm font-mono group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{loc.code}</h3>
-                                                <div className="flex flex-wrap gap-2 mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                                                    {loc.description && <span className="truncate max-w-[200px]">{loc.description}</span>}
-                                                    <span className="flex items-center gap-1"><Package className="w-3 h-3" /> {loc.product_count}</span>
-                                                </div>
-                                            </div>
-                                        </div>
+                        {!rackCollapsed && (
+                            <div className="ml-3 pl-4 border-l-2 border-indigo-100 dark:border-indigo-900/30 space-y-2">
+                                {/* Standalone items sin sección (ej: R1 solo) */}
+                                {data.standalone.map(loc => <LocationRow key={loc.id} loc={loc} />)}
 
-                                        <div className="flex items-center gap-1 shrink-0">
-                                            <button onClick={() => onEdit(loc)} className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
-                                                <Edit3 className="w-4 h-4" />
+                                {/* Nivel 2: Secciones (A, B, C) */}
+                                {sortedSections.map(section => {
+                                    const sectionItems = data.sections[section];
+                                    const sectionKey = `section-${rack}-${section}`;
+                                    const sectionCollapsed = collapsed[sectionKey] && !isSearching;
+                                    const sectionProducts = countProducts(sectionItems);
+
+                                    return (
+                                        <div key={section}>
+                                            <button
+                                                onClick={() => toggle(sectionKey)}
+                                                className="w-full flex items-center gap-2 px-2 py-1.5 mb-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                            >
+                                                {sectionCollapsed
+                                                    ? <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
+                                                    : <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+                                                }
+                                                <span className="font-bold text-gray-700 dark:text-gray-200 font-mono text-sm">{rack}{section}</span>
+                                                <span className="text-[11px] text-gray-400 font-medium">{sectionItems.length} · {sectionProducts} prod.</span>
                                             </button>
-                                            <button onClick={() => onDelete(loc.id)} className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
+
+                                            {/* Nivel 3: Posiciones (A1, A2, A3) */}
+                                            {!sectionCollapsed && (
+                                                <div className="ml-3 pl-3 border-l-2 border-gray-200 dark:border-gray-700 space-y-1.5 mb-2">
+                                                    {sectionItems.map(loc => <LocationRow key={loc.id} loc={loc} />)}
+                                                </div>
+                                            )}
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
