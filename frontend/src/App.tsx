@@ -28,9 +28,11 @@ import { Suppliers } from './pages/suppliers/Suppliers';
 import { Inventory } from './pages/inventory/Inventory';
 import { Locations } from './pages/inventory/Locations';
 import { AssignProduct } from './pages/inventory/AssignProduct';
+import { ProductsHub } from './pages/products/ProductsHub';
+import { PurchasesHub } from './pages/purchases/PurchasesHub';
 
 // --- UTILIDADES ---
-import { LayoutGrid, FileText, Search, PlusCircle, Moon, Sun, Users, LogOut, ShoppingCart, Warehouse, MoreHorizontal, ChevronDown } from 'lucide-react';
+import { LayoutGrid, Package, Moon, Sun, Users, LogOut, ShoppingCart, Warehouse, MoreHorizontal, ChevronDown } from 'lucide-react';
 import { API_URL } from './config/api';
 
 // =========================================================================
@@ -125,15 +127,13 @@ function RootLayout() {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showMobileMore, setShowMobileMore] = useState(false);
 
-  // Definimos todos los items de navegación
+  // Definimos todos los items de navegación (agrupados por módulos)
   const allNavItems = [
     { key: 'dashboard', path: '/dashboard', icon: <LayoutGrid className="w-4 h-4" />, label: 'Panel', perm: 'dashboard', primary: true },
-    { key: 'search', path: '/search', icon: <Search className="w-4 h-4" />, label: 'Buscador', perm: 'search', primary: true },
-    { key: 'shopping', path: '/shopping', icon: <ShoppingCart className="w-4 h-4" />, label: 'Compras', perm: 'shopping', primary: true },
+    { key: 'products', path: '/products', icon: <Package className="w-4 h-4" />, label: 'Productos', perm: 'search', primary: true },
+    { key: 'purchases', path: '/purchases', icon: <ShoppingCart className="w-4 h-4" />, label: 'Compras', perm: 'upload', primary: true },
     { key: 'inventory', path: '/inventory', icon: <Warehouse className="w-4 h-4" />, label: 'Inventario', perm: 'inventory', primary: true },
-    { key: 'upload', path: '/upload', icon: <FileText className="w-4 h-4" />, label: 'Cargar XML', perm: 'upload', primary: false },
-    { key: 'manual', path: '/manual', icon: <PlusCircle className="w-4 h-4" />, label: 'Manual', perm: 'manual', primary: false },
-    { key: 'admin', path: '/admin', icon: <Users className="w-4 h-4" />, label: 'Usuarios', perm: 'admin', primary: false, adminOnly: true },
+    { key: 'admin', path: '/admin', icon: <Users className="w-4 h-4" />, label: 'Admin', perm: 'admin', primary: false, adminOnly: true },
   ];
 
   const visibleItems = allNavItems.filter(item => {
@@ -143,14 +143,15 @@ function RootLayout() {
 
   const primaryItems = visibleItems.filter(i => i.primary);
   const secondaryItems = visibleItems.filter(i => !i.primary);
-  const isSecondaryActive = secondaryItems.some(i => i.key === 'inventory' ? location.pathname.startsWith(i.path) : location.pathname === i.path);
+  const pathStartsWith = ['inventory', 'products', 'purchases'];
+  const isActive = (item: typeof allNavItems[0]) =>
+    pathStartsWith.includes(item.key) ? location.pathname.startsWith(item.path) : location.pathname === item.path;
+
+  const isSecondaryActive = secondaryItems.some(i => isActive(i));
 
   // Mobile: primeros 4 + más
   const mobileMainItems = visibleItems.slice(0, 4);
   const mobileExtraItems = visibleItems.slice(4);
-
-  const isActive = (item: typeof allNavItems[0]) =>
-    item.key === 'inventory' ? location.pathname.startsWith(item.path) : location.pathname === item.path;
 
   return (
     <div className="min-h-screen bg-gray-50/50 dark:bg-gray-900 font-sans text-gray-900 dark:text-gray-100 transition-colors duration-300">
@@ -330,21 +331,20 @@ const router = createBrowserRouter(
       {/* Rutas Protegidas */}
       <Route path="dashboard" element={<PermissionGuard module="dashboard"><DashboardWrapper /></PermissionGuard>} />
 
+      {/* --- PRODUCTOS (hub + sub-rutas) --- */}
+      <Route path="products" element={<PermissionGuard module="search"><ProductsHub /></PermissionGuard>} />
+      <Route path="search" element={<PermissionGuard module="search"><SearchWrapper /></PermissionGuard>} />
+      <Route path="manual" element={<PermissionGuard module="manual"><ManualEntry /></PermissionGuard>} />
+      <Route path="labels" element={<LabelDesigner />} />
+
+      {/* --- COMPRAS (hub + sub-rutas) --- */}
+      <Route path="purchases" element={<PermissionGuard module="upload"><PurchasesHub /></PermissionGuard>} />
+      <Route path="upload" element={<PermissionGuard module="upload"><UploadWrapper /></PermissionGuard>} />
       <Route path="history" element={<PermissionGuard module="history"><HistoryWrapper /></PermissionGuard>} />
       <Route path="history/:id" element={<PermissionGuard module="history"><BatchDetails /></PermissionGuard>} />
       <Route path="batches/:id" element={<PermissionGuard module="history"><BatchDetails /></PermissionGuard>} />
-
-      <Route path="upload" element={<PermissionGuard module="upload"><UploadWrapper /></PermissionGuard>} />
-
-      <Route path="search" element={<PermissionGuard module="search"><SearchWrapper /></PermissionGuard>} />
-
-      <Route path="manual" element={<PermissionGuard module="manual"><ManualEntry /></PermissionGuard>} />
-
       <Route path="shopping" element={<PermissionGuard module="shopping"><ShoppingLists /></PermissionGuard>} />
       <Route path="suppliers" element={<AdminGuard><Suppliers /></AdminGuard>} />
-
-      {/* --- DISEÑADOR DE ETIQUETAS --- */}
-      <Route path="labels" element={<LabelDesigner />} />
 
       {/* --- INVENTARIO --- */}
       <Route path="inventory" element={<PermissionGuard module="inventory"><Inventory /></PermissionGuard>} />
