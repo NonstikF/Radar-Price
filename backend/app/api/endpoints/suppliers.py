@@ -11,6 +11,10 @@ from app.domain.models import Supplier, Product
 router = APIRouter()
 
 
+def escape_like(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 class SupplierCreate(BaseModel):
     name: str
     rfc: Optional[str] = None
@@ -94,10 +98,11 @@ async def get_unassigned_products(
         or_(Product.supplier_id == None, Product.supplier_id == 0)
     )
     if q:
+        q_safe = escape_like(q[:200])
         stmt = stmt.where(
             or_(
-                Product.name.ilike(f"%{q}%"),
-                Product.sku.ilike(f"%{q}%"),
+                Product.name.ilike(f"%{q_safe}%"),
+                Product.sku.ilike(f"%{q_safe}%"),
             )
         )
     stmt = stmt.order_by(Product.name.asc()).limit(200)

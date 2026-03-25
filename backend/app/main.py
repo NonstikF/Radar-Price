@@ -17,9 +17,10 @@ from app.api.endpoints import invoices, suppliers, shopping_lists, locations
 from app.core.database import engine, Base
 
 # --- 1. SECURITY CONFIGURATION ---
-SECRET_KEY = "1234hola"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
+import os
+SECRET_KEY = os.environ.get("SECRET_KEY", "change-me-in-production")
+ALGORITHM = os.environ.get("ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
 
@@ -77,7 +78,7 @@ class UserResponse(BaseModel):
     def resolve_permissions(obj):
         try:
             return json.loads(obj.permissions)
-        except:
+        except (json.JSONDecodeError, TypeError):
             return []
 
 
@@ -136,12 +137,13 @@ async def startup_event():
 app = FastAPI(on_startup=[startup_event])
 
 # --- 7. CORS ---
+ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "*").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 
@@ -181,7 +183,7 @@ async def login_for_access_token(
     # 2. Decode permissions
     try:
         perms = json.loads(user.permissions)
-    except:
+    except (json.JSONDecodeError, TypeError):
         perms = []
 
     # 3. Create Token

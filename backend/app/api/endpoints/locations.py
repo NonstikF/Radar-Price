@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func, or_
 from typing import Optional, List
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.core.database import get_db
 from app.domain.models import Location, ProductLocation, Product
@@ -13,22 +13,27 @@ router = APIRouter()
 
 def sanitize_code(raw: str) -> str:
     """Limpia código de ubicación: quita espacios, guiones y pasa a mayúsculas."""
-    return raw.strip().replace("-", "").upper()
+    return raw.strip().replace("-", "").upper()[:50]
+
+
+def escape_like(value: str) -> str:
+    """Escapa caracteres especiales de LIKE para evitar inyección en patrones."""
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 class LocationCreate(BaseModel):
-    code: str
-    description: Optional[str] = None
+    code: str = Field(..., min_length=1, max_length=50)
+    description: Optional[str] = Field(None, max_length=200)
 
 
 class LocationUpdate(BaseModel):
-    code: Optional[str] = None
-    description: Optional[str] = None
+    code: Optional[str] = Field(None, min_length=1, max_length=50)
+    description: Optional[str] = Field(None, max_length=200)
 
 
 class AddProductToLocation(BaseModel):
-    product_id: int
-    quantity: int = 1
+    product_id: int = Field(..., gt=0)
+    quantity: int = Field(1, ge=0, le=999999)
 
 
 # --- RUTAS FIJAS PRIMERO ---
@@ -83,10 +88,11 @@ async def search_locations(q: str = "", db: AsyncSession = Depends(get_db)):
         .outerjoin(ProductLocation, Location.id == ProductLocation.location_id)
     )
     if q:
+        q_safe = escape_like(q[:100])
         stmt = stmt.where(
             or_(
-                Location.code.ilike(f"%{q}%"),
-                Location.description.ilike(f"%{q}%"),
+                Location.code.ilike(f"%{q_safe}%"),
+                Location.description.ilike(f"%{q_safe}%"),
             )
         )
     stmt = stmt.group_by(Location.id).order_by(Location.code.asc()).limit(50)
@@ -122,11 +128,12 @@ async def search_products_for_location(
 ):
     stmt = select(Product)
     if q:
+        q_safe = escape_like(q[:200])
         stmt = stmt.where(
             or_(
-                Product.name.ilike(f"%{q}%"),
-                Product.sku.ilike(f"%{q}%"),
-                Product.alias.ilike(f"%{q}%"),
+                Product.name.ilike(f"%{q_safe}%"),
+                Product.sku.ilike(f"%{q_safe}%"),
+                Product.alias.ilike(f"%{q_safe}%"),
             )
         )
     stmt = stmt.order_by(Product.name.asc()).limit(50)
@@ -299,7 +306,7 @@ async def add_product_to_location(
 
 
 class UpdateQuantity(BaseModel):
-    quantity: int
+    quantity: int = Field(..., ge=0, le=999999)
 
 
 @router.put("/{location_id}/products/{product_id}")
