@@ -53,6 +53,8 @@ function RootLayout() {
   const [products, setProducts] = useState<any[]>([]);
   const [filterMissing, setFilterMissing] = useState(false);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showMobileMore, setShowMobileMore] = useState(false);
 
   // --- CONFIGURACIÓN AXIOS ---
   if (isAuthenticated && user) {
@@ -123,9 +125,6 @@ function RootLayout() {
     checkPermission,
     isAdmin
   };
-
-  const [showMoreMenu, setShowMoreMenu] = useState(false);
-  const [showMobileMore, setShowMobileMore] = useState(false);
 
   // Definimos todos los items de navegación (agrupados por módulos)
   const allNavItems = [
