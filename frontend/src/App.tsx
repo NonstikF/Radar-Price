@@ -30,6 +30,7 @@ import { Locations } from './pages/inventory/Locations';
 import { AssignProduct } from './pages/inventory/AssignProduct';
 import { ProductsHub } from './pages/products/ProductsHub';
 import { PurchasesHub } from './pages/purchases/PurchasesHub';
+import { Categories } from './pages/products/Categories';
 
 // --- UTILIDADES ---
 import { LayoutGrid, Package, Moon, Sun, Users, LogOut, ShoppingCart, Warehouse, MoreHorizontal, ChevronDown } from 'lucide-react';
@@ -334,6 +335,7 @@ const router = createBrowserRouter(
       <Route path="products" element={<PermissionGuard module="search"><ProductsHub /></PermissionGuard>} />
       <Route path="search" element={<PermissionGuard module="search"><SearchWrapper /></PermissionGuard>} />
       <Route path="manual" element={<PermissionGuard module="manual"><ManualEntry /></PermissionGuard>} />
+      <Route path="categories" element={<PermissionGuard module="search"><Categories /></PermissionGuard>} />
       <Route path="labels" element={<LabelDesigner />} />
 
       {/* --- COMPRAS (hub + sub-rutas) --- */}

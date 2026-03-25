@@ -127,6 +127,32 @@ class Location(Base):
     )
 
 
+class Category(Base):
+    __tablename__ = "categories"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True)
+    description = Column(String, nullable=True)
+    color = Column(String, default="blue")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    product_categories = relationship(
+        "ProductCategory", back_populates="category", cascade="all, delete-orphan"
+    )
+
+
+class ProductCategory(Base):
+    __tablename__ = "product_categories"
+
+    id = Column(Integer, primary_key=True, index=True)
+    category_id = Column(Integer, ForeignKey("categories.id"))
+    product_id = Column(Integer, ForeignKey("products.id"))
+    added_at = Column(DateTime, default=datetime.utcnow)
+
+    category = relationship("Category", back_populates="product_categories")
+    product = relationship("Product")
+
+
 class ProductLocation(Base):
     __tablename__ = "product_locations"
 

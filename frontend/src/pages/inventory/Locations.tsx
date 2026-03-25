@@ -70,6 +70,12 @@ export function Locations() {
     // Filtro existencia en detalle
     const [showAll, setShowAll] = useState(false);
 
+    // Buscar producto con ubicaciones (vista lista)
+    const [productSearchMode, setProductSearchMode] = useState(false);
+    const [productSearchTerm, setProductSearchTerm] = useState('');
+    const [productSearchResults, setProductSearchResults] = useState<{ id: number; name: string; sku: string; price: number; selling_price: number; image_url: string; locations: { code: string; quantity: number }[] }[]>([]);
+    const [loadingProductSearch, setLoadingProductSearch] = useState(false);
+
     // Modal agregar producto
     const [showAddProduct, setShowAddProduct] = useState(false);
     const [productSearch, setProductSearch] = useState('');
@@ -146,6 +152,23 @@ export function Locations() {
         }, 300);
         return () => clearTimeout(timer);
     }, [searchTerm]);
+
+    // Búsqueda de producto con ubicaciones (vista lista)
+    useEffect(() => {
+        if (!productSearchMode) return;
+        const timer = setTimeout(async () => {
+            if (!productSearchTerm.trim()) { setProductSearchResults([]); return; }
+            setLoadingProductSearch(true);
+            try {
+                const res = await axios.get(`${API_URL}/locations/search-products`, {
+                    params: { q: productSearchTerm, with_locations: true },
+                });
+                setProductSearchResults(res.data);
+            } catch { /* ignore */ }
+            finally { setLoadingProductSearch(false); }
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [productSearchTerm, productSearchMode]);
 
     // Búsqueda productos para agregar
     useEffect(() => {
@@ -840,37 +863,114 @@ export function Locations() {
                 </div>
             </div>
 
+            {/* TABS: Ubicación / Producto */}
+            <div className="flex gap-1 mb-4 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl w-fit">
+                <button
+                    onClick={() => { setProductSearchMode(false); setProductSearchTerm(''); setProductSearchResults([]); }}
+                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${!productSearchMode ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}
+                >
+                    <MapPin className="w-4 h-4 inline mr-1.5 -mt-0.5" />Ubicaciones
+                </button>
+                <button
+                    onClick={() => { setProductSearchMode(true); setSearchTerm(''); }}
+                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${productSearchMode ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}
+                >
+                    <Package className="w-4 h-4 inline mr-1.5 -mt-0.5" />Buscar Producto
+                </button>
+            </div>
+
             {/* BUSCADOR */}
             <div className="mb-4">
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                    <input
-                        type="text"
-                        placeholder="Buscar ubicación (ej: R1B2)..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-transparent rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-medium text-gray-900 dark:text-white shadow-sm"
-                    />
+                    {productSearchMode ? (
+                        <input
+                            type="text"
+                            placeholder="Buscar producto por nombre, SKU o código..."
+                            value={productSearchTerm}
+                            onChange={(e) => setProductSearchTerm(e.target.value)}
+                            className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-transparent rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-medium text-gray-900 dark:text-white shadow-sm"
+                            autoFocus
+                        />
+                    ) : (
+                        <input
+                            type="text"
+                            placeholder="Buscar ubicación (ej: R1B2)..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-transparent rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-medium text-gray-900 dark:text-white shadow-sm"
+                        />
+                    )}
                 </div>
             </div>
 
-            {/* LISTA AGRUPADA POR LUGAR */}
-            {loading ? (
-                <div className="text-center py-20"><Loader2 className="animate-spin h-8 w-8 text-indigo-600 mx-auto" /></div>
-            ) : locations.length === 0 ? (
-                <div className="text-center py-20 opacity-50 flex flex-col items-center">
-                    <MapPin className="w-16 h-16 mb-4 text-gray-300" />
-                    <p className="text-xl font-medium text-gray-400">No hay ubicaciones</p>
-                    <p className="text-sm text-gray-400 mt-2">Crea una nueva o escanea un QR</p>
-                </div>
+            {/* CONTENIDO */}
+            {productSearchMode ? (
+                /* RESULTADOS BÚSQUEDA PRODUCTO */
+                loadingProductSearch ? (
+                    <div className="text-center py-20"><Loader2 className="animate-spin h-8 w-8 text-indigo-600 mx-auto" /></div>
+                ) : !productSearchTerm.trim() ? (
+                    <div className="text-center py-20 opacity-50 flex flex-col items-center">
+                        <Search className="w-16 h-16 mb-4 text-gray-300" />
+                        <p className="text-xl font-medium text-gray-400">Busca un producto</p>
+                        <p className="text-sm text-gray-400 mt-2">Escribe el nombre, SKU o código de barras</p>
+                    </div>
+                ) : productSearchResults.length === 0 ? (
+                    <div className="text-center py-20 opacity-50 flex flex-col items-center">
+                        <Package className="w-16 h-16 mb-4 text-gray-300" />
+                        <p className="text-xl font-medium text-gray-400">Sin resultados</p>
+                    </div>
+                ) : (
+                    <div className="space-y-2">
+                        {productSearchResults.map((p) => (
+                            <div key={p.id} className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700/50">
+                                <div className="flex items-center gap-3">
+                                    {p.image_url ? (
+                                        <img src={p.image_url} alt="" className="w-11 h-11 rounded-xl object-cover shrink-0" />
+                                    ) : (
+                                        <div className="w-11 h-11 rounded-xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center shrink-0">
+                                            <Package className="w-5 h-5 text-gray-400" />
+                                        </div>
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="font-bold text-sm text-gray-800 dark:text-gray-100 truncate">{p.name}</h3>
+                                        <p className="text-xs text-gray-400">{p.sku} · ${p.selling_price.toFixed(2)}</p>
+                                    </div>
+                                </div>
+                                {p.locations && p.locations.length > 0 ? (
+                                    <div className="flex flex-wrap gap-2 mt-3">
+                                        {p.locations.map((loc) => (
+                                            <span key={loc.code} className="inline-flex items-center gap-1.5 text-xs font-bold bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 px-3 py-1.5 rounded-lg">
+                                                <MapPin className="w-3.5 h-3.5" />{loc.code} <span className="text-indigo-400 dark:text-indigo-500">({loc.quantity})</span>
+                                            </span>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-gray-400 mt-2 italic">Sin ubicaciones asignadas</p>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                )
             ) : (
-                <GroupedLocations
-                    locations={locations}
-                    onSelect={(id) => fetchDetail(id)}
-                    onEdit={openEditModal}
-                    onDelete={(id) => setDeleteId(id)}
-                    searchTerm={searchTerm}
-                />
+                /* LISTA AGRUPADA POR LUGAR */
+                loading ? (
+                    <div className="text-center py-20"><Loader2 className="animate-spin h-8 w-8 text-indigo-600 mx-auto" /></div>
+                ) : locations.length === 0 ? (
+                    <div className="text-center py-20 opacity-50 flex flex-col items-center">
+                        <MapPin className="w-16 h-16 mb-4 text-gray-300" />
+                        <p className="text-xl font-medium text-gray-400">No hay ubicaciones</p>
+                        <p className="text-sm text-gray-400 mt-2">Crea una nueva o escanea un QR</p>
+                    </div>
+                ) : (
+                    <GroupedLocations
+                        locations={locations}
+                        onSelect={(id) => fetchDetail(id)}
+                        onEdit={openEditModal}
+                        onDelete={(id) => setDeleteId(id)}
+                        searchTerm={searchTerm}
+                    />
+                )
             )}
 
             {/* MODAL CREAR/EDITAR */}

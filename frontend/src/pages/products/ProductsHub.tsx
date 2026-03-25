@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Search, PlusCircle, Tag, ArrowRight } from 'lucide-react';
+import { Search, PlusCircle, Tag, Layers, ArrowRight } from 'lucide-react';
 
 export function ProductsHub() {
     const navigate = useNavigate();
@@ -24,6 +24,15 @@ export function ProductsHub() {
             ready: true,
         },
         {
+            key: 'categories',
+            title: 'Categorías',
+            description: 'Agrupa productos por temporada o tipo',
+            icon: Layers,
+            color: 'amber',
+            path: '/categories',
+            ready: true,
+        },
+        {
             key: 'labels',
             title: 'Etiquetas',
             description: 'Diseña e imprime etiquetas de precios',
@@ -37,6 +46,7 @@ export function ProductsHub() {
     const colorMap: Record<string, { bg: string; icon: string; hover: string }> = {
         purple: { bg: 'bg-purple-50 dark:bg-purple-900/20', icon: 'text-purple-600 dark:text-purple-400', hover: 'hover:border-purple-200 dark:hover:border-purple-800' },
         green: { bg: 'bg-green-50 dark:bg-green-900/20', icon: 'text-green-600 dark:text-green-400', hover: 'hover:border-green-200 dark:hover:border-green-800' },
+        amber: { bg: 'bg-amber-50 dark:bg-amber-900/20', icon: 'text-amber-600 dark:text-amber-400', hover: 'hover:border-amber-200 dark:hover:border-amber-800' },
         cyan: { bg: 'bg-cyan-50 dark:bg-cyan-900/20', icon: 'text-cyan-600 dark:text-cyan-400', hover: 'hover:border-cyan-200 dark:hover:border-cyan-800' },
     };
 

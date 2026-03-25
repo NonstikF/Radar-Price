@@ -124,6 +124,7 @@ async def get_location_by_code(code: str, db: AsyncSession = Depends(get_db)):
 async def search_products_for_location(
     q: Optional[str] = None,
     location_id: Optional[int] = None,
+    with_locations: bool = False,
     db: AsyncSession = Depends(get_db),
 ):
     stmt = select(Product)
@@ -134,6 +135,7 @@ async def search_products_for_location(
                 Product.name.ilike(f"%{q_safe}%"),
                 Product.sku.ilike(f"%{q_safe}%"),
                 Product.alias.ilike(f"%{q_safe}%"),
+                Product.upc.ilike(f"%{q_safe}%"),
             )
         )
     stmt = stmt.order_by(Product.name.asc()).limit(50)
@@ -149,17 +151,32 @@ async def search_products_for_location(
         )
         existing_ids = {row[0] for row in existing.all()}
 
-    return [
-        {
+    items = []
+    for p in products:
+        item = {
             "id": p.id,
             "name": p.name,
             "sku": p.sku or "",
             "price": p.price,
+            "selling_price": p.selling_price,
             "image_url": p.image_url or "",
             "already_in_location": p.id in existing_ids,
         }
-        for p in products
-    ]
+        if with_locations:
+            loc_stmt = (
+                select(ProductLocation, Location)
+                .join(Location, ProductLocation.location_id == Location.id)
+                .where(ProductLocation.product_id == p.id)
+                .order_by(Location.code.asc())
+            )
+            loc_result = await db.execute(loc_stmt)
+            item["locations"] = [
+                {"code": loc.code, "quantity": pl.quantity}
+                for pl, loc in loc_result.all()
+            ]
+        items.append(item)
+
+    return items
 
 
 @router.get("/product/{product_id}/locations")
