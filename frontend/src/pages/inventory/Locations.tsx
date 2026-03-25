@@ -964,38 +964,36 @@ function GroupedLocations({
 
     const isExpanded = (key: string) => isSearching || !!expanded[key];
 
-    // Parsear código en segmentos: R1B2C3 → segments=[R1, B2, C3]
+    // Parsear código: R1B2C3 → letra="R", firstSeg="R1"
     const parseCode = (code: string) => {
         const upper = code.toUpperCase();
-        // Divide en segmentos tipo "letra(s)+número(s)": R1, B2, C3, etc.
+        const letter = upper.match(/^([A-Z]+)/)?.[1] || upper;
         const segments = upper.match(/[A-Z]+\d+/g);
-        if (!segments || segments.length === 0) return { group: upper, sub: null };
-        if (segments.length === 1) return { group: segments[0], sub: null };
-        // Primer segmento es el grupo, el resto es sub-grupo
-        return { group: segments[0], sub: segments[1] };
+        if (!segments || segments.length === 0) return { letter, firstSeg: null };
+        return { letter, firstSeg: segments[0] };
     };
 
-    // Construir árbol: group → sub → locations[]
-    const racks: Record<string, { sections: Record<string, LocationItem[]>; standalone: LocationItem[] }> = {};
+    // Construir árbol: letra → firstSeg → locations[]
+    const groups: Record<string, { subs: Record<string, LocationItem[]>; standalone: LocationItem[] }> = {};
 
     for (const loc of locations) {
-        const { group, sub } = parseCode(loc.code);
-        if (!racks[group]) racks[group] = { sections: {}, standalone: [] };
-        if (sub) {
-            if (!racks[group].sections[sub]) racks[group].sections[sub] = [];
-            racks[group].sections[sub].push(loc);
+        const { letter, firstSeg } = parseCode(loc.code);
+        if (!groups[letter]) groups[letter] = { subs: {}, standalone: [] };
+        if (firstSeg) {
+            if (!groups[letter].subs[firstSeg]) groups[letter].subs[firstSeg] = [];
+            groups[letter].subs[firstSeg].push(loc);
         } else {
-            racks[group].standalone.push(loc);
+            groups[letter].standalone.push(loc);
         }
     }
 
-    const sortedRacks = Object.keys(racks).sort();
+    const sortedGroups = Object.keys(groups).sort();
 
     const countProducts = (items: LocationItem[]) => items.reduce((s, l) => s + l.product_count, 0);
-    const countAll = (r: typeof racks[string]) => {
+    const countAll = (r: typeof groups[string]) => {
         let total = r.standalone.length;
         let products = countProducts(r.standalone);
-        for (const items of Object.values(r.sections)) {
+        for (const items of Object.values(r.subs)) {
             total += items.length;
             products += countProducts(items);
         }
@@ -1030,59 +1028,59 @@ function GroupedLocations({
 
     return (
         <div className="space-y-3">
-            {sortedRacks.map((group) => {
-                const data = racks[group];
+            {sortedGroups.map((letter) => {
+                const data = groups[letter];
                 const { total, products } = countAll(data);
-                const groupKey = `group-${group}`;
-                const groupOpen = isExpanded(groupKey);
-                const sortedSections = Object.keys(data.sections).sort();
+                const letterKey = `letter-${letter}`;
+                const letterOpen = isExpanded(letterKey);
+                const sortedSubs = Object.keys(data.subs).sort();
 
                 return (
-                    <div key={group} className="bg-white dark:bg-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-700/50 overflow-hidden">
+                    <div key={letter} className="bg-white dark:bg-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-700/50 overflow-hidden">
                         <button
-                            onClick={() => toggle(groupKey)}
+                            onClick={() => toggle(letterKey)}
                             className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                         >
                             <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
-                                <span className="font-black text-indigo-600 dark:text-indigo-400 font-mono text-sm">{group}</span>
+                                <span className="font-black text-indigo-600 dark:text-indigo-400 font-mono text-lg">{letter}</span>
                             </div>
                             <div className="flex-1 text-left">
                                 <p className="text-xs text-gray-400">{total} ubicaciones · {products} productos</p>
                             </div>
-                            {groupOpen
+                            {letterOpen
                                 ? <ChevronDown className="w-5 h-5 text-gray-400 shrink-0" />
                                 : <ChevronRight className="w-5 h-5 text-gray-400 shrink-0" />
                             }
                         </button>
 
-                        {groupOpen && (
+                        {letterOpen && (
                             <div className="px-4 pb-3 space-y-1">
                                 {data.standalone.map(loc => <LocationRow key={loc.id} loc={loc} />)}
 
-                                {sortedSections.map(sub => {
-                                    const sectionItems = data.sections[sub];
-                                    const sectionKey = `sub-${group}-${sub}`;
-                                    const sectionOpen = isExpanded(sectionKey);
-                                    const sectionProducts = countProducts(sectionItems);
+                                {sortedSubs.map(sub => {
+                                    const subItems = data.subs[sub];
+                                    const subKey = `sub-${letter}-${sub}`;
+                                    const subOpen = isExpanded(subKey);
+                                    const subProducts = countProducts(subItems);
 
                                     return (
                                         <div key={sub} className="rounded-xl overflow-hidden">
                                             <button
-                                                onClick={() => toggle(sectionKey)}
+                                                onClick={() => toggle(subKey)}
                                                 className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                                             >
-                                                {sectionOpen
+                                                {subOpen
                                                     ? <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
                                                     : <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
                                                 }
                                                 <span className="font-bold text-gray-700 dark:text-gray-200 font-mono text-sm">{sub}</span>
                                                 <div className="flex-1" />
-                                                <span className="text-[11px] text-gray-400 font-medium">{sectionItems.length} ubic. · {sectionProducts} prod.</span>
+                                                <span className="text-[11px] text-gray-400 font-medium">{subItems.length} ubic. · {subProducts} prod.</span>
                                             </button>
 
-                                            {sectionOpen && (
+                                            {subOpen && (
                                                 <div className="ml-5 pl-3 border-l-2 border-indigo-100 dark:border-indigo-900/30 space-y-1 py-1 mb-1">
-                                                    {sectionItems.map(loc => <LocationRow key={loc.id} loc={loc} />)}
+                                                    {subItems.map(loc => <LocationRow key={loc.id} loc={loc} />)}
                                                 </div>
                                             )}
                                         </div>
