@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
     Search, X, Camera, Filter, PackageOpen, Loader2, ArrowDownAZ, ArrowUpAZ,
-    CheckCircle2, AlertTriangle, Tag, ShoppingCart
+    CheckCircle2, AlertTriangle, Tag, ShoppingCart, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { BarcodeScanner } from '../../components/ui/BarcodeScanner';
 import { useProductSearch } from '../../hooks/useProductSearch';
@@ -18,7 +18,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
     // 1. Usamos el Hook de Búsqueda (Lógica extraída)
     const {
         products, loading, searchTerm, setSearchTerm, filters, setFilters,
-        clearFilters, setProducts
+        clearFilters, setProducts, page, totalPages, total, goToPage
     } = useProductSearch(initialFilter);
 
     const { addToList, adding } = useShoppingList();
@@ -205,6 +205,51 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                             </div>
                         </div>
                     ))}
+
+                    {/* PAGINACIÓN */}
+                    {totalPages > 1 && (
+                        <div className="flex items-center justify-between pt-4 pb-2">
+                            <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+                                {page * 100 + 1}-{Math.min((page + 1) * 100, total)} de {total} productos
+                            </p>
+                            <div className="flex items-center gap-1">
+                                <button
+                                    onClick={() => goToPage(page - 1)}
+                                    disabled={page === 0}
+                                    className="p-2 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+                                >
+                                    <ChevronLeft className="w-5 h-5" />
+                                </button>
+                                {Array.from({ length: totalPages }, (_, i) => i)
+                                    .filter(i => i === 0 || i === totalPages - 1 || Math.abs(i - page) <= 1)
+                                    .reduce((acc: (number | 'dots')[], i, idx, arr) => {
+                                        if (idx > 0 && i - (arr[idx - 1] as number) > 1) acc.push('dots');
+                                        acc.push(i);
+                                        return acc;
+                                    }, [])
+                                    .map((item, idx) =>
+                                        item === 'dots' ? (
+                                            <span key={`dots-${idx}`} className="px-2 text-gray-400">...</span>
+                                        ) : (
+                                            <button
+                                                key={item}
+                                                onClick={() => goToPage(item as number)}
+                                                className={`w-10 h-10 rounded-xl text-sm font-bold transition-all ${page === item ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                                            >
+                                                {(item as number) + 1}
+                                            </button>
+                                        )
+                                    )}
+                                <button
+                                    onClick={() => goToPage(page + 1)}
+                                    disabled={page >= totalPages - 1}
+                                    className="p-2 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+                                >
+                                    <ChevronRight className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 

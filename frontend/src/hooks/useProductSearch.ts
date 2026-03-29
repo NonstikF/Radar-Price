@@ -8,6 +8,8 @@ export function useProductSearch(initialFilter = false) {
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [error, setError] = useState<string | null>(null);
+    const [page, setPage] = useState(0);
+    const [total, setTotal] = useState(0);
 
     const [filters, setFilters] = useState({
         minPrice: "",
@@ -17,13 +19,13 @@ export function useProductSearch(initialFilter = false) {
         sortOrder: "desc"
     });
 
-    // Renombrado para ser descriptivo
     const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     useEffect(() => {
         if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
 
         searchDebounceRef.current = setTimeout(() => {
-            fetchProducts();
+            setPage(0);
+            fetchProducts(0);
         }, DEBOUNCE_DELAY);
 
         return () => {
@@ -31,7 +33,8 @@ export function useProductSearch(initialFilter = false) {
         };
     }, [searchTerm, filters]);
 
-    const fetchProducts = async () => {
+    const fetchProducts = async (pageOverride?: number) => {
+        const currentPage = pageOverride !== undefined ? pageOverride : page;
         setLoading(true);
         setError(null);
         try {
@@ -40,13 +43,15 @@ export function useProductSearch(initialFilter = false) {
                 missing_price: filters.missingPrice,
                 sort_by: filters.sortBy,
                 sort_order: filters.sortOrder,
-                limit: PRODUCTS_LIMIT // Uso de constante
+                limit: PRODUCTS_LIMIT,
+                offset: currentPage * PRODUCTS_LIMIT,
             };
             if (filters.minPrice) params.min_price = filters.minPrice;
             if (filters.maxPrice) params.max_price = filters.maxPrice;
 
             const response = await axios.get(`${API_URL}/invoices/products`, { params });
-            setProducts(response.data);
+            setProducts(response.data.items);
+            setTotal(response.data.total);
         } catch (err: any) {
             console.error("Error fetching products:", err);
             setError(err.response?.data?.detail || "Error al cargar productos");
@@ -55,8 +60,14 @@ export function useProductSearch(initialFilter = false) {
         }
     };
 
+    const goToPage = (p: number) => {
+        setPage(p);
+        fetchProducts(p);
+    };
+
     const clearFilters = () => {
         setSearchTerm("");
+        setPage(0);
         setFilters({
             minPrice: "",
             maxPrice: "",
@@ -65,6 +76,8 @@ export function useProductSearch(initialFilter = false) {
             sortOrder: "desc"
         });
     };
+
+    const totalPages = Math.ceil(total / PRODUCTS_LIMIT);
 
     return {
         products,
@@ -76,6 +89,10 @@ export function useProductSearch(initialFilter = false) {
         setFilters,
         clearFilters,
         refreshProducts: fetchProducts,
-        setProducts // Exportamos por si necesitamos actualizar manualmente tras editar
+        setProducts,
+        page,
+        totalPages,
+        total,
+        goToPage,
     };
 }
