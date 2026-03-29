@@ -435,6 +435,7 @@ async def get_products(
     sort_by: str = "updated_at",
     sort_order: str = "desc",
     limit: int = 50,
+    offset: int = 0,
     db: AsyncSession = Depends(get_db),
 ):
     stmt = select(Product, Supplier.name.label("supplier_name")).outerjoin(
@@ -475,12 +476,20 @@ async def get_products(
 
     stmt = stmt.order_by(
         sort_col.desc() if sort_order == "desc" else sort_col.asc()
-    ).limit(min(limit, 500))
+    )
+
+    # --- Conteo total (antes de limit/offset) ---
+    count_stmt = select(func.count(Product.id)).select_from(stmt.subquery())
+    total_result = await db.execute(count_stmt)
+    total = total_result.scalar() or 0
+
+    # --- Paginación ---
+    stmt = stmt.limit(min(limit, 500)).offset(max(offset, 0))
 
     # --- Ejecución ---
     result = await db.execute(stmt)
 
-    return [
+    items = [
         {
             "id": p.id,
             "sku": p.sku,
@@ -495,6 +504,8 @@ async def get_products(
         }
         for p, supplier_name in result.all()
     ]
+
+    return {"items": items, "total": total}
 
 
 # --- 4. ACTUALIZAR INDIVIDUAL ---
