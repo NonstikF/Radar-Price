@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func, or_
 from typing import Optional, List
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.core.database import get_db
 from app.domain.models import Location, ProductLocation, Product
@@ -11,19 +11,29 @@ from app.domain.models import Location, ProductLocation, Product
 router = APIRouter()
 
 
+def sanitize_code(raw: str) -> str:
+    """Limpia código de ubicación: quita espacios, guiones y pasa a mayúsculas."""
+    return raw.strip().replace("-", "").upper()[:50]
+
+
+def escape_like(value: str) -> str:
+    """Escapa caracteres especiales de LIKE para evitar inyección en patrones."""
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 class LocationCreate(BaseModel):
-    code: str
-    description: Optional[str] = None
+    code: str = Field(..., min_length=1, max_length=50)
+    description: Optional[str] = Field(None, max_length=200)
 
 
 class LocationUpdate(BaseModel):
-    code: Optional[str] = None
-    description: Optional[str] = None
+    code: Optional[str] = Field(None, min_length=1, max_length=50)
+    description: Optional[str] = Field(None, max_length=200)
 
 
 class AddProductToLocation(BaseModel):
-    product_id: int
-    quantity: int = 1
+    product_id: int = Field(..., gt=0)
+    quantity: int = Field(1, ge=0, le=999999)
 
 
 # --- RUTAS FIJAS PRIMERO ---
@@ -51,7 +61,7 @@ async def get_locations(db: AsyncSession = Depends(get_db)):
 
 @router.post("")
 async def create_location(data: LocationCreate, db: AsyncSession = Depends(get_db)):
-    clean_code = data.code.strip().upper()
+    clean_code = sanitize_code(data.code)
     if not clean_code:
         raise HTTPException(400, "El código es requerido")
 
@@ -78,10 +88,11 @@ async def search_locations(q: str = "", db: AsyncSession = Depends(get_db)):
         .outerjoin(ProductLocation, Location.id == ProductLocation.location_id)
     )
     if q:
+        q_safe = escape_like(q[:100])
         stmt = stmt.where(
             or_(
-                Location.code.ilike(f"%{q}%"),
-                Location.description.ilike(f"%{q}%"),
+                Location.code.ilike(f"%{q_safe}%"),
+                Location.description.ilike(f"%{q_safe}%"),
             )
         )
     stmt = stmt.group_by(Location.id).order_by(Location.code.asc()).limit(50)
@@ -99,7 +110,7 @@ async def search_locations(q: str = "", db: AsyncSession = Depends(get_db)):
 
 @router.get("/by-code/{code}")
 async def get_location_by_code(code: str, db: AsyncSession = Depends(get_db)):
-    clean_code = code.strip().upper()
+    clean_code = sanitize_code(code)
     result = await db.execute(
         select(Location).where(Location.code == clean_code)
     )
@@ -113,23 +124,24 @@ async def get_location_by_code(code: str, db: AsyncSession = Depends(get_db)):
 async def search_products_for_location(
     q: Optional[str] = None,
     location_id: Optional[int] = None,
+    with_locations: bool = False,
     db: AsyncSession = Depends(get_db),
 ):
-    """Buscar productos para agregar a una ubicación."""
     stmt = select(Product)
     if q:
+        q_safe = escape_like(q[:200])
         stmt = stmt.where(
             or_(
-                Product.name.ilike(f"%{q}%"),
-                Product.sku.ilike(f"%{q}%"),
-                Product.alias.ilike(f"%{q}%"),
+                Product.name.ilike(f"%{q_safe}%"),
+                Product.sku.ilike(f"%{q_safe}%"),
+                Product.alias.ilike(f"%{q_safe}%"),
+                Product.upc.ilike(f"%{q_safe}%"),
             )
         )
     stmt = stmt.order_by(Product.name.asc()).limit(50)
     result = await db.execute(stmt)
     products = result.scalars().all()
 
-    # Si se pasa location_id, marcar cuáles ya están en esa ubicación
     existing_ids = set()
     if location_id:
         existing = await db.execute(
@@ -139,15 +151,52 @@ async def search_products_for_location(
         )
         existing_ids = {row[0] for row in existing.all()}
 
-    return [
-        {
+    items = []
+    for p in products:
+        item = {
             "id": p.id,
             "name": p.name,
             "sku": p.sku or "",
             "price": p.price,
+            "selling_price": p.selling_price,
+            "image_url": p.image_url or "",
             "already_in_location": p.id in existing_ids,
         }
-        for p in products
+        if with_locations:
+            loc_stmt = (
+                select(ProductLocation, Location)
+                .join(Location, ProductLocation.location_id == Location.id)
+                .where(ProductLocation.product_id == p.id)
+                .order_by(Location.code.asc())
+            )
+            loc_result = await db.execute(loc_stmt)
+            item["locations"] = [
+                {"code": loc.code, "quantity": pl.quantity}
+                for pl, loc in loc_result.all()
+            ]
+        items.append(item)
+
+    return items
+
+
+@router.get("/product/{product_id}/locations")
+async def get_product_locations(product_id: int, db: AsyncSession = Depends(get_db)):
+    """Obtiene todas las ubicaciones donde está un producto."""
+    stmt = (
+        select(ProductLocation, Location)
+        .join(Location, ProductLocation.location_id == Location.id)
+        .where(ProductLocation.product_id == product_id)
+        .order_by(Location.code.asc())
+    )
+    result = await db.execute(stmt)
+    return [
+        {
+            "location_id": loc.id,
+            "code": loc.code,
+            "description": loc.description,
+            "quantity": pl.quantity,
+        }
+        for pl, loc in result.all()
     ]
 
 
@@ -173,6 +222,7 @@ async def get_location_detail(location_id: int, db: AsyncSession = Depends(get_d
             "name": p.name,
             "sku": p.sku or "",
             "alias": p.alias or "",
+            "image_url": p.image_url or "",
             "price": p.price,
             "selling_price": p.selling_price,
             "quantity": pl.quantity,
@@ -199,7 +249,7 @@ async def update_location(
         raise HTTPException(404, "Ubicación no encontrada")
 
     if data.code is not None:
-        clean_code = data.code.strip().upper()
+        clean_code = sanitize_code(data.code)
         if not clean_code:
             raise HTTPException(400, "El código no puede estar vacío")
         dup = await db.execute(
@@ -247,7 +297,6 @@ async def add_product_to_location(
     if not product:
         raise HTTPException(404, "Producto no encontrado")
 
-    # Verificar si ya existe
     existing = await db.execute(
         select(ProductLocation).where(
             ProductLocation.location_id == location_id,
@@ -266,16 +315,20 @@ async def add_product_to_location(
         )
         db.add(item)
 
-    # Guardar nombre antes del commit
     product_name = product.name
+    location_code = location.code
     await db.commit()
 
-    return {"message": f"{product_name} agregado a {location.code}"}
+    return {"message": f"{product_name} agregado a {location_code}"}
+
+
+class UpdateQuantity(BaseModel):
+    quantity: int = Field(..., ge=0, le=999999)
 
 
 @router.put("/{location_id}/products/{product_id}")
 async def update_product_quantity(
-    location_id: int, product_id: int, quantity: int, db: AsyncSession = Depends(get_db)
+    location_id: int, product_id: int, data: UpdateQuantity, db: AsyncSession = Depends(get_db)
 ):
     result = await db.execute(
         select(ProductLocation).where(
@@ -287,7 +340,7 @@ async def update_product_quantity(
     if not item:
         raise HTTPException(404, "Producto no encontrado en esta ubicación")
 
-    item.quantity = quantity
+    item.quantity = data.quantity
     await db.commit()
     return {"message": "Cantidad actualizada"}
 

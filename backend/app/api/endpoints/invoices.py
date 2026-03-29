@@ -20,6 +20,11 @@ router = APIRouter()
 parser = XmlInvoiceParser()
 
 
+def escape_like(value: str) -> str:
+    """Escapa caracteres especiales de LIKE para evitar inyección en patrones."""
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 # --- ESQUEMAS ---
 class ManualProductSchema(BaseModel):
     name: str
@@ -438,14 +443,13 @@ async def get_products(
 
     # --- 2. LÓGICA DE BÚSQUEDA SIN ACENTOS ---
     if q:
-        # Usamos func.unaccent() tanto en la columna de la BD como en el texto de búsqueda
-        # para que "blister" coincida con "Blíster".
+        q_safe = escape_like(q[:200])  # Limitar longitud y escapar wildcards
         stmt = stmt.where(
             or_(
-                func.unaccent(Product.name).ilike(func.unaccent(f"%{q}%")),
-                Product.sku.ilike(f"%{q}%"),  # SKU y UPC no suelen llevar acentos
-                Product.upc.ilike(f"%{q}%"),
-                func.unaccent(Product.alias).ilike(func.unaccent(f"%{q}%")),
+                func.unaccent(Product.name).ilike(func.unaccent(f"%{q_safe}%")),
+                Product.sku.ilike(f"%{q_safe}%"),
+                Product.upc.ilike(f"%{q_safe}%"),
+                func.unaccent(Product.alias).ilike(func.unaccent(f"%{q_safe}%")),
             )
         )
 
@@ -461,14 +465,17 @@ async def get_products(
     if min_stock is not None:
         stmt = stmt.where(Product.stock_quantity <= min_stock)
 
-    # --- Ordenamiento ---
-    sort_col = getattr(Product, sort_by, None)
-    if sort_col is None:
-        sort_col = Product.id
+    # --- Ordenamiento (whitelist de columnas permitidas) ---
+    ALLOWED_SORT = {"id", "name", "price", "selling_price", "stock_quantity", "updated_at", "created_at", "sku"}
+    if sort_by not in ALLOWED_SORT:
+        sort_by = "id"
+    if sort_order not in ("asc", "desc"):
+        sort_order = "desc"
+    sort_col = getattr(Product, sort_by, Product.id)
 
     stmt = stmt.order_by(
         sort_col.desc() if sort_order == "desc" else sort_col.asc()
-    ).limit(limit)
+    ).limit(min(limit, 500))
 
     # --- Ejecución ---
     result = await db.execute(stmt)
@@ -522,6 +529,10 @@ async def update_product_single(
                 p.selling_price = np
         if "supplier_id" in data:
             p.supplier_id = int(data["supplier_id"]) if data["supplier_id"] else None
+        if "alias" in data:
+            p.alias = str(data["alias"]).strip() if data["alias"] else None
+        if "image_url" in data:
+            p.image_url = data["image_url"] if data["image_url"] else None
         await db.commit()
         await db.refresh(p)
         return {"msg": "Actualizado", "id": p.id, "new_price": p.selling_price}
@@ -609,7 +620,8 @@ async def create_manual(item: ManualProductSchema, db: AsyncSession = Depends(ge
     )
     db.add(new_p)
     await db.commit()
-    return {"message": "Creado"}
+    await db.refresh(new_p)
+    return {"message": "Creado", "id": new_p.id, "name": new_p.name, "sku": new_p.sku or ""}
 
 
 # --- 8. ELIMINAR ---

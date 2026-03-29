@@ -19,11 +19,11 @@
       "Bash(powershell.exe:*)",
       "Bash(grep:*)",
       "Bash(powershell.exe -Command \"Stop-Process -Id 23384 -Force\" && sleep 1 && cd /c/Users/admin/Radar-Price/backend && venv/Scripts/python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 2>&1)",
-      "Bash(git log:*)",
-      "Bash(git checkout:*)",
-      "Bash(git merge:*)",
-      "Bash(git push:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(git add:*)",
+      "Bash(git -C c:/Users/admin/Proyectos/Radar-Price add backend/app/api/endpoints/locations.py frontend/src/pages/inventory/Locations.tsx)",
+      "Bash(git -C c:/Users/admin/Proyectos/Radar-Price status --short)",
+      "Bash(git -C:*)"
     ]
   }
 }
