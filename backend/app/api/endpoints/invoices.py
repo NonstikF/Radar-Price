@@ -479,7 +479,8 @@ async def get_products(
     )
 
     # --- Conteo total (antes de limit/offset) ---
-    count_stmt = select(func.count(Product.id)).select_from(stmt.subquery())
+    subq = stmt.order_by(None).subquery()
+    count_stmt = select(func.count(subq.c.id))
     total_result = await db.execute(count_stmt)
     total = total_result.scalar() or 0
 
