@@ -242,7 +242,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                             <div className="flex-1 min-w-0 pr-3">
                                 <h3 className="font-bold text-gray-800 dark:text-gray-100 text-base leading-tight mb-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-2">{product.name}</h3>
                                 <div className="flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400">
-                                    <span className="bg-gray-100 dark:bg-gray-900 px-2 rounded font-mono">ID: {product.sku || 'N/A'}</span>
+                                    {product.sku && <span className="bg-gray-100 dark:bg-gray-900 px-2 rounded font-mono">ID: {product.sku}</span>}
                                     {product.upc && <span className="bg-gray-100 dark:bg-gray-900 px-2 rounded font-mono">UPC: {product.upc}</span>}
                                     {product.alias && <span className="bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 px-2 rounded font-bold flex items-center gap-1"><Tag className="w-3 h-3" /> {product.alias}</span>}
                                     {(!product.selling_price) && <span className="bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 px-2 rounded flex items-center gap-1 font-bold"><AlertTriangle className="w-3 h-3" /> Sin precio</span>}
