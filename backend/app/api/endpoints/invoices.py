@@ -636,6 +636,21 @@ async def create_manual(item: ManualProductSchema, db: AsyncSession = Depends(ge
     return {"message": "Creado", "id": new_p.id, "name": new_p.name, "sku": new_p.sku or ""}
 
 
+# --- 8B. BULK TOUCH (actualizar updated_at masivo) ---
+@router.post("/products/bulk-touch")
+async def bulk_touch_products(data: dict = Body(...), db: AsyncSession = Depends(get_db)):
+    ids = data.get("ids", [])
+    if not ids:
+        raise HTTPException(400, "No hay IDs")
+    await db.execute(
+        update(Product)
+        .where(Product.id.in_(ids))
+        .values(updated_at=datetime.now())
+    )
+    await db.commit()
+    return {"updated": len(ids)}
+
+
 # --- 8. ELIMINAR ---
 @router.delete("/products/{product_id}")
 async def delete_product(product_id: int, db: AsyncSession = Depends(get_db)):
