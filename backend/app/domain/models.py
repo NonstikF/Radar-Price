@@ -34,6 +34,9 @@ class Product(Base):
     stock_quantity = Column(Integer, default=0)
 
     supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=True)
+
     supplier = relationship("Supplier", back_populates="products")
 
     # Relación con el historial
