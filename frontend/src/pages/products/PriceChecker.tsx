@@ -1,13 +1,16 @@
 import { useState } from 'react';
+import axios from 'axios';
 import {
     Search, X, Camera, Filter, PackageOpen, Loader2, ArrowDownAZ, ArrowUpAZ,
-    CheckCircle2, AlertTriangle, Tag, ShoppingCart, ChevronLeft, ChevronRight
+    CheckCircle2, AlertTriangle, Tag, ShoppingCart, ChevronLeft, ChevronRight,
+    CheckSquare, Square, Clock, ListChecks
 } from 'lucide-react';
 import { BarcodeScanner } from '../../components/ui/BarcodeScanner';
 import { useProductSearch } from '../../hooks/useProductSearch';
 import { useShoppingList } from '../../hooks/useShoppingList';
 import { ProductDetailModal } from '../../components/modals/ProductDetailModal';
 import { TOAST_DURATION } from '../../config/constants';
+import { API_URL } from '../../config/api';
 
 interface Props {
     initialFilter?: boolean;
@@ -28,6 +31,9 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
     const [showScanner, setShowScanner] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
     const [toast, setToast] = useState<{ show: boolean, message: string, type: 'success' | 'error' }>({ show: false, message: '', type: 'success' });
+    const [selectionMode, setSelectionMode] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+    const [bulkLoading, setBulkLoading] = useState(false);
 
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     const isAdmin = user.role === 'admin';
@@ -52,6 +58,41 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
         setProducts(prev => prev.filter(p => p.id !== selectedProduct.id));
         setSelectedProduct(null);
         showToast("Producto eliminado");
+    };
+
+    const toggleSelection = (id: number) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            next.has(id) ? next.delete(id) : next.add(id);
+            return next;
+        });
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedIds.size === products.length) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(products.map(p => p.id)));
+        }
+    };
+
+    const exitSelectionMode = () => {
+        setSelectionMode(false);
+        setSelectedIds(new Set());
+    };
+
+    const handleBulkTouch = async () => {
+        if (selectedIds.size === 0) return;
+        setBulkLoading(true);
+        try {
+            await axios.post(`${API_URL}/invoices/products/bulk-touch`, { ids: Array.from(selectedIds) });
+            showToast(`${selectedIds.size} productos actualizados`);
+            exitSelectionMode();
+        } catch {
+            showToast("Error al actualizar", "error");
+        } finally {
+            setBulkLoading(false);
+        }
     };
 
     const handleQuickAddToCart = async (e: React.MouseEvent, product: any) => {
@@ -107,10 +148,16 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                         <div className="flex gap-2 w-full md:w-auto">
                             <button
                                 onClick={() => setShowFilters(!showFilters)}
-                                // CORRECCIÓN: Colores oscuros para activo/inactivo
                                 className={`flex-1 md:flex-none px-4 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-sm ${showFilters || filters.minPrice || filters.missingPrice ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' : 'bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
                             >
                                 <Filter className="w-4 h-4" /> Filtros
+                            </button>
+                            <button
+                                onClick={() => { setSelectionMode(!selectionMode); setSelectedIds(new Set()); }}
+                                className={`px-4 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-sm ${selectionMode ? 'bg-indigo-600 text-white' : 'bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                                title="Modo selección múltiple"
+                            >
+                                <ListChecks className="w-4 h-4" />
                             </button>
                             {(searchTerm || filters.minPrice || filters.missingPrice) && (
                                 <button onClick={handleClearAllFilters} className="px-4 py-3 rounded-xl font-bold text-red-500 dark:text-red-400 bg-white dark:bg-gray-900 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">
@@ -166,48 +213,62 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                         </div>
                     )}
 
-                    {products.map((product) => (
+                    {/* BARRA SELECCIONAR TODO */}
+                    {selectionMode && products.length > 0 && (
+                        <div className="flex items-center justify-between px-1 py-2">
+                            <button onClick={toggleSelectAll} className="flex items-center gap-2 text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:underline">
+                                {selectedIds.size === products.length
+                                    ? <><CheckSquare className="w-4 h-4" /> Deseleccionar todos</>
+                                    : <><Square className="w-4 h-4" /> Seleccionar todos ({products.length})</>
+                                }
+                            </button>
+                            <span className="text-xs text-gray-400">{selectedIds.size} seleccionados</span>
+                        </div>
+                    )}
+
+                    {products.map((product) => {
+                        const isSelected = selectedIds.has(product.id);
+                        return (
                         <div
                             key={product.id}
-                            onClick={() => setSelectedProduct(product)}
-                            className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-xl shadow-sm border border-gray-100 dark:border-transparent flex justify-between items-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all active:scale-[0.99] group"
+                            onClick={() => selectionMode ? toggleSelection(product.id) : setSelectedProduct(product)}
+                            className={`bg-white dark:bg-gray-800 p-3 md:p-4 rounded-xl shadow-sm border flex justify-between items-center cursor-pointer transition-all active:scale-[0.99] group ${isSelected ? 'border-indigo-400 dark:border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-gray-100 dark:border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}
                         >
+                            {selectionMode && (
+                                <div className="mr-3 shrink-0 text-indigo-500">
+                                    {isSelected ? <CheckSquare className="w-5 h-5" /> : <Square className="w-5 h-5 text-gray-300 dark:text-gray-600" />}
+                                </div>
+                            )}
                             <div className="flex-1 min-w-0 pr-3">
-                                {/* Título: Cambia a un azul más suave al pasar el mouse en modo oscuro */}
                                 <h3 className="font-bold text-gray-800 dark:text-gray-100 text-base leading-tight mb-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-2">{product.name}</h3>
-
                                 <div className="flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400">
-                                    {/* Etiqueta ID: Fondo oscuro sutil */}
                                     <span className="bg-gray-100 dark:bg-gray-900 px-2 rounded font-mono">ID: {product.sku || 'N/A'}</span>
-
-                                    {/* Código de barras UPC */}
                                     {product.upc && <span className="bg-gray-100 dark:bg-gray-900 px-2 rounded font-mono">UPC: {product.upc}</span>}
-
-                                    {/* Etiqueta Alias: Fondo morado translúcido */}
                                     {product.alias && <span className="bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 px-2 rounded font-bold flex items-center gap-1"><Tag className="w-3 h-3" /> {product.alias}</span>}
-
-                                    {/* Etiqueta Sin Precio Pequeña: Fondo naranja translúcido */}
                                     {(!product.selling_price) && <span className="bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 px-2 rounded flex items-center gap-1 font-bold"><AlertTriangle className="w-3 h-3" /> Sin precio</span>}
                                 </div>
                             </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                                <button
-                                    onClick={(e) => handleQuickAddToCart(e, product)}
-                                    disabled={adding}
-                                    title={product.supplier_id ? "Agregar a lista de compras" : "Sin proveedor asignado"}
-                                    className={`p-2 rounded-xl transition-all active:scale-90 ${product.supplier_id ? 'text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20' : 'text-gray-300 dark:text-gray-600 cursor-not-allowed'}`}
-                                >
-                                    <ShoppingCart className="w-5 h-5" />
-                                </button>
-                                <div className="text-right">
-                                    {(!product.selling_price) ?
-                                        <span className="bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 px-2 py-1 rounded-lg text-xs font-bold">Sin Precio</span> :
-                                        <div className="text-2xl font-black text-blue-600 dark:text-blue-400 tracking-tight">${product.selling_price?.toFixed(2)}</div>
-                                    }
+                            {!selectionMode && (
+                                <div className="flex items-center gap-2 shrink-0">
+                                    <button
+                                        onClick={(e) => handleQuickAddToCart(e, product)}
+                                        disabled={adding}
+                                        title={product.supplier_id ? "Agregar a lista de compras" : "Sin proveedor asignado"}
+                                        className={`p-2 rounded-xl transition-all active:scale-90 ${product.supplier_id ? 'text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20' : 'text-gray-300 dark:text-gray-600 cursor-not-allowed'}`}
+                                    >
+                                        <ShoppingCart className="w-5 h-5" />
+                                    </button>
+                                    <div className="text-right">
+                                        {(!product.selling_price) ?
+                                            <span className="bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 px-2 py-1 rounded-lg text-xs font-bold">Sin Precio</span> :
+                                            <div className="text-2xl font-black text-blue-600 dark:text-blue-400 tracking-tight">${product.selling_price?.toFixed(2)}</div>
+                                        }
+                                    </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
-                    ))}
+                        );
+                    })}
 
                     {/* PAGINACIÓN */}
                     {totalPages > 1 && (
@@ -253,6 +314,31 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                             </div>
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* BARRA FLOTANTE DE SELECCIÓN */}
+            {selectionMode && (
+                <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 animate-fade-in">
+                    <div className="bg-gray-900 dark:bg-gray-800 text-white rounded-2xl shadow-2xl px-4 py-3 flex items-center gap-3 border border-gray-700">
+                        <span className="text-sm font-bold text-gray-300 min-w-[80px]">
+                            {selectedIds.size} selec.
+                        </span>
+                        <button
+                            onClick={handleBulkTouch}
+                            disabled={selectedIds.size === 0 || bulkLoading}
+                            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-700 disabled:text-gray-500 rounded-xl font-bold text-sm transition-all"
+                        >
+                            {bulkLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Clock className="w-4 h-4" />}
+                            Actualizar fecha
+                        </button>
+                        <button
+                            onClick={exitSelectionMode}
+                            className="p-2 rounded-xl hover:bg-gray-700 text-gray-400 hover:text-white transition-all"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
             )}
 
