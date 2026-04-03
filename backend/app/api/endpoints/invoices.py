@@ -590,7 +590,7 @@ async def merge_products(data: dict = Body(...), db: AsyncSession = Depends(get_
     await db.execute(
         update(Product)
         .where(Product.id == keep_id)
-        .values(stock_quantity=Product.stock_quantity + qty_to_add, price=new_price)
+        .values(stock_quantity=Product.stock_quantity + qty_to_add, price=new_price, updated_at=datetime.now())
     )
     await db.execute(delete(Product).where(Product.id == discard_id))
 
