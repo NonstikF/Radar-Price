@@ -180,6 +180,9 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                                     {/* Etiqueta ID: Fondo oscuro sutil */}
                                     <span className="bg-gray-100 dark:bg-gray-900 px-2 rounded font-mono">ID: {product.sku || 'N/A'}</span>
 
+                                    {/* Código de barras UPC */}
+                                    {product.upc && <span className="bg-gray-100 dark:bg-gray-900 px-2 rounded font-mono">UPC: {product.upc}</span>}
+
                                     {/* Etiqueta Alias: Fondo morado translúcido */}
                                     {product.alias && <span className="bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 px-2 rounded font-bold flex items-center gap-1"><Tag className="w-3 h-3" /> {product.alias}</span>}
 
