@@ -66,6 +66,7 @@ export function Locations() {
 
     // Scanner QR
     const [showScanner, setShowScanner] = useState(false);
+    const [scannerTarget, setScannerTarget] = useState<'addProduct' | 'detail' | 'productSearch' | null>(null);
 
     // Filtro existencia en detalle
     const [showAll, setShowAll] = useState(false);
@@ -426,8 +427,11 @@ export function Locations() {
                             placeholder="Buscar producto..."
                             value={productSearch}
                             onChange={(e) => setProductSearch(e.target.value)}
-                            className="w-full pl-10 pr-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-transparent rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-900 dark:text-white"
+                            className="w-full pl-10 pr-10 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-transparent rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-900 dark:text-white"
                         />
+                        <button onClick={() => setScannerTarget('addProduct')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-gray-700 transition-all">
+                            <Camera className="w-4 h-4" />
+                        </button>
                     </div>
                 </div>
 
@@ -533,8 +537,11 @@ export function Locations() {
                                     placeholder="Buscar producto..."
                                     value={detailSearch}
                                     onChange={(e) => setDetailSearch(e.target.value)}
-                                    className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-transparent rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium text-gray-900 dark:text-white shadow-sm"
+                                    className="w-full pl-10 pr-10 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-transparent rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium text-gray-900 dark:text-white shadow-sm"
                                 />
+                                <button onClick={() => setScannerTarget('detail')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-gray-700 transition-all">
+                                    <Camera className="w-4 h-4" />
+                                </button>
                             </div>
                             <button
                                 onClick={() => setShowAll(!showAll)}
@@ -884,14 +891,19 @@ export function Locations() {
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                     {productSearchMode ? (
+                        <>
                         <input
                             type="text"
                             placeholder="Buscar producto por nombre, SKU o código..."
                             value={productSearchTerm}
                             onChange={(e) => setProductSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-transparent rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-medium text-gray-900 dark:text-white shadow-sm"
+                            className="w-full pl-10 pr-10 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-transparent rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-medium text-gray-900 dark:text-white shadow-sm"
                             autoFocus
                         />
+                        <button onClick={() => setScannerTarget('productSearch')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-gray-700 transition-all">
+                            <Camera className="w-5 h-5" />
+                        </button>
+                        </>
                     ) : (
                         <input
                             type="text"
@@ -1036,6 +1048,19 @@ export function Locations() {
 
             {/* SCANNER QR */}
             {showScanner && <BarcodeScanner onScan={handleScan} onClose={() => setShowScanner(false)} />}
+
+            {/* SCANNER BÚSQUEDA */}
+            {scannerTarget && (
+                <BarcodeScanner
+                    onScan={(code) => {
+                        if (scannerTarget === 'addProduct') setProductSearch(code);
+                        else if (scannerTarget === 'detail') setDetailSearch(code);
+                        else if (scannerTarget === 'productSearch') setProductSearchTerm(code);
+                        setScannerTarget(null);
+                    }}
+                    onClose={() => setScannerTarget(null)}
+                />
+            )}
         </div>
     );
 }
