@@ -845,6 +845,18 @@ export function Locations() {
 
                 {addProductModalContent}
                 {showScanner && <BarcodeScanner onScan={handleScan} onClose={() => setShowScanner(false)} />}
+                {scannerTarget === 'addProduct' && (
+                    <BarcodeScanner
+                        onScan={(code) => { setProductSearch(code); setScannerTarget(null); }}
+                        onClose={() => setScannerTarget(null)}
+                    />
+                )}
+                {scannerTarget === 'detail' && (
+                    <BarcodeScanner
+                        onScan={(code) => { setDetailSearch(code); setScannerTarget(null); }}
+                        onClose={() => setScannerTarget(null)}
+                    />
+                )}
             </div>
         );
     }
