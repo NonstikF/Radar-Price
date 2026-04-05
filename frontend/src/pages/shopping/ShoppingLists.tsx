@@ -144,7 +144,7 @@ export function ShoppingLists() {
     // --- VISTA DETALLE ---
     if (selectedList) {
         return (
-            <div className="w-full max-w-4xl mx-auto p-2 md:p-6 pb-24 animate-fade-in">
+            <div className="w-full max-w-7xl mx-auto p-2 md:p-6 pb-24 animate-fade-in">
                 {/* TOAST */}
                 <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[70] transition-all duration-300 transform ${toast.show ? 'translate-y-0 opacity-100' : '-translate-y-10 opacity-0 pointer-events-none'}`}>
                     <div className={`flex items-center gap-3 px-6 py-4 rounded-full shadow-2xl border ${toast.type === 'success' ? 'bg-gray-900 text-green-400 border-green-500/30' : 'bg-red-50 text-red-600 border-red-200'}`}>
@@ -261,7 +261,7 @@ export function ShoppingLists() {
 
     // --- VISTA LISTA ---
     return (
-        <div className="w-full max-w-4xl mx-auto p-2 md:p-6 pb-24 animate-fade-in">
+        <div className="w-full max-w-7xl mx-auto p-2 md:p-6 pb-24 animate-fade-in">
             {/* TOAST */}
             <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[70] transition-all duration-300 transform ${toast.show ? 'translate-y-0 opacity-100' : '-translate-y-10 opacity-0 pointer-events-none'}`}>
                 <div className={`flex items-center gap-3 px-6 py-4 rounded-full shadow-2xl border ${toast.type === 'success' ? 'bg-gray-900 text-green-400 border-green-500/30' : 'bg-red-50 text-red-600 border-red-200'}`}>

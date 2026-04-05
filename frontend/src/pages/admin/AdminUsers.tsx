@@ -139,7 +139,7 @@ export function AdminUsers() {
     };
 
     return (
-        <div className="w-full max-w-6xl mx-auto p-4 md:p-6 pb-24 animate-fade-in">
+        <div className="w-full max-w-7xl mx-auto p-4 md:p-6 pb-24 animate-fade-in">
 
             {/* HEADER COMPACTO */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-4">

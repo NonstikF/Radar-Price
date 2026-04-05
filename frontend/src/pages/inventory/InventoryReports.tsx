@@ -89,7 +89,7 @@ export function InventoryReports() {
     const totalPages = Math.ceil(total / PAGE_SIZE);
 
     return (
-        <div className="w-full max-w-5xl mx-auto p-4 md:p-6 pb-28 animate-fade-in">
+        <div className="w-full max-w-7xl mx-auto p-4 md:p-6 pb-28 animate-fade-in">
             {/* Header */}
             <div className="flex items-center gap-3 mb-5">
                 <button

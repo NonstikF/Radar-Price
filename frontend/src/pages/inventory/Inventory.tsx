@@ -64,7 +64,7 @@ export function Inventory() {
     const soon = modules.filter(m => !m.ready);
 
     return (
-        <div className="w-full max-w-6xl mx-auto p-4 md:p-8 pb-24 animate-fade-in">
+        <div className="w-full max-w-7xl mx-auto p-4 md:p-8 pb-24 animate-fade-in">
             <div className="mb-8">
                 <h1 className="text-3xl md:text-4xl font-black text-gray-900 dark:text-white tracking-tight">Inventario</h1>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Gestiona ubicaciones, movimientos y reportes de tu almacén.</p>
