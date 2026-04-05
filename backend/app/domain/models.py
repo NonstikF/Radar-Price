@@ -62,6 +62,20 @@ class PriceHistory(Base):
     product = relationship("Product", back_populates="history")
 
 
+class StockHistory(Base):
+    __tablename__ = "stock_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"))
+    change_type = Column(String)  # "ENTRADA", "AJUSTE", "MERGE"
+    old_value = Column(Integer)
+    new_value = Column(Integer)
+    source = Column(String, nullable=True)  # nombre del batch o "manual"
+    date = Column(DateTime, default=datetime.utcnow)
+
+    product = relationship("Product")
+
+
 class ImportBatch(Base):
     __tablename__ = "import_batches"
 
