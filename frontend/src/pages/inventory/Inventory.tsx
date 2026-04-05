@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { MapPin, ArrowRight, PackageSearch, ClipboardList, ScanBarcode } from 'lucide-react';
+import { MapPin, ArrowRight, PackageSearch, ClipboardList, ScanBarcode, BarChart3 } from 'lucide-react';
 
 export function Inventory() {
     const navigate = useNavigate();
@@ -41,6 +41,15 @@ export function Inventory() {
             path: '/inventory/movements',
             ready: false,
         },
+        {
+            key: 'reports',
+            title: 'Reportes',
+            description: 'Historial de existencias y resumen de inventario',
+            icon: BarChart3,
+            color: 'violet',
+            path: '/inventory/reports',
+            ready: true,
+        },
     ];
 
     const colorMap: Record<string, { bg: string; icon: string; hover: string }> = {
@@ -48,6 +57,7 @@ export function Inventory() {
         emerald: { bg: 'bg-emerald-50 dark:bg-emerald-900/20', icon: 'text-emerald-600 dark:text-emerald-400', hover: 'hover:border-emerald-200 dark:hover:border-emerald-800' },
         amber: { bg: 'bg-amber-50 dark:bg-amber-900/20', icon: 'text-amber-600 dark:text-amber-400', hover: 'hover:border-amber-200 dark:hover:border-amber-800' },
         teal: { bg: 'bg-teal-50 dark:bg-teal-900/20', icon: 'text-teal-600 dark:text-teal-400', hover: 'hover:border-teal-200 dark:hover:border-teal-800' },
+        violet: { bg: 'bg-violet-50 dark:bg-violet-900/20', icon: 'text-violet-600 dark:text-violet-400', hover: 'hover:border-violet-200 dark:hover:border-violet-800' },
     };
 
     return (
