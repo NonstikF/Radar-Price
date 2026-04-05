@@ -13,7 +13,7 @@ from typing import List, Dict, Optional, Set
 from pydantic import BaseModel
 from app.core.database import get_db
 from app.services.xml_service import XmlInvoiceParser
-from app.domain.models import Product, PriceHistory, ImportBatch, ImportBatchItem, Supplier
+from app.domain.models import Product, PriceHistory, ImportBatch, ImportBatchItem, Supplier, StockHistory
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -166,6 +166,7 @@ async def upload_invoice(
     new_products_buffer = []
     price_history_buffer = []
     batch_items_buffer = []
+    stock_history_buffer = []
     temp_new_products_map = []  # Memoria temporal para evitar error Greenlet
 
     for key, data in grouped_items.items():
@@ -208,7 +209,17 @@ async def upload_invoice(
             if supplier_id and not existing_product.supplier_id:
                 existing_product.supplier_id = supplier_id
 
+            old_stock = existing_product.stock_quantity
             existing_product.stock_quantity += data["qty"]  # Sumar Stock Global
+            stock_history_buffer.append(
+                StockHistory(
+                    product_id=existing_product.id,
+                    change_type="ENTRADA",
+                    old_value=int(old_stock),
+                    new_value=int(existing_product.stock_quantity),
+                    source=file.filename,
+                )
+            )
 
             if abs(existing_product.price - data["cost"]) > 0.1:
                 status = "price_changed"
@@ -347,6 +358,15 @@ async def upload_invoice(
                 batch_id=current_batch_id, product_id=new_p.id, quantity=item["qty"]
             )
         )
+        stock_history_buffer.append(
+            StockHistory(
+                product_id=new_p.id,
+                change_type="ENTRADA",
+                old_value=0,
+                new_value=int(item["qty"]),
+                source=file.filename,
+            )
+        )
 
         # Actualizamos la respuesta con los datos de memoria
         final_response_data[idx]["id"] = new_p.id
@@ -359,6 +379,7 @@ async def upload_invoice(
 
     db.add_all(price_history_buffer)
     db.add_all(batch_items_buffer)
+    db.add_all(stock_history_buffer)
 
     try:
         await db.commit()
@@ -594,6 +615,15 @@ async def merge_products(data: dict = Body(...), db: AsyncSession = Depends(get_
     )
     await db.execute(delete(Product).where(Product.id == discard_id))
 
+    if qty_to_add > 0:
+        db.add(StockHistory(
+            product_id=keep_id,
+            change_type="MERGE",
+            old_value=k.stock_quantity,
+            new_value=k.stock_quantity + qty_to_add,
+            source=f"merge:{discard_id}",
+        ))
+
     await db.commit()
     return {"message": "Fusionado correctamente"}
 
@@ -631,6 +661,15 @@ async def create_manual(item: ManualProductSchema, db: AsyncSession = Depends(ge
         supplier_id=item.supplier_id,
     )
     db.add(new_p)
+    await db.flush()
+    if item.stock > 0:
+        db.add(StockHistory(
+            product_id=new_p.id,
+            change_type="ENTRADA",
+            old_value=0,
+            new_value=item.stock,
+            source="manual",
+        ))
     await db.commit()
     await db.refresh(new_p)
     return {"message": "Creado", "id": new_p.id, "name": new_p.name, "sku": new_p.sku or ""}

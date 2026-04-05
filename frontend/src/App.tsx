@@ -28,6 +28,7 @@ import { Suppliers } from './pages/suppliers/Suppliers';
 import { Inventory } from './pages/inventory/Inventory';
 import { Locations } from './pages/inventory/Locations';
 import { AssignProduct } from './pages/inventory/AssignProduct';
+import { InventoryReports } from './pages/inventory/InventoryReports';
 import { ProductsHub } from './pages/products/ProductsHub';
 import { PurchasesHub } from './pages/purchases/PurchasesHub';
 import { Categories } from './pages/products/Categories';
@@ -351,6 +352,7 @@ const router = createBrowserRouter(
       <Route path="inventory" element={<PermissionGuard module="inventory"><Inventory /></PermissionGuard>} />
       <Route path="inventory/locations" element={<PermissionGuard module="inventory"><Locations /></PermissionGuard>} />
       <Route path="inventory/assign" element={<PermissionGuard module="inventory"><AssignProduct /></PermissionGuard>} />
+      <Route path="inventory/reports" element={<PermissionGuard module="inventory"><InventoryReports /></PermissionGuard>} />
 
       <Route path="admin" element={<AdminGuard><AdminUsers /></AdminGuard>} />
 
