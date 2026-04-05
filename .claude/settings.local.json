@@ -23,7 +23,14 @@
       "Bash(git add:*)",
       "Bash(git -C c:/Users/admin/Proyectos/Radar-Price add backend/app/api/endpoints/locations.py frontend/src/pages/inventory/Locations.tsx)",
       "Bash(git -C c:/Users/admin/Proyectos/Radar-Price status --short)",
-      "Bash(git -C:*)"
+      "Bash(git -C:*)",
+      "Bash(find /c/Users/admin/Proyectos/Radar-Price/frontend/src -name *ProductDetail* -o -name *Modal*)",
+      "Bash(npm run:*)",
+      "Bash(npx skills:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(git checkout:*)",
+      "Bash(git cherry-pick:*)",
+      "Bash(git push:*)"
     ]
   }
 }
