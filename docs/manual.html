@@ -1,0 +1,1548 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Manual de Usuario — RadarPrice</title>
+<style>
+  :root {
+    --blue: #2563eb;
+    --blue-light: #eff6ff;
+    --blue-dark: #1e40af;
+    --indigo: #4f46e5;
+    --emerald: #059669;
+    --amber: #d97706;
+    --red: #dc2626;
+    --violet: #7c3aed;
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-300: #d1d5db;
+    --gray-400: #9ca3af;
+    --gray-500: #6b7280;
+    --gray-600: #4b5563;
+    --gray-700: #374151;
+    --gray-800: #1f2937;
+    --gray-900: #111827;
+    --radius: 12px;
+    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.06);
+    --shadow-lg: 0 4px 6px rgba(0,0,0,.05), 0 10px 40px rgba(0,0,0,.1);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--gray-50);
+    color: var(--gray-800);
+    font-size: 15px;
+    line-height: 1.65;
+  }
+
+  /* ── LAYOUT ── */
+  .layout { display: flex; min-height: 100vh; }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    width: 280px;
+    background: white;
+    border-right: 1px solid var(--gray-200);
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    flex-shrink: 0;
+    padding: 0 0 40px;
+  }
+
+  .sidebar-logo {
+    padding: 24px 24px 20px;
+    border-bottom: 1px solid var(--gray-100);
+  }
+
+  .sidebar-logo .brand {
+    font-size: 20px;
+    font-weight: 900;
+    color: var(--gray-900);
+    letter-spacing: -0.5px;
+  }
+
+  .sidebar-logo .brand span { color: var(--blue); }
+
+  .sidebar-logo .tagline {
+    font-size: 11px;
+    color: var(--gray-400);
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  .sidebar-logo .version {
+    display: inline-block;
+    background: var(--blue-light);
+    color: var(--blue);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    margin-top: 8px;
+  }
+
+  .nav-section {
+    padding: 20px 16px 4px;
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--gray-400);
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 16px;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--gray-600);
+    text-decoration: none;
+    border-radius: 8px;
+    margin: 1px 8px;
+    transition: all .15s;
+  }
+
+  .nav-item:hover { background: var(--gray-50); color: var(--gray-900); }
+  .nav-item.active { background: var(--blue-light); color: var(--blue); font-weight: 700; }
+
+  .nav-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ── MAIN ── */
+  .main {
+    flex: 1;
+    padding: 48px 64px;
+    max-width: 960px;
+  }
+
+  @media (max-width: 900px) {
+    .sidebar { display: none; }
+    .main { padding: 32px 24px; }
+  }
+
+  /* ── COVER ── */
+  .cover {
+    background: linear-gradient(135deg, var(--blue-dark) 0%, var(--blue) 50%, var(--indigo) 100%);
+    color: white;
+    border-radius: 20px;
+    padding: 56px 48px;
+    margin-bottom: 64px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .cover::before {
+    content: '';
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 200px; height: 200px;
+    background: rgba(255,255,255,.07);
+    border-radius: 50%;
+  }
+
+  .cover::after {
+    content: '';
+    position: absolute;
+    bottom: -60px; right: 80px;
+    width: 280px; height: 280px;
+    background: rgba(255,255,255,.04);
+    border-radius: 50%;
+  }
+
+  .cover-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,.15);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,.2);
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    margin-bottom: 20px;
+  }
+
+  .cover h1 {
+    font-size: 42px;
+    font-weight: 900;
+    letter-spacing: -1.5px;
+    line-height: 1.1;
+    margin-bottom: 16px;
+  }
+
+  .cover h1 .highlight { color: rgba(255,255,255,.75); }
+
+  .cover p {
+    font-size: 16px;
+    color: rgba(255,255,255,.8);
+    max-width: 500px;
+    line-height: 1.6;
+    margin-bottom: 32px;
+  }
+
+  .cover-meta {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+
+  .cover-meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .cover-meta-item .label {
+    font-size: 11px;
+    color: rgba(255,255,255,.5);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+  }
+
+  .cover-meta-item .value {
+    font-size: 15px;
+    font-weight: 700;
+    color: white;
+  }
+
+  /* ── SECTIONS ── */
+  .chapter {
+    margin-bottom: 72px;
+    scroll-margin-top: 24px;
+  }
+
+  .chapter-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 32px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid var(--gray-100);
+  }
+
+  .chapter-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+
+  .chapter-number {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .chapter h2 {
+    font-size: 28px;
+    font-weight: 900;
+    letter-spacing: -0.5px;
+    color: var(--gray-900);
+  }
+
+  .chapter-desc {
+    font-size: 15px;
+    color: var(--gray-500);
+    margin-top: 4px;
+  }
+
+  h3 {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--gray-800);
+    margin: 32px 0 12px;
+    letter-spacing: -.3px;
+  }
+
+  h4 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--gray-700);
+    margin: 20px 0 8px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+
+  p { margin-bottom: 12px; color: var(--gray-600); }
+
+  /* ── IMAGE PLACEHOLDER ── */
+  .screenshot {
+    background: var(--gray-100);
+    border: 2px dashed var(--gray-300);
+    border-radius: var(--radius);
+    padding: 32px 24px;
+    text-align: center;
+    margin: 20px 0;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .screenshot.has-img {
+    padding: 0;
+    border: 1px solid var(--gray-200);
+    background: white;
+  }
+
+  .screenshot img {
+    width: 100%;
+    border-radius: calc(var(--radius) - 2px);
+    display: block;
+    box-shadow: var(--shadow);
+  }
+
+  .screenshot-icon { font-size: 28px; margin-bottom: 8px; }
+
+  .screenshot-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--gray-400);
+    letter-spacing: .3px;
+  }
+
+  .screenshot-caption {
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--gray-400);
+    font-style: italic;
+    margin-top: 8px;
+    margin-bottom: 20px;
+  }
+
+  /* ── CARDS / FEATURE GRID ── */
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+    margin: 20px 0;
+  }
+
+  .feature-card {
+    background: white;
+    border: 1px solid var(--gray-100);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: var(--shadow);
+  }
+
+  .feature-card .icon { font-size: 24px; margin-bottom: 10px; }
+
+  .feature-card h5 {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--gray-800);
+    margin-bottom: 6px;
+  }
+
+  .feature-card p {
+    font-size: 13px;
+    color: var(--gray-500);
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  /* ── STEPS ── */
+  .steps { margin: 20px 0; }
+
+  .step {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  .step-num {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--blue);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 800;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .step-content h5 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--gray-800);
+    margin-bottom: 4px;
+  }
+
+  .step-content p {
+    font-size: 13.5px;
+    color: var(--gray-500);
+    margin: 0;
+  }
+
+  /* ── CALLOUTS ── */
+  .callout {
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    margin: 20px 0;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .callout-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+
+  .callout p { margin: 0; font-size: 13.5px; }
+
+  .callout.info { background: #eff6ff; border: 1px solid #bfdbfe; }
+  .callout.info p { color: #1e40af; }
+  .callout.warning { background: #fffbeb; border: 1px solid #fde68a; }
+  .callout.warning p { color: #92400e; }
+  .callout.tip { background: #f0fdf4; border: 1px solid #bbf7d0; }
+  .callout.tip p { color: #14532d; }
+
+  /* ── TABLE ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 13.5px;
+    background: white;
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+
+  th {
+    background: var(--gray-50);
+    padding: 11px 16px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--gray-500);
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    border-bottom: 1px solid var(--gray-200);
+  }
+
+  td {
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--gray-100);
+    color: var(--gray-600);
+    vertical-align: top;
+  }
+
+  tr:last-child td { border-bottom: none; }
+
+  /* ── BADGE ── */
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .badge.blue { background: #dbeafe; color: #1d4ed8; }
+  .badge.green { background: #d1fae5; color: #065f46; }
+  .badge.amber { background: #fef3c7; color: #92400e; }
+  .badge.red { background: #fee2e2; color: #991b1b; }
+  .badge.purple { background: #ede9fe; color: #5b21b6; }
+
+  /* ── DIVIDER ── */
+  .divider {
+    border: none;
+    border-top: 2px solid var(--gray-100);
+    margin: 48px 0;
+  }
+
+  /* ── TOC ── */
+  .toc {
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius);
+    padding: 28px 32px;
+    margin-bottom: 56px;
+    box-shadow: var(--shadow);
+  }
+
+  .toc h2 {
+    font-size: 14px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--gray-400);
+    margin-bottom: 16px;
+  }
+
+  .toc-list { list-style: none; }
+
+  .toc-list li {
+    margin-bottom: 6px;
+  }
+
+  .toc-list a {
+    color: var(--gray-700);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 0;
+    transition: color .15s;
+  }
+
+  .toc-list a:hover { color: var(--blue); }
+
+  .toc-list .toc-num {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--gray-300);
+    width: 20px;
+    flex-shrink: 0;
+  }
+
+  /* ── KEYBOARD ── */
+  kbd {
+    background: var(--gray-100);
+    border: 1px solid var(--gray-300);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    padding: 2px 7px;
+    font-size: 12px;
+    font-family: monospace;
+    color: var(--gray-700);
+  }
+
+  /* ── COLORS FOR CHAPTERS ── */
+  .c-blue .chapter-icon { background: #dbeafe; color: #2563eb; }
+  .c-blue .chapter-number { color: #2563eb; }
+  .c-blue .step-num { background: #2563eb; }
+
+  .c-purple .chapter-icon { background: #ede9fe; color: #7c3aed; }
+  .c-purple .chapter-number { color: #7c3aed; }
+  .c-purple .step-num { background: #7c3aed; }
+
+  .c-emerald .chapter-icon { background: #d1fae5; color: #059669; }
+  .c-emerald .chapter-number { color: #059669; }
+  .c-emerald .step-num { background: #059669; }
+
+  .c-amber .chapter-icon { background: #fef3c7; color: #d97706; }
+  .c-amber .chapter-number { color: #d97706; }
+  .c-amber .step-num { background: #d97706; }
+
+  .c-indigo .chapter-icon { background: #e0e7ff; color: #4f46e5; }
+  .c-indigo .chapter-number { color: #4f46e5; }
+  .c-indigo .step-num { background: #4f46e5; }
+
+  .c-teal .chapter-icon { background: #ccfbf1; color: #0d9488; }
+  .c-teal .chapter-number { color: #0d9488; }
+  .c-teal .step-num { background: #0d9488; }
+
+  .c-gray .chapter-icon { background: var(--gray-100); color: var(--gray-600); }
+  .c-gray .chapter-number { color: var(--gray-500); }
+  .c-gray .step-num { background: var(--gray-500); }
+
+  /* ── PRINT ── */
+  @media print {
+    .sidebar { display: none; }
+    .main { padding: 20px; }
+    .cover { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    .chapter { page-break-inside: avoid; }
+  }
+
+  /* ── SCROLLBAR ── */
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-track { background: transparent; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="brand"><span>RADAR</span>PRICE</div>
+      <div class="tagline">Inteligencia de Costos</div>
+      <div class="version">Manual v1.0</div>
+    </div>
+
+    <div class="nav-section">Introducción</div>
+    <a href="#intro" class="nav-item active">
+      <span class="nav-dot" style="background:#2563eb"></span> Acerca del Sistema
+    </a>
+    <a href="#acceso" class="nav-item">
+      <span class="nav-dot" style="background:#6366f1"></span> Acceso y Login
+    </a>
+
+    <div class="nav-section">Módulos</div>
+    <a href="#panel" class="nav-item">
+      <span class="nav-dot" style="background:#8b5cf6"></span> Panel Principal
+    </a>
+    <a href="#productos" class="nav-item">
+      <span class="nav-dot" style="background:#2563eb"></span> Productos
+    </a>
+    <a href="#compras" class="nav-item">
+      <span class="nav-dot" style="background:#0891b2"></span> Compras
+    </a>
+    <a href="#inventario" class="nav-item">
+      <span class="nav-dot" style="background:#4f46e5"></span> Inventario
+    </a>
+    <a href="#admin" class="nav-item">
+      <span class="nav-dot" style="background:#6b7280"></span> Administración
+    </a>
+
+    <div class="nav-section">Referencia</div>
+    <a href="#permisos" class="nav-item">
+      <span class="nav-dot" style="background:#d97706"></span> Permisos y Roles
+    </a>
+    <a href="#glosario" class="nav-item">
+      <span class="nav-dot" style="background:#9ca3af"></span> Glosario
+    </a>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main">
+
+    <!-- PORTADA -->
+    <div class="cover">
+      <div class="cover-badge">📖 Manual de Usuario</div>
+      <h1>RADAR<span class="highlight">PRICE</span><br>Inteligencia de Costos</h1>
+      <p>Guía completa para la gestión de productos, precios, inventario y compras en un solo sistema.</p>
+      <div class="cover-meta">
+        <div class="cover-meta-item">
+          <span class="label">Versión</span>
+          <span class="value">1.0</span>
+        </div>
+        <div class="cover-meta-item">
+          <span class="label">Año</span>
+          <span class="value">2026</span>
+        </div>
+        <div class="cover-meta-item">
+          <span class="label">Plataforma</span>
+          <span class="value">Web / Móvil</span>
+        </div>
+        <div class="cover-meta-item">
+          <span class="label">Idioma</span>
+          <span class="value">Español</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TABLA DE CONTENIDO -->
+    <div class="toc">
+      <h2>Contenido</h2>
+      <ul class="toc-list">
+        <li><a href="#intro"><span class="toc-num">00</span> Acerca del Sistema</a></li>
+        <li><a href="#acceso"><span class="toc-num">01</span> Acceso y Login</a></li>
+        <li><a href="#panel"><span class="toc-num">02</span> Panel Principal</a></li>
+        <li><a href="#productos"><span class="toc-num">03</span> Módulo de Productos</a></li>
+        <li><a href="#compras"><span class="toc-num">04</span> Módulo de Compras</a></li>
+        <li><a href="#inventario"><span class="toc-num">05</span> Módulo de Inventario</a></li>
+        <li><a href="#admin"><span class="toc-num">06</span> Administración de Usuarios</a></li>
+        <li><a href="#permisos"><span class="toc-num">07</span> Roles y Permisos</a></li>
+        <li><a href="#glosario"><span class="toc-num">08</span> Glosario</a></li>
+      </ul>
+    </div>
+
+    <!-- ───────────────────── 00 INTRO ───────────────────── -->
+    <div class="chapter c-blue" id="intro">
+      <div class="chapter-header">
+        <div class="chapter-icon">🎯</div>
+        <div>
+          <div class="chapter-number">Capítulo 00</div>
+          <h2>Acerca del Sistema</h2>
+          <p class="chapter-desc">¿Qué es RadarPrice y qué problemas resuelve?</p>
+        </div>
+      </div>
+
+      <p><strong>RadarPrice</strong> es un sistema web de inteligencia de costos diseñado para negocios que manejan un catálogo amplio de productos. Permite controlar precios de compra y venta, gestionar el inventario físico, importar facturas XML y generar reportes de movimientos, todo desde cualquier dispositivo con navegador.</p>
+
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="icon">📦</div>
+          <h5>Catálogo de Productos</h5>
+          <p>Base de datos centralizada con SKU, UPC, costo, precio de venta y stock.</p>
+        </div>
+        <div class="feature-card">
+          <div class="icon">🧾</div>
+          <h5>Importación XML</h5>
+          <p>Carga facturas del SAT y actualiza precios y existencias automáticamente.</p>
+        </div>
+        <div class="feature-card">
+          <div class="icon">📍</div>
+          <h5>Ubicaciones</h5>
+          <p>Asigna productos a estantes y racks físicos con código de ubicación.</p>
+        </div>
+        <div class="feature-card">
+          <div class="icon">📊</div>
+          <h5>Reportes</h5>
+          <p>Historial de movimientos de existencias y resumen del inventario.</p>
+        </div>
+        <div class="feature-card">
+          <div class="icon">🏷️</div>
+          <h5>Etiquetas</h5>
+          <p>Diseña e imprime etiquetas de precio con código de barras.</p>
+        </div>
+        <div class="feature-card">
+          <div class="icon">👥</div>
+          <h5>Multi-usuario</h5>
+          <p>Gestiona roles y permisos por módulo para cada colaborador.</p>
+        </div>
+      </div>
+
+      <h3>Requisitos de Uso</h3>
+      <table>
+        <thead><tr><th>Requisito</th><th>Detalle</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Navegador</strong></td><td>Chrome, Edge o Safari — versiones recientes</td></tr>
+          <tr><td><strong>Conexión</strong></td><td>Internet (el sistema vive en la nube)</td></tr>
+          <tr><td><strong>Dispositivos</strong></td><td>PC, laptop, tablet o smartphone</td></tr>
+          <tr><td><strong>Cámara</strong></td><td>Opcional — para escanear códigos de barras</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <hr class="divider" />
+
+    <!-- ───────────────────── 01 ACCESO ───────────────────── -->
+    <div class="chapter c-purple" id="acceso">
+      <div class="chapter-header">
+        <div class="chapter-icon">🔐</div>
+        <div>
+          <div class="chapter-number">Capítulo 01</div>
+          <h2>Acceso y Login</h2>
+          <p class="chapter-desc">Cómo iniciar sesión en el sistema.</p>
+        </div>
+      </div>
+
+      <div class="screenshot">
+        <div class="screenshot-icon">📷</div>
+        <div class="screenshot-label">Captura de pantalla: Pantalla de inicio de sesión</div>
+      </div>
+      <p class="screenshot-caption">Pantalla de login — primer punto de entrada al sistema.</p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h5>Abrir el sistema</h5>
+            <p>Ingresa la URL del sistema en tu navegador. La pantalla de login aparecerá automáticamente.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h5>Ingresar credenciales</h5>
+            <p>Escribe tu <strong>usuario</strong> y <strong>contraseña</strong> en los campos correspondientes. El administrador te proporcionará estos datos.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h5>Presionar "Iniciar Sesión"</h5>
+            <p>El sistema te redirigirá al Panel Principal si tus credenciales son correctas.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout warning">
+        <span class="callout-icon">⚠️</span>
+        <p>Si olvidas tu contraseña, contacta al administrador del sistema para restablecerla. No existe recuperación automática por correo.</p>
+      </div>
+
+      <h3>Sesión y Seguridad</h3>
+      <p>La sesión permanece activa por <strong>24 horas</strong>. Para cerrar sesión, presiona el botón <kbd>→</kbd> (salir) en la esquina superior derecha de la pantalla.</p>
+    </div>
+
+    <hr class="divider" />
+
+    <!-- ───────────────────── 02 PANEL ───────────────────── -->
+    <div class="chapter c-purple" id="panel">
+      <div class="chapter-header">
+        <div class="chapter-icon">🗂️</div>
+        <div>
+          <div class="chapter-number">Capítulo 02</div>
+          <h2>Panel Principal</h2>
+          <p class="chapter-desc">Punto de partida con acceso a todos los módulos.</p>
+        </div>
+      </div>
+
+      <div class="screenshot">
+        <div class="screenshot-icon">📷</div>
+        <div class="screenshot-label">Captura de pantalla: Panel Principal</div>
+      </div>
+      <p class="screenshot-caption">El Panel muestra los módulos disponibles según los permisos del usuario.</p>
+
+      <p>Al iniciar sesión, el sistema te dirige al <strong>Panel Principal</strong>. Desde aquí puedes navegar a cualquier módulo disponible para tu rol.</p>
+
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="icon">📦</div>
+          <h5>Productos</h5>
+          <p>Búsqueda, registro manual y etiquetas de precio.</p>
+        </div>
+        <div class="feature-card">
+          <div class="icon">🛒</div>
+          <h5>Compras</h5>
+          <p>Facturas XML, historial, listas de compras y proveedores.</p>
+        </div>
+        <div class="feature-card">
+          <div class="icon">🏭</div>
+          <h5>Inventario</h5>
+          <p>Ubicaciones físicas, asignación y reportes.</p>
+        </div>
+        <div class="feature-card">
+          <div class="icon">👤</div>
+          <h5>Administración</h5>
+          <p>Usuarios y permisos (solo administradores).</p>
+        </div>
+      </div>
+
+      <h3>Barra de Navegación</h3>
+      <p>La barra superior es persistente en todo el sistema e incluye:</p>
+      <table>
+        <thead><tr><th>Elemento</th><th>Función</th></tr></thead>
+        <tbody>
+          <tr><td>🏠 Logo RadarPrice</td><td>Regresa al Panel Principal</td></tr>
+          <tr><td>Menú de módulos</td><td>Acceso directo a Productos, Compras, Inventario</td></tr>
+          <tr><td>Botón de modo oscuro</td><td>Alterna entre tema claro y oscuro</td></tr>
+          <tr><td>Nombre de usuario</td><td>Muestra el usuario actualmente conectado</td></tr>
+          <tr><td>Botón salir</td><td>Cierra la sesión actual</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout tip">
+        <span class="callout-icon">💡</span>
+        <p>En dispositivos móviles la navegación aparece en la barra inferior de la pantalla, con acceso a los 4 módulos principales con un toque.</p>
+      </div>
+    </div>
+
+    <hr class="divider" />
+
+    <!-- ───────────────────── 03 PRODUCTOS ───────────────────── -->
+    <div class="chapter c-blue" id="productos">
+      <div class="chapter-header">
+        <div class="chapter-icon">📦</div>
+        <div>
+          <div class="chapter-number">Capítulo 03</div>
+          <h2>Módulo de Productos</h2>
+          <p class="chapter-desc">Búsqueda, registro, categorías y etiquetas.</p>
+        </div>
+      </div>
+
+      <!-- 3.1 Hub -->
+      <h3>3.1 Hub de Productos</h3>
+      <p>El hub agrupa las herramientas relacionadas con el catálogo de productos: buscador de precios, entrada manual, categorías y diseñador de etiquetas.</p>
+
+      <div class="screenshot">
+        <div class="screenshot-icon">📷</div>
+        <div class="screenshot-label">Captura de pantalla: Hub de Productos</div>
+      </div>
+      <p class="screenshot-caption">Hub de Productos con sus sub-módulos disponibles.</p>
+
+      <!-- 3.2 Buscador -->
+      <h3>3.2 Buscador de Precios</h3>
+      <p>El buscador permite encontrar cualquier producto del catálogo por nombre, SKU, UPC o alias. Los resultados muestran el costo, precio de venta y existencias actuales.</p>
+
+      <div class="screenshot">
+        <div class="screenshot-icon">📷</div>
+        <div class="screenshot-label">Captura de pantalla: Buscador de Precios</div>
+      </div>
+      <p class="screenshot-caption">Buscador principal con tarjetas de producto, filtros y modo de selección múltiple.</p>
+
+      <h4>Campos de búsqueda</h4>
+      <table>
+        <thead><tr><th>Campo</th><th>Descripción</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Nombre</strong></td><td>Búsqueda por nombre o parte del nombre (sin importar acentos)</td></tr>
+          <tr><td><strong>SKU</strong></td><td>Código interno del proveedor</td></tr>
+          <tr><td><strong>UPC</strong></td><td>Código de barras del producto</td></tr>
+          <tr><td><strong>Alias</strong></td><td>Nombre alternativo asignado manualmente</td></tr>
+        </tbody>
+      </table>
+
+      <h4>Tarjeta de producto</h4>
+      <p>Cada producto se muestra como una tarjeta que contiene:</p>
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="icon">🏷️</div>
+          <h5>Nombre y Alias</h5>
+          <p>Nombre principal y nombre alternativo si existe.</p>
+        </div>
+        <div class="feature-card">
+          <div class="icon">💲</div>
+          <h5>Precios</h5>
+          <p>Costo de compra y precio de venta actual.</p>
+        </div>
+        <div class="feature-card">
+          <div class="icon">📊</div>
+          <h5>Stock</h5>
+          <p>Cantidad de unidades disponibles en inventario.</p>
+        </div>
+        <div class="feature-card">
+          <div class="icon">🔢</div>
+          <h5>Códigos</h5>
+          <p>SKU e identificador UPC/EAN visibles en la tarjeta.</p>
+        </div>
+      </div>
+
+      <h4>Filtros disponibles</h4>
+      <table>
+        <thead><tr><th>Filtro</th><th>Función</th></tr></thead>
+        <tbody>
+          <tr><td>Sin precio de venta</td><td>Muestra solo productos que aún no tienen precio de venta asignado</td></tr>
+          <tr><td>Precio mínimo / máximo</td><td>Filtra por rango de precio de venta</td></tr>
+          <tr><td>Stock máximo</td><td>Muestra productos con existencias menores o iguales al valor indicado</td></tr>
+          <tr><td>Ordenar por</td><td>Nombre, precio, stock o fecha de última modificación</td></tr>
+        </tbody>
+      </table>
+
+      <h4>Cámara para escanear</h4>
+      <p>El ícono de cámara (📷) junto al buscador activa la cámara del dispositivo para escanear un código de barras UPC directamente. El sistema busca el producto automáticamente al detectar el código.</p>
+
+      <div class="callout tip">
+        <span class="callout-icon">💡</span>
+        <p>Para mejores resultados al escanear, asegúrate de tener buena iluminación y sostener el código de barras a unos 15–20 cm de la cámara.</p>
+      </div>
+
+      <h4>Modo de selección múltiple</h4>
+      <p>Presiona el ícono <strong>☑</strong> en la barra de búsqueda para activar el modo de selección múltiple. En este modo puedes:</p>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h5>Seleccionar productos</h5>
+            <p>Toca cada tarjeta para marcarla. Las tarjetas seleccionadas se resaltan en índigo. También puedes usar "Seleccionar todos".</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h5>Acción masiva</h5>
+            <p>Aparece una barra flotante abajo con el número de seleccionados y el botón <strong>"Actualizar fecha"</strong>, que marca los productos como modificados hoy para que aparezcan primeros en el listado.</p>
+          </div>
+        </div>
+      </div>
+
+      <h4>Editar un producto</h4>
+      <p>Al tocar una tarjeta (en modo normal), se abre un modal con los detalles del producto donde puedes editar:</p>
+      <table>
+        <thead><tr><th>Campo editable</th><th>Detalle</th></tr></thead>
+        <tbody>
+          <tr><td>Precio de venta</td><td>Se registra en el historial de cambios de precio</td></tr>
+          <tr><td>SKU</td><td>Código interno único del producto</td></tr>
+          <tr><td>UPC</td><td>Código de barras del producto</td></tr>
+          <tr><td>Alias</td><td>Nombre corto alternativo</td></tr>
+          <tr><td>Proveedor</td><td>Asignación al proveedor correspondiente</td></tr>
+          <tr><td>Imagen</td><td>URL de imagen del producto</td></tr>
+        </tbody>
+      </table>
+
+      <!-- 3.3 Entrada Manual -->
+      <h3>3.3 Entrada Manual de Productos</h3>
+      <p>Permite agregar un producto directamente al sistema sin necesidad de importar una factura XML. Útil para productos que no vienen en facturas electrónicas o para ajustes puntuales.</p>
+
+      <div class="screenshot">
+        <div class="screenshot-icon">📷</div>
+        <div class="screenshot-label">Captura de pantalla: Formulario de Entrada Manual</div>
+      </div>
+      <p class="screenshot-caption">Formulario para registrar un producto manualmente con todos sus campos.</p>
+
+      <h4>Campos del formulario</h4>
+      <table>
+        <thead><tr><th>Campo</th><th>Requerido</th><th>Descripción</th></tr></thead>
+        <tbody>
+          <tr><td>Nombre</td><td><span class="badge red">Obligatorio</span></td><td>Nombre completo del producto</td></tr>
+          <tr><td>SKU</td><td><span class="badge amber">Opcional</span></td><td>Código interno del proveedor</td></tr>
+          <tr><td>UPC</td><td><span class="badge amber">Opcional</span></td><td>Código de barras — se puede escanear con cámara</td></tr>
+          <tr><td>Costo</td><td><span class="badge amber">Opcional</span></td><td>Precio de compra al proveedor</td></tr>
+          <tr><td>Precio de venta</td><td><span class="badge amber">Opcional</span></td><td>Precio al que se vende al cliente</td></tr>
+          <tr><td>Stock inicial</td><td><span class="badge amber">Opcional</span></td><td>Cantidad de unidades disponibles al registrar</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout info">
+        <span class="callout-icon">ℹ️</span>
+        <p>Si ingresas stock inicial mayor a 0, el sistema registrará automáticamente un movimiento de <strong>ENTRADA</strong> en el historial de existencias.</p>
+      </div>
+
+      <!-- 3.4 Categorías -->
+      <h3>3.4 Categorías</h3>
+      <p>Las categorías permiten clasificar los productos por grupos personalizados. Cada categoría tiene un nombre, descripción y color identificador.</p>
+
+      <div class="screenshot">
+        <div class="screenshot-icon">📷</div>
+        <div class="screenshot-label">Captura de pantalla: Gestión de Categorías</div>
+      </div>
+      <p class="screenshot-caption">Módulo de categorías con lista y formulario de creación.</p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h5>Crear categoría</h5>
+            <p>Presiona <strong>"Nueva Categoría"</strong>, ingresa nombre, descripción y selecciona un color.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h5>Asignar productos</h5>
+            <p>Desde la categoría, busca y agrega productos al grupo. Un producto puede pertenecer a múltiples categorías.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3.5 Etiquetas -->
+      <h3>3.5 Diseñador de Etiquetas</h3>
+      <p>Herramienta para personalizar e imprimir etiquetas de precio con el logo de la empresa y código de barras.</p>
+
+      <div class="screenshot">
+        <div class="screenshot-icon">📷</div>
+        <div class="screenshot-label">Captura de pantalla: Diseñador de Etiquetas</div>
+      </div>
+      <p class="screenshot-caption">Diseñador con previsualización en tiempo real y panel de configuración.</p>
+
+      <h4>Modos de trabajo</h4>
+      <table>
+        <thead><tr><th>Modo</th><th>Descripción</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Vista previa</strong></td><td>Muestra cómo quedará la etiqueta con un producto de ejemplo</td></tr>
+          <tr><td><strong>Libre</strong></td><td>Crea etiquetas personalizadas con texto e importe manual</td></tr>
+        </tbody>
+      </table>
+
+      <h4>Opciones de configuración</h4>
+      <table>
+        <thead><tr><th>Opción</th><th>Descripción</th></tr></thead>
+        <tbody>
+          <tr><td>Tamaño de etiqueta</td><td>Pequeño, mediano, grande o personalizado</td></tr>
+          <tr><td>Nombre de empresa</td><td>Texto que aparece en la parte superior de la etiqueta</td></tr>
+          <tr><td>Mostrar código de barras</td><td>Activa o desactiva el código de barras en la etiqueta</td></tr>
+          <tr><td>Mostrar SKU / UPC</td><td>Control de qué códigos son visibles</td></tr>
+          <tr><td>Mostrar logo</td><td>Incluye el logotipo de la empresa</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout tip">
+        <span class="callout-icon">💡</span>
+        <p>Para imprimir en etiquetas adhesivas reales, usa la función de impresión del navegador (<kbd>Ctrl</kbd> + <kbd>P</kbd>) y configura el tamaño de papel para que coincida con tus etiquetas.</p>
+      </div>
+    </div>
+
+    <hr class="divider" />
+
+    <!-- ───────────────────── 04 COMPRAS ───────────────────── -->
+    <div class="chapter c-teal" id="compras">
+      <div class="chapter-header">
+        <div class="chapter-icon">🛒</div>
+        <div>
+          <div class="chapter-number">Capítulo 04</div>
+          <h2>Módulo de Compras</h2>
+          <p class="chapter-desc">Importación de facturas XML, historial, listas y proveedores.</p>
+        </div>
+      </div>
+
+      <!-- 4.1 Hub -->
+      <h3>4.1 Hub de Compras</h3>
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="icon">🧾</div>
+          <h5>Importar Factura</h5>
+          <p>Carga archivos XML del SAT para actualizar precios y existencias.</p>
+        </div>
+        <div class="feature-card">
+          <div class="icon">📋</div>
+          <h5>Historial</h5>
+          <p>Revisa todas las facturas importadas con sus productos.</p>
+        </div>
+        <div class="feature-card">
+          <div class="icon">🗒️</div>
+          <h5>Listas de Compra</h5>
+          <p>Genera y gestiona órdenes de compra por proveedor.</p>
+        </div>
+        <div class="feature-card">
+          <div class="icon">🏢</div>
+          <h5>Proveedores</h5>
+          <p>Administra el directorio de proveedores del negocio.</p>
+        </div>
+      </div>
+
+      <!-- 4.2 Importar XML -->
+      <h3>4.2 Importar Factura XML</h3>
+      <p>El sistema acepta facturas electrónicas en formato XML del SAT (CFDI 3.3 y 4.0) y procesa automáticamente todos los productos contenidos en ella.</p>
+
+      <div class="screenshot">
+        <div class="screenshot-icon">📷</div>
+        <div class="screenshot-label">Captura de pantalla: Importador de Facturas XML</div>
+      </div>
+      <p class="screenshot-caption">Interfaz de carga de factura XML con resultado del procesamiento.</p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h5>Seleccionar archivo</h5>
+            <p>Arrastra el archivo .xml al área de carga o presiona "Seleccionar archivo" para buscarlo en tu dispositivo.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h5>Procesamiento automático</h5>
+            <p>El sistema lee cada concepto del XML e intenta identificarlo en el catálogo por SKU, UPC o nombre (con similitud aproximada).</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h5>Revisar resultados</h5>
+            <p>El sistema muestra el listado con el estado de cada producto: <span class="badge green">ENCONTRADO</span> <span class="badge amber">NUEVO</span> <span class="badge blue">PRECIO CAMBIADO</span>.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <h5>Asociar productos no encontrados</h5>
+            <p>Para productos marcados como <strong>Nuevo</strong>, el sistema sugiere posibles coincidencias del catálogo. Puedes asociarlos manualmente o dejarlos como productos nuevos.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-content">
+            <h5>Actualizar precios</h5>
+            <p>Presiona "Guardar cambios de precio" para confirmar las actualizaciones de costo en los productos encontrados.</p>
+          </div>
+        </div>
+      </div>
+
+      <h4>Lo que hace el sistema al importar</h4>
+      <table>
+        <thead><tr><th>Acción</th><th>Condición</th></tr></thead>
+        <tbody>
+          <tr><td>Actualiza el costo del producto</td><td>Si el precio cambió más de $0.10 respecto al anterior</td></tr>
+          <tr><td>Suma el stock</td><td>Siempre que se importe un producto existente</td></tr>
+          <tr><td>Registra historial de precio</td><td>Si hubo cambio de costo</td></tr>
+          <tr><td>Registra historial de existencias</td><td>En cada entrada de stock</td></tr>
+          <tr><td>Crea proveedor automáticamente</td><td>Si el emisor del XML no existe en el sistema</td></tr>
+          <tr><td>Asigna proveedor al producto</td><td>Si el producto no tenía proveedor asignado</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout warning">
+        <span class="callout-icon">⚠️</span>
+        <p>El sistema detecta facturas duplicadas por nombre de archivo. Si intentas cargar el mismo XML dos veces, lo indicará y no procesará el archivo nuevamente.</p>
+      </div>
+
+      <!-- 4.3 Historial -->
+      <h3>4.3 Historial de Importaciones</h3>
+      <p>Muestra todas las facturas importadas al sistema ordenadas por fecha. Al seleccionar una, puedes ver el detalle completo de sus productos.</p>
+
+      <div class="screenshot">
+        <div class="screenshot-icon">📷</div>
+        <div class="screenshot-label">Captura de pantalla: Historial de Importaciones</div>
+      </div>
+      <p class="screenshot-caption">Lista de lotes importados con totales y pendientes de precio.</p>
+
+      <h4>Columnas del historial</h4>
+      <table>
+        <thead><tr><th>Columna</th><th>Descripción</th></tr></thead>
+        <tbody>
+          <tr><td>Nombre de archivo</td><td>Nombre del XML importado (editable)</td></tr>
+          <tr><td>Fecha</td><td>Fecha y hora de la importación</td></tr>
+          <tr><td>Productos</td><td>Total de productos en la factura</td></tr>
+          <tr><td>Pendientes</td><td>Productos sin precio de venta asignado</td></tr>
+        </tbody>
+      </table>
+
+      <!-- 4.4 Listas de Compra -->
+      <h3>4.4 Listas de Compra</h3>
+      <p>Las listas de compra permiten generar órdenes de pedido para un proveedor específico, agrupando los productos que necesitas reponer.</p>
+
+      <div class="screenshot">
+        <div class="screenshot-icon">📷</div>
+        <div class="screenshot-label">Captura de pantalla: Listas de Compra</div>
+      </div>
+      <p class="screenshot-caption">Vista de listas activas y detalle de una lista con sus productos.</p>
+
+      <h4>Estados de una lista</h4>
+      <table>
+        <thead><tr><th>Estado</th><th>Descripción</th></tr></thead>
+        <tbody>
+          <tr><td><span class="badge green">Activa</span></td><td>Lista en proceso, se pueden agregar o quitar productos</td></tr>
+          <tr><td><span class="badge blue">Completada</span></td><td>Pedido realizado al proveedor</td></tr>
+          <tr><td><span class="badge red">Cancelada</span></td><td>Lista descartada</td></tr>
+        </tbody>
+      </table>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h5>Crear nueva lista</h5>
+            <p>Presiona <strong>"Nueva Lista"</strong> y selecciona el proveedor al que vas a pedir.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h5>Agregar productos</h5>
+            <p>Busca productos por nombre o SKU y agrégalos a la lista con la cantidad deseada.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h5>Marcar como completada</h5>
+            <p>Cuando realices el pedido al proveedor, cambia el estado a <strong>Completada</strong>.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4.5 Proveedores -->
+      <h3>4.5 Proveedores</h3>
+      <p>Directorio de los proveedores del negocio. El sistema los crea automáticamente al importar facturas XML (usando el RFC del emisor), o puedes agregarlos manualmente.</p>
+
+      <div class="screenshot">
+        <div class="screenshot-icon">📷</div>
+        <div class="screenshot-label">Captura de pantalla: Directorio de Proveedores</div>
+      </div>
+      <p class="screenshot-caption">Lista de proveedores con acceso a sus productos asignados.</p>
+
+      <table>
+        <thead><tr><th>Campo</th><th>Descripción</th></tr></thead>
+        <tbody>
+          <tr><td>Nombre</td><td>Razón social o nombre comercial del proveedor</td></tr>
+          <tr><td>RFC</td><td>Registro Federal de Contribuyentes (único por proveedor)</td></tr>
+          <tr><td>Productos asignados</td><td>Número de productos que pertenecen a este proveedor</td></tr>
+        </tbody>
+      </table>
+
+      <!-- 4.6 Fusión -->
+      <h3>4.6 Fusionar Productos Duplicados</h3>
+      <p>Al importar facturas, puede ocurrir que el mismo producto quede registrado dos veces con nombres ligeramente distintos. La función de fusión permite unificarlos en un solo registro.</p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h5>Identificar duplicado</h5>
+            <p>Desde el importador de XML, en los productos marcados como "Nuevo", el sistema sugiere posibles duplicados.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h5>Seleccionar "producto a conservar"</h5>
+            <p>Elige cuál de los dos registros es el correcto y cuál se debe eliminar.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h5>Confirmar fusión</h5>
+            <p>El stock del producto eliminado se suma al conservado. El historial de ambos queda unificado.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider" />
+
+    <!-- ───────────────────── 05 INVENTARIO ───────────────────── -->
+    <div class="chapter c-indigo" id="inventario">
+      <div class="chapter-header">
+        <div class="chapter-icon">🏭</div>
+        <div>
+          <div class="chapter-number">Capítulo 05</div>
+          <h2>Módulo de Inventario</h2>
+          <p class="chapter-desc">Ubicaciones físicas, asignación de productos y reportes.</p>
+        </div>
+      </div>
+
+      <div class="screenshot">
+        <div class="screenshot-icon">📷</div>
+        <div class="screenshot-label">Captura de pantalla: Hub de Inventario</div>
+      </div>
+      <p class="screenshot-caption">Hub del módulo de inventario con sus sub-módulos disponibles.</p>
+
+      <!-- 5.1 Ubicaciones -->
+      <h3>5.1 Ubicaciones</h3>
+      <p>Permite mapear el almacén físico en el sistema, definiendo estantes, racks y posiciones con un código alfanumérico. Ejemplo: <code>R1B2</code> = Rack 1, Bandeja 2.</p>
+
+      <div class="screenshot">
+        <div class="screenshot-icon">📷</div>
+        <div class="screenshot-label">Captura de pantalla: Gestión de Ubicaciones</div>
+      </div>
+      <p class="screenshot-caption">Lista de ubicaciones con código, descripción y cantidad de productos asignados.</p>
+
+      <h4>Crear una ubicación</h4>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h5>Presionar "Nueva Ubicación"</h5>
+            <p>Ingresa un código único (ej: R1B2) y una descripción opcional (ej: "Rack 1, Bandeja 2").</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h5>Guardar</h5>
+            <p>La ubicación queda disponible para asignarle productos inmediatamente.</p>
+          </div>
+        </div>
+      </div>
+
+      <h4>Vista detalle de ubicación</h4>
+      <p>Al tocar una ubicación, puedes ver todos los productos asignados a ella, buscar un producto específico dentro de la ubicación, y agregar o quitar productos con su cantidad.</p>
+
+      <h4>Usar la cámara en ubicaciones</h4>
+      <p>En las siguientes secciones puedes escanear el código de barras del producto con la cámara:</p>
+      <table>
+        <thead><tr><th>Sección</th><th>Función de la cámara</th></tr></thead>
+        <tbody>
+          <tr><td>Buscar Producto (tab principal)</td><td>Escanea y busca el producto en el catálogo</td></tr>
+          <tr><td>Modal Agregar Producto</td><td>Escanea para buscar el producto a agregar a la ubicación</td></tr>
+          <tr><td>Detalle de ubicación</td><td>Escanea para buscar dentro de los productos de la ubicación</td></tr>
+        </tbody>
+      </table>
+
+      <!-- 5.2 Asignar Productos -->
+      <h3>5.2 Asignar Productos</h3>
+      <p>Módulo pensado para trabajar directamente en el almacén: escaneas el código de barras de un producto y lo asignas a una ubicación sin necesidad de teclear nada.</p>
+
+      <div class="screenshot">
+        <div class="screenshot-icon">📷</div>
+        <div class="screenshot-label">Captura de pantalla: Asignación de Productos</div>
+      </div>
+      <p class="screenshot-caption">Vista de asignación con escáner de cámara integrado.</p>
+
+      <!-- 5.3 Reportes -->
+      <h3>5.3 Reportes de Inventario</h3>
+      <p>Muestra el historial completo de movimientos de existencias y estadísticas del inventario.</p>
+
+      <div class="screenshot">
+        <div class="screenshot-icon">📷</div>
+        <div class="screenshot-label">Captura de pantalla: Reportes de Inventario</div>
+      </div>
+      <p class="screenshot-caption">Página de reportes con resumen estadístico e historial de movimientos.</p>
+
+      <h4>Indicadores del resumen</h4>
+      <table>
+        <thead><tr><th>Indicador</th><th>Descripción</th></tr></thead>
+        <tbody>
+          <tr><td>Productos</td><td>Total de productos registrados en el sistema</td></tr>
+          <tr><td>Movimientos hoy</td><td>Cantidad de cambios de stock registrados en el día</td></tr>
+        </tbody>
+      </table>
+
+      <h4>Historial de existencias</h4>
+      <p>La tabla muestra cada movimiento de stock con:</p>
+      <table>
+        <thead><tr><th>Columna</th><th>Descripción</th></tr></thead>
+        <tbody>
+          <tr><td>Producto</td><td>Nombre y SKU del producto</td></tr>
+          <tr><td>Tipo</td><td><span class="badge green">Entrada</span> importación de factura / <span class="badge purple">Fusión</span> merge / <span class="badge amber">Ajuste</span> manual</td></tr>
+          <tr><td>Anterior</td><td>Stock antes del movimiento</td></tr>
+          <tr><td>Nuevo</td><td>Stock después del movimiento</td></tr>
+          <tr><td>Diferencia</td><td>Unidades sumadas o restadas (verde positivo, rojo negativo)</td></tr>
+          <tr><td>Fuente</td><td>Nombre del archivo XML o "manual"</td></tr>
+          <tr><td>Fecha</td><td>Fecha y hora del movimiento</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout info">
+        <span class="callout-icon">ℹ️</span>
+        <p>El historial solo registra movimientos a partir de la activación del módulo. Los stocks anteriores no tienen historial.</p>
+      </div>
+    </div>
+
+    <hr class="divider" />
+
+    <!-- ───────────────────── 06 ADMIN ───────────────────── -->
+    <div class="chapter c-gray" id="admin">
+      <div class="chapter-header">
+        <div class="chapter-icon">👤</div>
+        <div>
+          <div class="chapter-number">Capítulo 06</div>
+          <h2>Administración de Usuarios</h2>
+          <p class="chapter-desc">Gestión de cuentas de usuario y permisos. Solo para administradores.</p>
+        </div>
+      </div>
+
+      <div class="screenshot">
+        <div class="screenshot-icon">📷</div>
+        <div class="screenshot-label">Captura de pantalla: Panel de Administración de Usuarios</div>
+      </div>
+      <p class="screenshot-caption">Lista de usuarios del sistema con opciones de edición.</p>
+
+      <h3>6.1 Crear un Usuario</h3>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h5>Ir a Administración</h5>
+            <p>En el menú superior, selecciona <strong>Más → Admin</strong> (solo visible para administradores).</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h5>Presionar "Nuevo Usuario"</h5>
+            <p>Ingresa nombre de usuario, contraseña y selecciona el rol.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h5>Asignar permisos</h5>
+            <p>Si el rol es <strong>empleado</strong>, selecciona los módulos a los que tendrá acceso. El rol <strong>admin</strong> tiene acceso total automáticamente.</p>
+          </div>
+        </div>
+      </div>
+
+      <h3>6.2 Campos de Usuario</h3>
+      <table>
+        <thead><tr><th>Campo</th><th>Descripción</th></tr></thead>
+        <tbody>
+          <tr><td>Usuario</td><td>Nombre único de acceso al sistema (sin espacios recomendado)</td></tr>
+          <tr><td>Contraseña</td><td>Mínimo seguro — no hay longitud mínima forzada, pero se recomienda 8+ caracteres</td></tr>
+          <tr><td>Rol</td><td><span class="badge red">admin</span> acceso total / <span class="badge blue">empleado</span> acceso por permisos</td></tr>
+          <tr><td>Permisos</td><td>Módulos específicos habilitados para el empleado</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <hr class="divider" />
+
+    <!-- ───────────────────── 07 PERMISOS ───────────────────── -->
+    <div class="chapter c-amber" id="permisos">
+      <div class="chapter-header">
+        <div class="chapter-icon">🔑</div>
+        <div>
+          <div class="chapter-number">Capítulo 07</div>
+          <h2>Roles y Permisos</h2>
+          <p class="chapter-desc">Qué puede hacer cada tipo de usuario en el sistema.</p>
+        </div>
+      </div>
+
+      <h3>7.1 Roles disponibles</h3>
+      <table>
+        <thead><tr><th>Rol</th><th>Descripción</th></tr></thead>
+        <tbody>
+          <tr><td><span class="badge red">Administrador</span></td><td>Acceso completo a todos los módulos incluyendo gestión de usuarios</td></tr>
+          <tr><td><span class="badge blue">Empleado</span></td><td>Acceso solo a los módulos habilitados por el administrador</td></tr>
+        </tbody>
+      </table>
+
+      <h3>7.2 Módulos y permisos</h3>
+      <table>
+        <thead><tr><th>Permiso</th><th>Módulo que habilita</th></tr></thead>
+        <tbody>
+          <tr><td><code>dashboard</code></td><td>Panel Principal</td></tr>
+          <tr><td><code>search</code></td><td>Buscador de productos, categorías, etiquetas</td></tr>
+          <tr><td><code>manual</code></td><td>Entrada manual de productos</td></tr>
+          <tr><td><code>upload</code></td><td>Importar facturas XML, historial de importaciones</td></tr>
+          <tr><td><code>shopping</code></td><td>Listas de compra</td></tr>
+          <tr><td><code>inventory</code></td><td>Módulo completo de inventario</td></tr>
+          <tr><td><code>users</code></td><td>Administración de usuarios (solo admin)</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout warning">
+        <span class="callout-icon">⚠️</span>
+        <p>Un usuario sin el permiso <code>dashboard</code> será redirigido directamente al Buscador de Productos al iniciar sesión.</p>
+      </div>
+    </div>
+
+    <hr class="divider" />
+
+    <!-- ───────────────────── 08 GLOSARIO ───────────────────── -->
+    <div class="chapter c-gray" id="glosario">
+      <div class="chapter-header">
+        <div class="chapter-icon">📖</div>
+        <div>
+          <div class="chapter-number">Capítulo 08</div>
+          <h2>Glosario</h2>
+          <p class="chapter-desc">Definición de términos usados en el sistema.</p>
+        </div>
+      </div>
+
+      <table>
+        <thead><tr><th>Término</th><th>Definición</th></tr></thead>
+        <tbody>
+          <tr><td><strong>SKU</strong></td><td>Stock Keeping Unit — código interno único asignado por el proveedor para identificar un producto.</td></tr>
+          <tr><td><strong>UPC / EAN</strong></td><td>Código de barras estándar impreso en el empaque del producto.</td></tr>
+          <tr><td><strong>Costo</strong></td><td>Precio al que se compra el producto al proveedor (sin IVA).</td></tr>
+          <tr><td><strong>Precio de venta</strong></td><td>Precio al que se vende el producto al cliente final.</td></tr>
+          <tr><td><strong>Stock</strong></td><td>Cantidad de unidades disponibles en el inventario.</td></tr>
+          <tr><td><strong>XML / CFDI</strong></td><td>Archivo de factura electrónica emitido por el SAT de México.</td></tr>
+          <tr><td><strong>Lote</strong></td><td>Grupo de productos importados de una sola factura XML.</td></tr>
+          <tr><td><strong>Alias</strong></td><td>Nombre corto alternativo asignado manualmente a un producto para facilitar su búsqueda.</td></tr>
+          <tr><td><strong>Fusión</strong></td><td>Proceso de unir dos registros duplicados del mismo producto en uno solo.</td></tr>
+          <tr><td><strong>Ubicación</strong></td><td>Posición física en el almacén identificada con un código (ej: R1B2).</td></tr>
+          <tr><td><strong>Historial de precio</strong></td><td>Registro de todos los cambios de costo y precio de venta de un producto a lo largo del tiempo.</td></tr>
+          <tr><td><strong>Historial de existencias</strong></td><td>Registro de todos los movimientos de stock (entradas, ajustes, fusiones).</td></tr>
+          <tr><td><strong>Modo oscuro</strong></td><td>Tema visual de la interfaz con fondo oscuro, más cómodo en ambientes con poca luz.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- PIE DE PÁGINA -->
+    <hr class="divider" />
+    <div style="text-align:center; padding: 32px 0 48px; color: var(--gray-400);">
+      <div style="font-size:24px; font-weight:900; color:var(--gray-700); letter-spacing:-0.5px; margin-bottom:8px;">
+        <span style="color:var(--blue)">RADAR</span>PRICE
+      </div>
+      <div style="font-size:13px; font-weight:600; letter-spacing:1px; text-transform:uppercase; margin-bottom:16px;">Inteligencia de Costos</div>
+      <div style="font-size:12px;">Manual de Usuario v1.0 &nbsp;·&nbsp; 2026 &nbsp;·&nbsp; Todos los derechos reservados</div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  // Resaltar sección activa en sidebar al hacer scroll
+  const sections = document.querySelectorAll('.chapter[id], .cover[id]');
+  const navItems = document.querySelectorAll('.nav-item');
+
+  function updateActive() {
+    let current = '';
+    sections.forEach(s => {
+      if (window.scrollY >= s.offsetTop - 80) current = s.id;
+    });
+    navItems.forEach(item => {
+      const href = item.getAttribute('href')?.replace('#', '');
+      item.classList.toggle('active', href === current);
+    });
+  }
+
+  window.addEventListener('scroll', updateActive, { passive: true });
+  updateActive();
+</script>
+
+</body>
+</html>
