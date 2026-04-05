@@ -497,7 +497,7 @@ export function Locations() {
         const outOfStockCount = detail.products.filter(p => p.quantity <= 0).length;
 
         return (
-            <div className="w-full max-w-6xl mx-auto p-2 md:p-6 pb-24 animate-fade-in">
+            <div className="w-full max-w-7xl mx-auto p-2 md:p-6 pb-24 animate-fade-in">
                 <Toast />
 
                 {/* HEADER */}
@@ -863,7 +863,7 @@ export function Locations() {
 
     // --- VISTA LISTA ---
     return (
-        <div className="w-full max-w-6xl mx-auto p-4 md:p-6 pb-24 animate-fade-in">
+        <div className="w-full max-w-7xl mx-auto p-4 md:p-6 pb-24 animate-fade-in">
             <Toast />
 
             {/* HEADER */}

@@ -193,7 +193,7 @@ export function Categories() {
     if (detail) {
         const color = getColor(detail.color);
         return (
-            <div className="w-full max-w-5xl mx-auto p-4 md:p-6 pb-24 animate-fade-in">
+            <div className="w-full max-w-7xl mx-auto p-4 md:p-6 pb-24 animate-fade-in">
                 <Toast />
 
                 <button onClick={() => setDetail(null)} className="flex items-center gap-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 mb-4 text-sm font-bold transition-colors">
@@ -391,7 +391,7 @@ export function Categories() {
 
     // --- LIST VIEW ---
     return (
-        <div className="w-full max-w-5xl mx-auto p-4 md:p-6 pb-24 animate-fade-in">
+        <div className="w-full max-w-7xl mx-auto p-4 md:p-6 pb-24 animate-fade-in">
             <Toast />
 
             <div className="flex items-center justify-between mb-6">

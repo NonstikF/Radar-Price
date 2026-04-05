@@ -47,7 +47,7 @@ export default function LabelDesigner() {
         : settings;
 
     return (
-        <div className="p-4 md:p-8 max-w-6xl mx-auto animate-fade-in">
+        <div className="p-4 md:p-8 max-w-7xl mx-auto animate-fade-in">
             {/* ENCABEZADO */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                 <div>

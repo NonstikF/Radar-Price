@@ -57,7 +57,7 @@ export function PurchasesHub() {
     };
 
     return (
-        <div className="w-full max-w-5xl mx-auto p-4 md:p-6 pb-24 animate-fade-in">
+        <div className="w-full max-w-7xl mx-auto p-4 md:p-6 pb-24 animate-fade-in">
             <div className="mb-6">
                 <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight">Compras</h1>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Gestión de compras, proveedores y facturación.</p>

@@ -78,7 +78,7 @@ export function Dashboard({ onNavigate }: Props) {
     };
 
     return (
-        <div className="w-full max-w-5xl mx-auto p-4 animate-fade-in">
+        <div className="w-full max-w-7xl mx-auto p-4 animate-fade-in">
             <div className="mb-6">
                 <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight">Panel Principal</h1>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Selecciona un módulo para comenzar.</p>
