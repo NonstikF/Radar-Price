@@ -382,7 +382,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                             </div>
                             <div className="flex-1 min-w-0">
                                 <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Agregar a lista</p>
-                                <p className="font-bold text-gray-800 dark:text-gray-100 text-sm leading-tight line-clamp-2">{cartModal.product.name}</p>
+                                <p className="font-bold text-gray-800 dark:text-gray-100 text-sm leading-tight">{cartModal.product.name}</p>
                             </div>
                         </div>
 
