@@ -6,7 +6,7 @@
       "Bash(curl:*)",
       "Bash(cd /c/Users/admin/Radar-Price/frontend && npx vite build 2>&1)",
       "Bash(true:*)",
-      "Bash(cd /c/Users/admin/Radar-Price/backend && venv/Scripts/python.exe -c \"import uvicorn; from app.main import app; print\\('Import OK'\\)\" 2>&1)",
+      "Bash(cd /c/Users/admin/Radar-Price/backend && venv/Scripts/python.exe -c \"import uvicorn; from app.main import app; print\('Import OK'\)\" 2>&1)",
       "Bash(cd /c/Users/admin/Radar-Price/backend && venv/Scripts/python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 2>&1)",
       "Bash(tail:*)",
       "Bash(cd /c/Users/admin/Radar-Price/backend && venv/Scripts/pip.exe install \"bcrypt==4.0.1\" 2>&1)",
@@ -23,7 +23,16 @@
       "Bash(git add:*)",
       "Bash(git -C c:/Users/admin/Proyectos/Radar-Price add backend/app/api/endpoints/locations.py frontend/src/pages/inventory/Locations.tsx)",
       "Bash(git -C c:/Users/admin/Proyectos/Radar-Price status --short)",
-      "Bash(git -C:*)"
+      "Bash(git -C:*)",
+      "Bash(find /c/Users/admin/Proyectos/Radar-Price/frontend/src -name *ProductDetail* -o -name *Modal*)",
+      "Bash(npm run:*)",
+      "Bash(npx skills:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(git checkout:*)",
+      "Bash(git cherry-pick:*)",
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "Bash(git stash:*)"
     ]
   }
 }

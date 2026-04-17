@@ -34,6 +34,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
     const [selectionMode, setSelectionMode] = useState(false);
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
     const [bulkLoading, setBulkLoading] = useState(false);
+    const [cartModal, setCartModal] = useState<{ product: any; quantity: number } | null>(null);
 
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     const isAdmin = user.role === 'admin';
@@ -95,15 +96,21 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
         }
     };
 
-    const handleQuickAddToCart = async (e: React.MouseEvent, product: any) => {
+    const handleOpenCartModal = (e: React.MouseEvent, product: any) => {
         e.stopPropagation();
         if (!product.supplier_id) {
             showToast("Asigna un proveedor primero", "error");
             return;
         }
+        setCartModal({ product, quantity: 1 });
+    };
+
+    const handleConfirmAddToCart = async () => {
+        if (!cartModal) return;
         try {
-            const result = await addToList(product.id, 1);
+            const result = await addToList(cartModal.product.id, cartModal.quantity);
             showToast(`Agregado a lista de ${result.supplier_name}`);
+            setCartModal(null);
         } catch (err: any) {
             showToast(err.response?.data?.detail || "Error al agregar", "error");
         }
@@ -251,7 +258,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                             {!selectionMode && (
                                 <div className="flex items-center gap-2 shrink-0">
                                     <button
-                                        onClick={(e) => handleQuickAddToCart(e, product)}
+                                        onClick={(e) => handleOpenCartModal(e, product)}
                                         disabled={adding}
                                         title={product.supplier_id ? "Agregar a lista de compras" : "Sin proveedor asignado"}
                                         className={`p-2 rounded-xl transition-all active:scale-90 ${product.supplier_id ? 'text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20' : 'text-gray-300 dark:text-gray-600 cursor-not-allowed'}`}
@@ -356,6 +363,75 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
 
             {showScanner && (
                 <BarcodeScanner onScan={(code) => { setSearchTerm(code); showToast("Buscando..."); setShowScanner(false); }} onClose={() => setShowScanner(false)} />
+            )}
+
+            {/* MODAL CANTIDAD CARRITO */}
+            {cartModal && (
+                <div
+                    className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+                    onClick={() => setCartModal(null)}
+                >
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+                    <div
+                        className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 w-full max-w-xs animate-scale-in"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl">
+                                <ShoppingCart className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Agregar a lista</p>
+                                <p className="font-bold text-gray-800 dark:text-gray-100 text-sm leading-tight line-clamp-2">{cartModal.product.name}</p>
+                            </div>
+                        </div>
+
+                        <div className="mb-5">
+                            <label className="text-xs font-bold text-gray-400 uppercase tracking-wide block mb-2">Cantidad</label>
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={() => setCartModal(m => m && m.quantity > 1 ? { ...m, quantity: m.quantity - 1 } : m)}
+                                    className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-black text-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-all active:scale-90 flex items-center justify-center"
+                                >
+                                    −
+                                </button>
+                                <input
+                                    type="number"
+                                    min={1}
+                                    value={cartModal.quantity}
+                                    onChange={(e) => {
+                                        const v = parseInt(e.target.value);
+                                        if (!isNaN(v) && v >= 1) setCartModal(m => m ? { ...m, quantity: v } : m);
+                                    }}
+                                    className="flex-1 text-center text-2xl font-black text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-transparent rounded-xl py-2 outline-none focus:ring-2 focus:ring-emerald-500"
+                                />
+                                <button
+                                    onClick={() => setCartModal(m => m ? { ...m, quantity: m.quantity + 1 } : m)}
+                                    className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-black text-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-all active:scale-90 flex items-center justify-center"
+                                >
+                                    +
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setCartModal(null)}
+                                className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 font-bold text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleConfirmAddToCart}
+                                disabled={adding}
+                                className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold text-sm transition-all flex items-center justify-center gap-2"
+                            >
+                                {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingCart className="w-4 h-4" />}
+                                Agregar
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );
