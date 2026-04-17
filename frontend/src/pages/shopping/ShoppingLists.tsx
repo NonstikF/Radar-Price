@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
     ShoppingCart, ChevronLeft, Package, Trash2, CheckCircle2, XCircle,
-    Loader2, Plus, Minus, AlertTriangle, RotateCcw, FileText
+    Loader2, Plus, Minus, AlertTriangle, RotateCcw, FileText, Search, Camera, X
 } from 'lucide-react';
+import { BarcodeScanner } from '../../components/ui/BarcodeScanner';
 import { API_URL } from '../../config/api';
 import { TOAST_DURATION } from '../../config/constants';
 
@@ -51,6 +52,8 @@ export function ShoppingLists() {
     const [loadingDetail, setLoadingDetail] = useState(false);
     const [statusFilter, setStatusFilter] = useState<string>("active");
     const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({ show: false, message: '', type: 'success' });
+    const [itemSearch, setItemSearch] = useState('');
+    const [showScanner, setShowScanner] = useState(false);
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => {
         setToast({ show: true, message, type });
@@ -72,6 +75,7 @@ export function ShoppingLists() {
 
     const fetchDetail = async (listId: number) => {
         setLoadingDetail(true);
+        setItemSearch('');
         try {
             const res = await axios.get(`${API_URL}/shopping-lists/${listId}`);
             setSelectedList(res.data);
@@ -87,21 +91,37 @@ export function ShoppingLists() {
     }, [statusFilter]);
 
     const handleUpdateQty = async (listId: number, itemId: number, newQty: number) => {
+        if (newQty < 1) {
+            handleDeleteItem(listId, itemId);
+            return;
+        }
+        setSelectedList(prev => {
+            if (!prev) return prev;
+            const items = prev.items.map(it =>
+                it.id === itemId ? { ...it, quantity: newQty, subtotal: it.price * newQty } : it
+            );
+            return { ...prev, items, total: items.reduce((s, it) => s + it.subtotal, 0) };
+        });
         try {
             await axios.put(`${API_URL}/shopping-lists/${listId}/items/${itemId}`, { quantity: newQty });
-            await fetchDetail(listId);
         } catch (err) {
             showToast("Error al actualizar", "error");
+            fetchDetail(listId);
         }
     };
 
     const handleDeleteItem = async (listId: number, itemId: number) => {
+        setSelectedList(prev => {
+            if (!prev) return prev;
+            const items = prev.items.filter(it => it.id !== itemId);
+            return { ...prev, items, total: items.reduce((s, it) => s + it.subtotal, 0) };
+        });
         try {
             await axios.delete(`${API_URL}/shopping-lists/${listId}/items/${itemId}`);
-            await fetchDetail(listId);
             showToast("Item eliminado");
         } catch (err) {
             showToast("Error al eliminar", "error");
+            fetchDetail(listId);
         }
     };
 
@@ -191,6 +211,26 @@ export function ShoppingLists() {
                     </button>
                 </div>
 
+                {/* BUSCADOR */}
+                <div className="mb-4 bg-white dark:bg-gray-800 p-2 rounded-2xl shadow-sm border border-gray-200 dark:border-transparent flex items-center gap-2">
+                    <Search className="w-5 h-5 text-gray-400 shrink-0 ml-2" />
+                    <input
+                        type="text"
+                        placeholder="Buscar en esta lista..."
+                        value={itemSearch}
+                        onChange={(e) => setItemSearch(e.target.value)}
+                        className="flex-1 bg-transparent outline-none text-gray-900 dark:text-white text-sm font-medium placeholder-gray-400"
+                    />
+                    {itemSearch && (
+                        <button onClick={() => setItemSearch('')} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+                            <X className="w-4 h-4" />
+                        </button>
+                    )}
+                    <button onClick={() => setShowScanner(true)} className="p-2 rounded-xl text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-gray-700 transition-all">
+                        <Camera className="w-5 h-5" />
+                    </button>
+                </div>
+
                 {/* ITEMS */}
                 {loadingDetail ? (
                     <div className="text-center py-20"><Loader2 className="animate-spin h-8 w-8 text-blue-600 mx-auto" /></div>
@@ -201,7 +241,10 @@ export function ShoppingLists() {
                     </div>
                 ) : (
                     <div className="space-y-3">
-                        {selectedList.items.map((item) => (
+                        {selectedList.items.filter(item => {
+                            const q = itemSearch.toLowerCase();
+                            return !q || item.product_name.toLowerCase().includes(q) || (item.product_alias || '').toLowerCase().includes(q) || (item.product_sku || '').toLowerCase().includes(q);
+                        }).map((item) => (
                             <div key={item.id} className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-transparent flex items-center gap-4">
                                 <div className="flex-1 min-w-0">
                                     <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm leading-tight mb-1 line-clamp-2">
@@ -249,11 +292,20 @@ export function ShoppingLists() {
                         ))}
 
                         {/* TOTAL */}
-                        <div className="bg-gray-900 dark:bg-gray-950 text-white p-5 rounded-2xl flex justify-between items-center">
-                            <span className="text-sm font-bold uppercase tracking-wider text-gray-400">Total estimado</span>
-                            <span className="text-3xl font-black">${selectedList.total.toFixed(2)}</span>
-                        </div>
+                        {!itemSearch && (
+                            <div className="bg-gray-900 dark:bg-gray-950 text-white p-5 rounded-2xl flex justify-between items-center">
+                                <span className="text-sm font-bold uppercase tracking-wider text-gray-400">Total estimado</span>
+                                <span className="text-3xl font-black">${selectedList.total.toFixed(2)}</span>
+                            </div>
+                        )}
                     </div>
+                )}
+
+                {showScanner && (
+                    <BarcodeScanner
+                        onScan={(code) => { setItemSearch(code); setShowScanner(false); }}
+                        onClose={() => setShowScanner(false)}
+                    />
                 )}
             </div>
         );
