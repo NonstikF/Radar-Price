@@ -388,26 +388,26 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
 
                         <div className="mb-5">
                             <label className="text-xs font-bold text-gray-400 uppercase tracking-wide block mb-2">Cantidad</label>
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-stretch h-12 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700">
                                 <button
                                     onClick={() => setCartModal(m => m && m.quantity > 1 ? { ...m, quantity: m.quantity - 1 } : m)}
-                                    className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-black text-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-all active:scale-90 flex items-center justify-center"
+                                    className="w-12 shrink-0 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-black text-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all active:scale-95 flex items-center justify-center border-r border-gray-200 dark:border-gray-700"
                                 >
                                     −
                                 </button>
                                 <input
-                                    type="number"
-                                    min={1}
+                                    type="text"
+                                    inputMode="numeric"
                                     value={cartModal.quantity}
                                     onChange={(e) => {
                                         const v = parseInt(e.target.value);
                                         if (!isNaN(v) && v >= 1) setCartModal(m => m ? { ...m, quantity: v } : m);
                                     }}
-                                    className="flex-1 text-center text-2xl font-black text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-transparent rounded-xl py-2 outline-none focus:ring-2 focus:ring-emerald-500"
+                                    className="flex-1 min-w-0 text-center text-2xl font-black text-gray-900 dark:text-white bg-white dark:bg-gray-800 outline-none"
                                 />
                                 <button
                                     onClick={() => setCartModal(m => m ? { ...m, quantity: m.quantity + 1 } : m)}
-                                    className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-black text-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-all active:scale-90 flex items-center justify-center"
+                                    className="w-12 shrink-0 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-black text-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all active:scale-95 flex items-center justify-center border-l border-gray-200 dark:border-gray-700"
                                 >
                                     +
                                 </button>
