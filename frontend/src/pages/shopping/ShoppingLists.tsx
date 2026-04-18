@@ -74,7 +74,6 @@ export function ShoppingLists() {
             const pageH = pdf.internal.pageSize.getHeight();
             const imgW = pageW;
             const imgH = (canvas.height * pageW) / canvas.width;
-            let y = 0;
             let remaining = imgH;
             let page = 0;
             while (remaining > 0) {
