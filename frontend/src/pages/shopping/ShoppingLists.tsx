@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { useReactToPrint } from 'react-to-print';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 import {
     ShoppingCart, ChevronLeft, Package, Trash2, CheckCircle2, XCircle,
     Loader2, Plus, Minus, AlertTriangle, RotateCcw, FileText, Search, Camera, X,
-    Printer, Building2
+    Download, Building2
 } from 'lucide-react';
 import { BarcodeScanner } from '../../components/ui/BarcodeScanner';
 import { SupplierPDF, InternalPDF } from '../../components/ui/ShoppingListPDF';
@@ -60,15 +61,33 @@ export function ShoppingLists() {
 
     const supplierPDFRef = useRef<HTMLDivElement>(null);
     const internalPDFRef = useRef<HTMLDivElement>(null);
+    const [generatingPDF, setGeneratingPDF] = useState<'supplier' | 'internal' | null>(null);
 
-    const printSupplier = useReactToPrint({
-        contentRef: supplierPDFRef,
-        documentTitle: `Solicitud-${selectedList?.supplier_name || ''}-${new Date().toLocaleDateString('es-MX')}`,
-    });
-    const printInternal = useReactToPrint({
-        contentRef: internalPDFRef,
-        documentTitle: `ListaInterna-${selectedList?.supplier_name || ''}-${new Date().toLocaleDateString('es-MX')}`,
-    });
+    const downloadPDF = async (ref: React.RefObject<HTMLDivElement | null>, filename: string, type: 'supplier' | 'internal') => {
+        if (!ref.current) return;
+        setGeneratingPDF(type);
+        try {
+            const canvas = await html2canvas(ref.current, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
+            const pageW = pdf.internal.pageSize.getWidth();
+            const pageH = pdf.internal.pageSize.getHeight();
+            const imgW = pageW;
+            const imgH = (canvas.height * pageW) / canvas.width;
+            let y = 0;
+            let remaining = imgH;
+            let page = 0;
+            while (remaining > 0) {
+                if (page > 0) pdf.addPage();
+                pdf.addImage(imgData, 'PNG', 0, -page * pageH, imgW, imgH);
+                remaining -= pageH;
+                page++;
+            }
+            pdf.save(filename);
+        } finally {
+            setGeneratingPDF(null);
+        }
+    };
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => {
         setToast({ show: true, message, type });
@@ -227,18 +246,22 @@ export function ShoppingLists() {
 
                     <div className="ml-auto flex gap-2">
                         <button
-                            onClick={() => printSupplier()}
-                            title="PDF para proveedor (sin precios)"
-                            className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-blue-700 dark:text-blue-400 rounded-xl text-sm font-bold transition-all"
+                            onClick={() => downloadPDF(supplierPDFRef, `Solicitud-${selectedList.supplier_name}.pdf`, 'supplier')}
+                            disabled={!!generatingPDF}
+                            title="Descargar PDF para proveedor (sin precios)"
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-blue-700 dark:text-blue-400 rounded-xl text-sm font-bold transition-all disabled:opacity-50"
                         >
-                            <Building2 className="w-4 h-4" /> PDF Proveedor
+                            {generatingPDF === 'supplier' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Building2 className="w-4 h-4" />}
+                            PDF Proveedor
                         </button>
                         <button
-                            onClick={() => printInternal()}
-                            title="PDF interno (con precios y totales)"
-                            className="flex items-center gap-2 px-4 py-2 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-400 rounded-xl text-sm font-bold transition-all"
+                            onClick={() => downloadPDF(internalPDFRef, `Lista-Interna-${selectedList.supplier_name}.pdf`, 'internal')}
+                            disabled={!!generatingPDF}
+                            title="Descargar PDF interno (con precios y totales)"
+                            className="flex items-center gap-2 px-4 py-2 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-400 rounded-xl text-sm font-bold transition-all disabled:opacity-50"
                         >
-                            <Printer className="w-4 h-4" /> PDF Interno
+                            {generatingPDF === 'internal' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                            PDF Interno
                         </button>
                     </div>
                 </div>
@@ -340,8 +363,8 @@ export function ShoppingLists() {
                     />
                 )}
 
-                {/* Componentes PDF ocultos para impresión */}
-                <div style={{ display: 'none' }}>
+                {/* Componentes PDF ocultos fuera de pantalla para html2canvas */}
+                <div style={{ position: 'fixed', left: '-9999px', top: 0, zIndex: -1 }}>
                     <SupplierPDF
                         ref={supplierPDFRef}
                         supplierName={selectedList.supplier_name}
