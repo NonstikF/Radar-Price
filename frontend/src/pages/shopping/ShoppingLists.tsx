@@ -1,14 +1,13 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
-import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import {
     ShoppingCart, ChevronLeft, Package, Trash2, CheckCircle2, XCircle,
     Loader2, Plus, Minus, AlertTriangle, RotateCcw, FileText, Search, Camera, X,
     Download, Building2
 } from 'lucide-react';
 import { BarcodeScanner } from '../../components/ui/BarcodeScanner';
-import { SupplierPDF, InternalPDF } from '../../components/ui/ShoppingListPDF';
 import { API_URL } from '../../config/api';
 import { TOAST_DURATION } from '../../config/constants';
 
@@ -59,60 +58,160 @@ export function ShoppingLists() {
     const [itemSearch, setItemSearch] = useState('');
     const [showScanner, setShowScanner] = useState(false);
 
-    const supplierPDFRef = useRef<HTMLDivElement>(null);
-    const internalPDFRef = useRef<HTMLDivElement>(null);
     const [generatingPDF, setGeneratingPDF] = useState<'supplier' | 'internal' | null>(null);
 
-    const downloadPDF = async (ref: React.RefObject<HTMLDivElement | null>, filename: string, type: 'supplier' | 'internal') => {
-        if (!ref.current) return;
-        setGeneratingPDF(type);
+    const buildHeader = (pdf: jsPDF, title: string, subtitle: string, accentColor: [number, number, number], list: ShoppingListDetail, date: string) => {
+        const pageW = pdf.internal.pageSize.getWidth();
+        // Banda de color superior
+        pdf.setFillColor(...accentColor);
+        pdf.roundedRect(14, 12, pageW - 28, 28, 3, 3, 'F');
+        // Título
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(16);
+        pdf.setTextColor(255, 255, 255);
+        pdf.text(title, 20, 22);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(8);
+        pdf.setTextColor(220, 230, 255);
+        pdf.text(subtitle, 20, 28);
+        // Proveedor y fecha (derecha)
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(9);
+        pdf.setTextColor(255, 255, 255);
+        pdf.text(list.supplier_name, pageW - 20, 21, { align: 'right' });
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(7.5);
+        pdf.setTextColor(210, 225, 255);
+        pdf.text(list.supplier_rfc, pageW - 20, 26, { align: 'right' });
+        pdf.text(date, pageW - 20, 31, { align: 'right' });
+    };
+
+    const downloadSupplierPDF = () => {
+        if (!selectedList) return;
+        setGeneratingPDF('supplier');
         try {
-            const el = ref.current;
-            const htmlScale = 1.5;
-            const canvas = await html2canvas(el, { scale: htmlScale, useCORS: true, backgroundColor: '#ffffff' });
+            const date = new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
+            const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
+            const accent: [number, number, number] = [37, 99, 235];
 
-            const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter', compress: true });
-            const pageW = pdf.internal.pageSize.getWidth();
-            const pageH = pdf.internal.pageSize.getHeight();
+            buildHeader(pdf, 'Solicitud de Compra', 'Lista de artículos requeridos', accent, selectedList, date);
 
-            // Pixels de canvas por página PDF
-            const canvasPxPerPage = (pageH * canvas.width) / pageW;
-
-            // Posiciones (en px de canvas) del borde inferior de cada fila
-            const elRect = el.getBoundingClientRect();
-            const rowBottoms = Array.from(el.querySelectorAll('tbody tr')).map(row => {
-                const r = row.getBoundingClientRect();
-                return (r.bottom - elRect.top) * htmlScale;
+            autoTable(pdf, {
+                startY: 46,
+                head: [['#', 'Código', 'Descripción del Artículo', 'Cant.']],
+                body: selectedList.items.map((item, idx) => [
+                    idx + 1,
+                    item.product_sku || '—',
+                    item.product_alias ? `${item.product_alias}\n${item.product_name}` : item.product_name,
+                    item.quantity,
+                ]),
+                headStyles: { fillColor: [30, 64, 175], textColor: 255, fontStyle: 'bold', fontSize: 8 },
+                alternateRowStyles: { fillColor: [239, 246, 255] },
+                columnStyles: {
+                    0: { cellWidth: 10, halign: 'center', textColor: [170, 170, 170], fontSize: 7 },
+                    1: { cellWidth: 26, fontStyle: 'bold', textColor: [30, 64, 175], fontSize: 8 },
+                    2: { cellWidth: 'auto', fontSize: 9 },
+                    3: { cellWidth: 18, halign: 'center', fontStyle: 'bold', textColor: [37, 99, 235], fontSize: 13 },
+                },
+                styles: { cellPadding: 3, lineColor: [224, 234, 255], lineWidth: 0.1 },
+                margin: { left: 14, right: 14 },
             });
 
-            let pageNum = 0;
-            let startPx = 0;
+            const finalY = (pdf as any).lastAutoTable.finalY + 6;
+            const pageW = pdf.internal.pageSize.getWidth();
+            const totalUnits = selectedList.items.reduce((s, i) => s + i.quantity, 0);
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(9);
+            pdf.setTextColor(60, 60, 60);
+            pdf.text(`Total: ${totalUnits} unidades · ${selectedList.items.length} referencias`, pageW - 14, finalY, { align: 'right' });
 
-            while (startPx < canvas.height) {
-                if (pageNum > 0) pdf.addPage();
+            pdf.save(`Solicitud-${selectedList.supplier_name}.pdf`);
+        } finally {
+            setGeneratingPDF(null);
+        }
+    };
 
-                let endPx = Math.min(startPx + canvasPxPerPage, canvas.height);
+    const downloadInternalPDF = () => {
+        if (!selectedList) return;
+        setGeneratingPDF('internal');
+        try {
+            const date = new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
+            const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
+            const accent: [number, number, number] = [124, 58, 237];
 
-                // Si no es la última página, retroceder el corte hasta el final de una fila
-                if (endPx < canvas.height) {
-                    const safeEnd = rowBottoms.filter(b => b > startPx && b <= endPx).pop();
-                    if (safeEnd) endPx = safeEnd;
-                }
+            buildHeader(pdf, 'Lista de Compras', 'Interno', accent, selectedList, date);
 
-                const sliceH = endPx - startPx;
-                const sliceCanvas = document.createElement('canvas');
-                sliceCanvas.width = canvas.width;
-                sliceCanvas.height = sliceH;
-                sliceCanvas.getContext('2d')!.drawImage(canvas, 0, startPx, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
+            autoTable(pdf, {
+                startY: 46,
+                head: [['#', 'Código', 'Descripción del Artículo', 'Cant.', 'P. Costo', 'Subtotal']],
+                body: selectedList.items.map((item, idx) => [
+                    idx + 1,
+                    item.product_sku || '—',
+                    item.product_alias ? `${item.product_alias}\n${item.product_name}` : item.product_name,
+                    item.quantity,
+                    `$${item.price.toFixed(2)}`,
+                    `$${item.subtotal.toFixed(2)}`,
+                ]),
+                headStyles: { fillColor: [91, 33, 182], textColor: 255, fontStyle: 'bold', fontSize: 8 },
+                alternateRowStyles: { fillColor: [245, 243, 255] },
+                columnStyles: {
+                    0: { cellWidth: 10, halign: 'center', textColor: [170, 170, 170], fontSize: 7 },
+                    1: { cellWidth: 24, fontStyle: 'bold', textColor: [91, 33, 182], fontSize: 8 },
+                    2: { cellWidth: 'auto', fontSize: 9 },
+                    3: { cellWidth: 16, halign: 'center', fontStyle: 'bold', textColor: [124, 58, 237], fontSize: 12 },
+                    4: { cellWidth: 22, halign: 'right', textColor: [100, 100, 100], fontSize: 8 },
+                    5: { cellWidth: 26, halign: 'right', fontStyle: 'bold', fontSize: 9 },
+                },
+                styles: { cellPadding: 3, lineColor: [237, 233, 254], lineWidth: 0.1 },
+                margin: { left: 14, right: 14 },
+            });
 
-                const sliceImgH = (sliceH * pageW) / canvas.width;
-                pdf.addImage(sliceCanvas.toDataURL('image/jpeg', 0.82), 'JPEG', 0, 0, pageW, sliceImgH);
+            const finalY = (pdf as any).lastAutoTable.finalY + 4;
+            const pageW = pdf.internal.pageSize.getWidth();
+            const subtotal = selectedList.total;
+            const iva = subtotal * 0.16;
+            const totalConIva = subtotal + iva;
+            const totalUnits = selectedList.items.reduce((s, i) => s + i.quantity, 0);
 
-                startPx = endPx;
-                pageNum++;
-            }
+            // Resumen izquierda
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(8.5);
+            pdf.setTextColor(100, 100, 100);
+            pdf.text(`Referencias: ${selectedList.items.length}   ·   Total unidades: ${totalUnits}`, 14, finalY + 6);
 
-            pdf.save(filename);
+            // Bloque de totales derecha
+            const boxX = pageW - 80;
+            const rowH = 7;
+            // Subtotal
+            pdf.setFillColor(248, 246, 255);
+            pdf.rect(boxX, finalY, 66, rowH, 'F');
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(8.5);
+            pdf.setTextColor(80, 80, 80);
+            pdf.text('Subtotal', boxX + 4, finalY + 4.8);
+            pdf.setFont('helvetica', 'bold');
+            pdf.text(`$${subtotal.toFixed(2)}`, pageW - 14, finalY + 4.8, { align: 'right' });
+            // IVA
+            pdf.setFillColor(237, 233, 254);
+            pdf.rect(boxX, finalY + rowH, 66, rowH, 'F');
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(8.5);
+            pdf.setTextColor(124, 58, 237);
+            pdf.text('IVA (16%)', boxX + 4, finalY + rowH + 4.8);
+            pdf.setFont('helvetica', 'bold');
+            pdf.text(`$${iva.toFixed(2)}`, pageW - 14, finalY + rowH + 4.8, { align: 'right' });
+            // Total con IVA
+            pdf.setFillColor(124, 58, 237);
+            pdf.rect(boxX, finalY + rowH * 2, 66, rowH + 2, 'F');
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(8);
+            pdf.setTextColor(200, 180, 255);
+            pdf.text('TOTAL CON IVA', boxX + 4, finalY + rowH * 2 + 5.5);
+            pdf.setFontSize(11);
+            pdf.setTextColor(255, 255, 255);
+            pdf.text(`$${totalConIva.toFixed(2)}`, pageW - 14, finalY + rowH * 2 + 5.5, { align: 'right' });
+
+            pdf.save(`Lista-Interna-${selectedList.supplier_name}.pdf`);
         } finally {
             setGeneratingPDF(null);
         }
@@ -275,7 +374,7 @@ export function ShoppingLists() {
 
                     <div className="ml-auto flex gap-2">
                         <button
-                            onClick={() => downloadPDF(supplierPDFRef, `Solicitud-${selectedList.supplier_name}.pdf`, 'supplier')}
+                            onClick={downloadSupplierPDF}
                             disabled={!!generatingPDF}
                             title="Descargar PDF para proveedor (sin precios)"
                             className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-blue-700 dark:text-blue-400 rounded-xl text-sm font-bold transition-all disabled:opacity-50"
@@ -284,7 +383,7 @@ export function ShoppingLists() {
                             PDF Proveedor
                         </button>
                         <button
-                            onClick={() => downloadPDF(internalPDFRef, `Lista-Interna-${selectedList.supplier_name}.pdf`, 'internal')}
+                            onClick={downloadInternalPDF}
                             disabled={!!generatingPDF}
                             title="Descargar PDF interno (con precios y totales)"
                             className="flex items-center gap-2 px-4 py-2 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-400 rounded-xl text-sm font-bold transition-all disabled:opacity-50"
@@ -392,25 +491,6 @@ export function ShoppingLists() {
                     />
                 )}
 
-                {/* Componentes PDF ocultos fuera de pantalla para html2canvas */}
-                <div style={{ position: 'fixed', left: '-9999px', top: 0, zIndex: -1 }}>
-                    <SupplierPDF
-                        ref={supplierPDFRef}
-                        supplierName={selectedList.supplier_name}
-                        supplierRfc={selectedList.supplier_rfc}
-                        items={selectedList.items}
-                        total={selectedList.total}
-                        date={new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })}
-                    />
-                    <InternalPDF
-                        ref={internalPDFRef}
-                        supplierName={selectedList.supplier_name}
-                        supplierRfc={selectedList.supplier_rfc}
-                        items={selectedList.items}
-                        total={selectedList.total}
-                        date={new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })}
-                    />
-                </div>
             </div>
         );
     }
