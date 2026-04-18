@@ -67,21 +67,51 @@ export function ShoppingLists() {
         if (!ref.current) return;
         setGeneratingPDF(type);
         try {
-            const canvas = await html2canvas(ref.current, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-            const imgData = canvas.toDataURL('image/png');
+            const el = ref.current;
+            const htmlScale = 2;
+            const canvas = await html2canvas(el, { scale: htmlScale, useCORS: true, backgroundColor: '#ffffff' });
+
             const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
             const pageW = pdf.internal.pageSize.getWidth();
             const pageH = pdf.internal.pageSize.getHeight();
-            const imgW = pageW;
-            const imgH = (canvas.height * pageW) / canvas.width;
-            let remaining = imgH;
-            let page = 0;
-            while (remaining > 0) {
-                if (page > 0) pdf.addPage();
-                pdf.addImage(imgData, 'PNG', 0, -page * pageH, imgW, imgH);
-                remaining -= pageH;
-                page++;
+
+            // Pixels de canvas por página PDF
+            const canvasPxPerPage = (pageH * canvas.width) / pageW;
+
+            // Posiciones (en px de canvas) del borde inferior de cada fila
+            const elRect = el.getBoundingClientRect();
+            const rowBottoms = Array.from(el.querySelectorAll('tbody tr')).map(row => {
+                const r = row.getBoundingClientRect();
+                return (r.bottom - elRect.top) * htmlScale;
+            });
+
+            let pageNum = 0;
+            let startPx = 0;
+
+            while (startPx < canvas.height) {
+                if (pageNum > 0) pdf.addPage();
+
+                let endPx = Math.min(startPx + canvasPxPerPage, canvas.height);
+
+                // Si no es la última página, retroceder el corte hasta el final de una fila
+                if (endPx < canvas.height) {
+                    const safeEnd = rowBottoms.filter(b => b > startPx && b <= endPx).pop();
+                    if (safeEnd) endPx = safeEnd;
+                }
+
+                const sliceH = endPx - startPx;
+                const sliceCanvas = document.createElement('canvas');
+                sliceCanvas.width = canvas.width;
+                sliceCanvas.height = sliceH;
+                sliceCanvas.getContext('2d')!.drawImage(canvas, 0, startPx, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
+
+                const sliceImgH = (sliceH * pageW) / canvas.width;
+                pdf.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', 0, 0, pageW, sliceImgH);
+
+                startPx = endPx;
+                pageNum++;
             }
+
             pdf.save(filename);
         } finally {
             setGeneratingPDF(null);
