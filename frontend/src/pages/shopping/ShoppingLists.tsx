@@ -450,7 +450,17 @@ export function ShoppingLists() {
                                     >
                                         <Minus className="w-3 h-3 text-gray-600 dark:text-gray-300" />
                                     </button>
-                                    <span className="w-8 text-center font-bold text-gray-900 dark:text-white text-sm">{item.quantity}</span>
+                                    <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        value={item.quantity}
+                                        onChange={(e) => {
+                                            const v = parseInt(e.target.value);
+                                            if (!isNaN(v) && v >= 1) handleUpdateQty(selectedList.id, item.id, v);
+                                        }}
+                                        onFocus={(e) => e.target.select()}
+                                        className="w-10 text-center font-bold text-gray-900 dark:text-white text-sm bg-gray-100 dark:bg-gray-700 rounded-lg py-1 outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
                                     <button
                                         onClick={() => handleUpdateQty(selectedList.id, item.id, item.quantity + 1)}
                                         className="p-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
