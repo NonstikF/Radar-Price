@@ -68,10 +68,10 @@ export function ShoppingLists() {
         setGeneratingPDF(type);
         try {
             const el = ref.current;
-            const htmlScale = 2;
+            const htmlScale = 1.5;
             const canvas = await html2canvas(el, { scale: htmlScale, useCORS: true, backgroundColor: '#ffffff' });
 
-            const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
+            const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter', compress: true });
             const pageW = pdf.internal.pageSize.getWidth();
             const pageH = pdf.internal.pageSize.getHeight();
 
@@ -106,7 +106,7 @@ export function ShoppingLists() {
                 sliceCanvas.getContext('2d')!.drawImage(canvas, 0, startPx, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
 
                 const sliceImgH = (sliceH * pageW) / canvas.width;
-                pdf.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', 0, 0, pageW, sliceImgH);
+                pdf.addImage(sliceCanvas.toDataURL('image/jpeg', 0.82), 'JPEG', 0, 0, pageW, sliceImgH);
 
                 startPx = endPx;
                 pageNum++;
