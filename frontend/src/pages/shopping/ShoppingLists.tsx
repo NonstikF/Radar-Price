@@ -325,8 +325,13 @@ export function ShoppingLists() {
 
     // --- VISTA DETALLE ---
     if (selectedList) {
+        const filteredItems = selectedList.items.filter(item => {
+            const q = itemSearch.toLowerCase();
+            return !q || item.product_name.toLowerCase().includes(q) || (item.product_alias || '').toLowerCase().includes(q) || (item.product_sku || '').toLowerCase().includes(q);
+        });
+
         return (
-            <div className="w-full max-w-7xl mx-auto p-2 md:p-6 pb-24 animate-fade-in">
+            <div className="w-full max-w-7xl mx-auto p-2 md:p-4 pb-36 animate-fade-in">
                 {/* TOAST */}
                 <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[70] transition-all duration-300 transform ${toast.show ? 'translate-y-0 opacity-100' : '-translate-y-10 opacity-0 pointer-events-none'}`}>
                     <div className={`flex items-center gap-3 px-6 py-4 rounded-full shadow-2xl border ${toast.type === 'success' ? 'bg-gray-900 text-green-400 border-green-500/30' : 'bg-red-50 text-red-600 border-red-200'}`}>
@@ -335,68 +340,44 @@ export function ShoppingLists() {
                     </div>
                 </div>
 
-                {/* HEADER */}
-                <div className="mb-6">
-                    <button onClick={() => { setSelectedList(null); fetchLists(); }} className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 mb-4 transition-colors">
-                        <ChevronLeft className="w-4 h-4" /> Volver a listas
+                {/* HEADER COMPACTO */}
+                <div className="mb-3">
+                    <button onClick={() => { setSelectedList(null); fetchLists(); }} className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 mb-2 transition-colors">
+                        <ChevronLeft className="w-4 h-4" /> Volver
                     </button>
-                    <div className="flex items-center justify-between flex-wrap gap-3">
-                        <div>
-                            <h1 className="text-xl md:text-3xl font-black text-gray-900 dark:text-white">{selectedList.supplier_name}</h1>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">{selectedList.supplier_rfc}</p>
+                    <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                            <h1 className="text-lg md:text-2xl font-black text-gray-900 dark:text-white leading-tight truncate">{selectedList.supplier_name}</h1>
+                            <p className="text-xs text-gray-400">{selectedList.supplier_rfc} · {selectedList.items.length} artículos</p>
                         </div>
-                        <div className="flex items-center gap-2">
+                        {/* ACCIONES como iconos */}
+                        <div className="flex items-center gap-1 shrink-0">
                             {statusBadge(selectedList.status)}
+                            {selectedList.status === 'active' && (
+                                <button onClick={() => handleUpdateStatus(selectedList.id, 'completed')} title="Completar" className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-200 transition-all">
+                                    <CheckCircle2 className="w-4 h-4" />
+                                </button>
+                            )}
+                            {selectedList.status === 'completed' && (
+                                <button onClick={() => handleUpdateStatus(selectedList.id, 'active')} title="Reactivar" className="p-2 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 transition-all">
+                                    <RotateCcw className="w-4 h-4" />
+                                </button>
+                            )}
+                            {selectedList.status !== 'cancelled' && (
+                                <button onClick={() => handleUpdateStatus(selectedList.id, 'cancelled')} title="Cancelar" className="p-2 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 transition-all">
+                                    <XCircle className="w-4 h-4" />
+                                </button>
+                            )}
+                            <button onClick={() => handleDeleteList(selectedList.id)} title="Eliminar lista" className="p-2 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-500 hover:bg-red-100 transition-all">
+                                <Trash2 className="w-4 h-4" />
+                            </button>
                         </div>
-                    </div>
-                </div>
-
-                {/* ACCIONES */}
-                <div className="flex flex-wrap gap-2 mb-6">
-                    {selectedList.status === 'active' && (
-                        <button onClick={() => handleUpdateStatus(selectedList.id, 'completed')} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold transition-all">
-                            <CheckCircle2 className="w-4 h-4" /> Completar
-                        </button>
-                    )}
-                    {selectedList.status === 'completed' && (
-                        <button onClick={() => handleUpdateStatus(selectedList.id, 'active')} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition-all">
-                            <RotateCcw className="w-4 h-4" /> Reactivar
-                        </button>
-                    )}
-                    {selectedList.status !== 'cancelled' && (
-                        <button onClick={() => handleUpdateStatus(selectedList.id, 'cancelled')} className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl text-sm font-bold transition-all">
-                            <XCircle className="w-4 h-4" /> Cancelar
-                        </button>
-                    )}
-                    <button onClick={() => handleDeleteList(selectedList.id)} className="flex items-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 rounded-xl text-sm font-bold transition-all">
-                        <Trash2 className="w-4 h-4" /> Eliminar
-                    </button>
-
-                    <div className="ml-auto flex gap-2">
-                        <button
-                            onClick={downloadSupplierPDF}
-                            disabled={!!generatingPDF}
-                            title="Descargar PDF para proveedor (sin precios)"
-                            className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-blue-700 dark:text-blue-400 rounded-xl text-sm font-bold transition-all disabled:opacity-50"
-                        >
-                            {generatingPDF === 'supplier' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Building2 className="w-4 h-4" />}
-                            PDF Proveedor
-                        </button>
-                        <button
-                            onClick={downloadInternalPDF}
-                            disabled={!!generatingPDF}
-                            title="Descargar PDF interno (con precios y totales)"
-                            className="flex items-center gap-2 px-4 py-2 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-400 rounded-xl text-sm font-bold transition-all disabled:opacity-50"
-                        >
-                            {generatingPDF === 'internal' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                            PDF Interno
-                        </button>
                     </div>
                 </div>
 
                 {/* BUSCADOR */}
-                <div className="mb-4 bg-white dark:bg-gray-800 p-2 rounded-2xl shadow-sm border border-gray-200 dark:border-transparent flex items-center gap-2">
-                    <Search className="w-5 h-5 text-gray-400 shrink-0 ml-2" />
+                <div className="mb-3 bg-white dark:bg-gray-800 p-2 rounded-2xl shadow-sm border border-gray-200 dark:border-transparent flex items-center gap-2">
+                    <Search className="w-4 h-4 text-gray-400 shrink-0 ml-1" />
                     <input
                         type="text"
                         placeholder="Buscar en esta lista..."
@@ -405,12 +386,12 @@ export function ShoppingLists() {
                         className="flex-1 bg-transparent outline-none text-gray-900 dark:text-white text-sm font-medium placeholder-gray-400"
                     />
                     {itemSearch && (
-                        <button onClick={() => setItemSearch('')} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+                        <button onClick={() => setItemSearch('')} className="p-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
                             <X className="w-4 h-4" />
                         </button>
                     )}
-                    <button onClick={() => setShowScanner(true)} className="p-2 rounded-xl text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-gray-700 transition-all">
-                        <Camera className="w-5 h-5" />
+                    <button onClick={() => setShowScanner(true)} className="p-1.5 rounded-xl text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-gray-700 transition-all">
+                        <Camera className="w-4 h-4" />
                     </button>
                 </div>
 
@@ -423,74 +404,48 @@ export function ShoppingLists() {
                         <p className="text-xl font-medium text-gray-400">Lista vacía</p>
                     </div>
                 ) : (
-                    <div className="space-y-3">
-                        {selectedList.items.filter(item => {
-                            const q = itemSearch.toLowerCase();
-                            return !q || item.product_name.toLowerCase().includes(q) || (item.product_alias || '').toLowerCase().includes(q) || (item.product_sku || '').toLowerCase().includes(q);
-                        }).map((item) => (
-                            <div key={item.id} className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-transparent flex items-center gap-4">
+                    <div className="space-y-1.5">
+                        {filteredItems.map((item) => (
+                            <div key={item.id} className="bg-white dark:bg-gray-800 px-3 py-2.5 rounded-xl shadow-sm border border-gray-100 dark:border-transparent flex items-center gap-2">
                                 <div className="flex-1 min-w-0">
-                                    <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm leading-tight mb-1 line-clamp-2">
+                                    <p className="font-bold text-gray-800 dark:text-gray-100 text-sm leading-tight line-clamp-1">
                                         {item.product_alias || item.product_name}
-                                    </h3>
-                                    {item.product_alias && (
-                                        <p className="text-xs text-gray-400 line-clamp-1">{item.product_name}</p>
-                                    )}
-                                    <div className="flex gap-2 mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                        {item.product_sku && <span className="bg-gray-100 dark:bg-gray-900 px-2 rounded font-mono">{item.product_sku}</span>}
-                                        <span className="text-gray-400">Costo: ${item.price.toFixed(2)}</span>
+                                    </p>
+                                    <div className="flex gap-1.5 mt-0.5 items-center">
+                                        {item.product_sku && <span className="text-[10px] bg-gray-100 dark:bg-gray-900 text-gray-500 dark:text-gray-400 px-1.5 rounded font-mono">{item.product_sku}</span>}
+                                        <span className="text-[10px] text-gray-400">${item.price.toFixed(2)}</span>
                                     </div>
                                 </div>
 
                                 {/* CANTIDAD */}
-                                <div className="flex items-center gap-1">
-                                    <button
-                                        onClick={() => handleUpdateQty(selectedList.id, item.id, item.quantity - 1)}
-                                        className="p-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                                    >
+                                <div className="flex items-center gap-1 shrink-0">
+                                    <button onClick={() => handleUpdateQty(selectedList.id, item.id, item.quantity - 1)} className="w-7 h-7 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center justify-center">
                                         <Minus className="w-3 h-3 text-gray-600 dark:text-gray-300" />
                                     </button>
                                     <input
                                         type="text"
                                         inputMode="numeric"
                                         value={item.quantity}
-                                        onChange={(e) => {
-                                            const v = parseInt(e.target.value);
-                                            if (!isNaN(v) && v >= 1) handleUpdateQty(selectedList.id, item.id, v);
-                                        }}
+                                        onChange={(e) => { const v = parseInt(e.target.value); if (!isNaN(v) && v >= 1) handleUpdateQty(selectedList.id, item.id, v); }}
                                         onFocus={(e) => e.target.select()}
-                                        className="w-10 text-center font-bold text-gray-900 dark:text-white text-sm bg-gray-100 dark:bg-gray-700 rounded-lg py-1 outline-none focus:ring-2 focus:ring-blue-500"
+                                        className="w-9 text-center font-bold text-gray-900 dark:text-white text-sm bg-gray-100 dark:bg-gray-700 rounded-lg py-1 outline-none focus:ring-2 focus:ring-blue-500"
                                     />
-                                    <button
-                                        onClick={() => handleUpdateQty(selectedList.id, item.id, item.quantity + 1)}
-                                        className="p-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                                    >
+                                    <button onClick={() => handleUpdateQty(selectedList.id, item.id, item.quantity + 1)} className="w-7 h-7 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center justify-center">
                                         <Plus className="w-3 h-3 text-gray-600 dark:text-gray-300" />
                                     </button>
                                 </div>
 
                                 {/* SUBTOTAL */}
-                                <div className="text-right min-w-[70px]">
-                                    <p className="font-black text-blue-600 dark:text-blue-400">${item.subtotal.toFixed(2)}</p>
+                                <div className="text-right min-w-[60px] shrink-0">
+                                    <p className="font-black text-blue-600 dark:text-blue-400 text-sm">${item.subtotal.toFixed(2)}</p>
                                 </div>
 
                                 {/* ELIMINAR */}
-                                <button
-                                    onClick={() => handleDeleteItem(selectedList.id, item.id)}
-                                    className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 transition-colors"
-                                >
-                                    <Trash2 className="w-4 h-4" />
+                                <button onClick={() => handleDeleteItem(selectedList.id, item.id)} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-300 dark:text-gray-600 hover:text-red-500 transition-colors shrink-0">
+                                    <Trash2 className="w-3.5 h-3.5" />
                                 </button>
                             </div>
                         ))}
-
-                        {/* TOTAL */}
-                        {!itemSearch && (
-                            <div className="bg-gray-900 dark:bg-gray-950 text-white p-5 rounded-2xl flex justify-between items-center">
-                                <span className="text-sm font-bold uppercase tracking-wider text-gray-400">Total estimado</span>
-                                <span className="text-3xl font-black">${selectedList.total.toFixed(2)}</span>
-                            </div>
-                        )}
                     </div>
                 )}
 
@@ -501,6 +456,31 @@ export function ShoppingLists() {
                     />
                 )}
 
+                {/* BARRA FLOTANTE INFERIOR */}
+                <div className="fixed bottom-16 left-0 right-0 z-50 px-3 pb-2">
+                    <div className="max-w-7xl mx-auto bg-gray-900 dark:bg-gray-950 rounded-2xl shadow-2xl border border-gray-700 px-4 py-3 flex items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Total estimado</p>
+                            <p className="text-xl font-black text-white leading-tight">${selectedList.total.toFixed(2)}</p>
+                        </div>
+                        <button
+                            onClick={downloadSupplierPDF}
+                            disabled={!!generatingPDF}
+                            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shrink-0"
+                        >
+                            {generatingPDF === 'supplier' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Building2 className="w-3.5 h-3.5" />}
+                            Proveedor
+                        </button>
+                        <button
+                            onClick={downloadInternalPDF}
+                            disabled={!!generatingPDF}
+                            className="flex items-center gap-1.5 px-3 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shrink-0"
+                        >
+                            {generatingPDF === 'internal' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                            Interno
+                        </button>
+                    </div>
+                </div>
             </div>
         );
     }
