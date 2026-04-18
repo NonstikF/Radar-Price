@@ -1,10 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { useReactToPrint } from 'react-to-print';
 import {
     ShoppingCart, ChevronLeft, Package, Trash2, CheckCircle2, XCircle,
-    Loader2, Plus, Minus, AlertTriangle, RotateCcw, FileText, Search, Camera, X
+    Loader2, Plus, Minus, AlertTriangle, RotateCcw, FileText, Search, Camera, X,
+    Printer, Building2
 } from 'lucide-react';
 import { BarcodeScanner } from '../../components/ui/BarcodeScanner';
+import { SupplierPDF, InternalPDF } from '../../components/ui/ShoppingListPDF';
 import { API_URL } from '../../config/api';
 import { TOAST_DURATION } from '../../config/constants';
 
@@ -54,6 +57,18 @@ export function ShoppingLists() {
     const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({ show: false, message: '', type: 'success' });
     const [itemSearch, setItemSearch] = useState('');
     const [showScanner, setShowScanner] = useState(false);
+
+    const supplierPDFRef = useRef<HTMLDivElement>(null);
+    const internalPDFRef = useRef<HTMLDivElement>(null);
+
+    const printSupplier = useReactToPrint({
+        contentRef: supplierPDFRef,
+        documentTitle: `Solicitud-${selectedList?.supplier_name || ''}-${new Date().toLocaleDateString('es-MX')}`,
+    });
+    const printInternal = useReactToPrint({
+        contentRef: internalPDFRef,
+        documentTitle: `ListaInterna-${selectedList?.supplier_name || ''}-${new Date().toLocaleDateString('es-MX')}`,
+    });
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => {
         setToast({ show: true, message, type });
@@ -209,6 +224,23 @@ export function ShoppingLists() {
                     <button onClick={() => handleDeleteList(selectedList.id)} className="flex items-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 rounded-xl text-sm font-bold transition-all">
                         <Trash2 className="w-4 h-4" /> Eliminar
                     </button>
+
+                    <div className="ml-auto flex gap-2">
+                        <button
+                            onClick={() => printSupplier()}
+                            title="PDF para proveedor (sin precios)"
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-blue-700 dark:text-blue-400 rounded-xl text-sm font-bold transition-all"
+                        >
+                            <Building2 className="w-4 h-4" /> PDF Proveedor
+                        </button>
+                        <button
+                            onClick={() => printInternal()}
+                            title="PDF interno (con precios y totales)"
+                            className="flex items-center gap-2 px-4 py-2 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-400 rounded-xl text-sm font-bold transition-all"
+                        >
+                            <Printer className="w-4 h-4" /> PDF Interno
+                        </button>
+                    </div>
                 </div>
 
                 {/* BUSCADOR */}
@@ -307,6 +339,26 @@ export function ShoppingLists() {
                         onClose={() => setShowScanner(false)}
                     />
                 )}
+
+                {/* Componentes PDF ocultos para impresión */}
+                <div style={{ display: 'none' }}>
+                    <SupplierPDF
+                        ref={supplierPDFRef}
+                        supplierName={selectedList.supplier_name}
+                        supplierRfc={selectedList.supplier_rfc}
+                        items={selectedList.items}
+                        total={selectedList.total}
+                        date={new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })}
+                    />
+                    <InternalPDF
+                        ref={internalPDFRef}
+                        supplierName={selectedList.supplier_name}
+                        supplierRfc={selectedList.supplier_rfc}
+                        items={selectedList.items}
+                        total={selectedList.total}
+                        date={new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })}
+                    />
+                </div>
             </div>
         );
     }
