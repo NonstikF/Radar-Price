@@ -132,6 +132,14 @@ async def startup_event():
             )
         except Exception:
             pass
+        try:
+            await conn.execute(
+                text(
+                    "ALTER TABLE products ADD COLUMN IF NOT EXISTS is_delicate BOOLEAN NOT NULL DEFAULT FALSE"
+                )
+            )
+        except Exception:
+            pass
 
 
 app = FastAPI(on_startup=[startup_event])

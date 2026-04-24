@@ -3,7 +3,7 @@ import axios from 'axios';
 import {
     Search, X, Camera, Filter, PackageOpen, Loader2, ArrowDownAZ, ArrowUpAZ,
     CheckCircle2, AlertTriangle, Tag, ShoppingCart, ChevronLeft, ChevronRight,
-    CheckSquare, Square, Clock, ListChecks
+    CheckSquare, Square, Clock, ListChecks, ShieldAlert
 } from 'lucide-react';
 import { BarcodeScanner } from '../../components/ui/BarcodeScanner';
 import { useProductSearch } from '../../hooks/useProductSearch';
@@ -198,8 +198,11 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                             <label className="text-xs font-bold text-gray-400 uppercase">Estado</label>
                             <label className="flex items-center gap-2 p-2 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                                 <input type="checkbox" checked={filters.missingPrice} onChange={(e) => setFilters({ ...filters, missingPrice: e.target.checked })} className="text-blue-600 rounded" />
-                                {/* CORRECCIÓN: Texto visible en oscuro */}
                                 <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Solo sin precio</span>
+                            </label>
+                            <label className="flex items-center gap-2 p-2 rounded-lg cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors">
+                                <input type="checkbox" checked={(filters as any).onlyDelicate || false} onChange={(e) => setFilters({ ...filters, onlyDelicate: e.target.checked } as any)} className="text-amber-500 rounded" />
+                                <span className="text-sm font-medium text-amber-700 dark:text-amber-400 flex items-center gap-1"><ShieldAlert className="w-3.5 h-3.5" /> Solo delicados</span>
                             </label>
                         </div>
                     </div>
@@ -235,11 +238,15 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
 
                     {products.map((product) => {
                         const isSelected = selectedIds.has(product.id);
+                        const isDelicate = !!product.is_delicate;
                         return (
                         <div
                             key={product.id}
                             onClick={() => selectionMode ? toggleSelection(product.id) : setSelectedProduct(product)}
-                            className={`bg-white dark:bg-gray-800 p-3 md:p-4 rounded-xl shadow-sm border flex justify-between items-center cursor-pointer transition-all active:scale-[0.99] group ${isSelected ? 'border-indigo-400 dark:border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-gray-100 dark:border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}
+                            className={`p-3 md:p-4 rounded-xl shadow-sm border flex justify-between items-center cursor-pointer transition-all active:scale-[0.99] group
+                                ${isSelected ? 'border-indigo-400 dark:border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20'
+                                : isDelicate ? 'border-amber-300 dark:border-amber-700 bg-amber-50/60 dark:bg-amber-900/10 hover:bg-amber-50 dark:hover:bg-amber-900/20'
+                                : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}
                         >
                             {selectionMode && (
                                 <div className="mr-3 shrink-0 text-indigo-500">
@@ -247,11 +254,15 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                                 </div>
                             )}
                             <div className="flex-1 min-w-0 pr-3">
-                                <h3 className="font-bold text-gray-800 dark:text-gray-100 text-base leading-tight mb-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-2">{product.name}</h3>
+                                <div className="flex items-center gap-2 mb-1">
+                                    {isDelicate && <ShieldAlert className="w-4 h-4 text-amber-500 shrink-0" />}
+                                    <h3 className="font-bold text-gray-800 dark:text-gray-100 text-base leading-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-2">{product.name}</h3>
+                                </div>
                                 <div className="flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400">
                                     {product.sku && <span className="bg-gray-100 dark:bg-gray-900 px-2 rounded font-mono">ID: {product.sku}</span>}
                                     {product.upc && <span className="bg-gray-100 dark:bg-gray-900 px-2 rounded font-mono">UPC: {product.upc}</span>}
                                     {product.alias && <span className="bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 px-2 rounded font-bold flex items-center gap-1"><Tag className="w-3 h-3" /> {product.alias}</span>}
+                                    {isDelicate && <span className="bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-2 rounded font-bold flex items-center gap-1"><ShieldAlert className="w-3 h-3" /> Delicado</span>}
                                     {(!product.selling_price) && <span className="bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 px-2 rounded flex items-center gap-1 font-bold"><AlertTriangle className="w-3 h-3" /> Sin precio</span>}
                                 </div>
                             </div>

@@ -15,6 +15,7 @@ export function useProductSearch(initialFilter = false) {
         minPrice: "",
         maxPrice: "",
         missingPrice: initialFilter,
+        onlyDelicate: false,
         sortBy: "updated_at",
         sortOrder: "desc"
     });
@@ -41,6 +42,7 @@ export function useProductSearch(initialFilter = false) {
             const params: any = {
                 q: searchTerm,
                 missing_price: filters.missingPrice,
+                only_delicate: filters.onlyDelicate || undefined,
                 sort_by: filters.sortBy,
                 sort_order: filters.sortOrder,
                 limit: PRODUCTS_LIMIT,
@@ -72,6 +74,7 @@ export function useProductSearch(initialFilter = false) {
             minPrice: "",
             maxPrice: "",
             missingPrice: false,
+            onlyDelicate: false,
             sortBy: "updated_at",
             sortOrder: "desc"
         });

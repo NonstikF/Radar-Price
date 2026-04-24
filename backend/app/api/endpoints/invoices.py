@@ -450,6 +450,7 @@ async def update_prices(
 async def get_products(
     q: Optional[str] = None,
     missing_price: bool = False,
+    only_delicate: bool = False,
     min_price: float = None,
     max_price: float = None,
     min_stock: int = None,
@@ -480,6 +481,8 @@ async def get_products(
         stmt = stmt.where(
             or_(Product.selling_price == 0, Product.selling_price == None)
         )
+    if only_delicate:
+        stmt = stmt.where(Product.is_delicate == True)
     if min_price is not None:
         stmt = stmt.where(Product.selling_price >= min_price)
     if max_price is not None:
@@ -523,6 +526,7 @@ async def get_products(
             "stock": p.stock_quantity,
             "supplier_id": p.supplier_id,
             "supplier_name": supplier_name or "",
+            "is_delicate": p.is_delicate or False,
         }
         for p, supplier_name in result.all()
     ]
@@ -566,6 +570,8 @@ async def update_product_single(
             p.alias = str(data["alias"]).strip() if data["alias"] else None
         if "image_url" in data:
             p.image_url = data["image_url"] if data["image_url"] else None
+        if "is_delicate" in data:
+            p.is_delicate = bool(data["is_delicate"])
         await db.commit()
         await db.refresh(p)
         return {"msg": "Actualizado", "id": p.id, "new_price": p.selling_price}

@@ -3,7 +3,7 @@ import axios from 'axios';
 import {
     X, Save, Barcode, Hash,
     ArrowRight, Camera, Trash2, Loader2, Tag, Printer, Settings, AlertTriangle,
-    ShoppingCart, Truck, ImagePlus, ImageOff
+    ShoppingCart, Truck, ImagePlus, ImageOff, ShieldAlert
 } from 'lucide-react';
 import { usePrintLabel } from '../../hooks/usePrintLabel';
 import { useShoppingList } from '../../hooks/useShoppingList';
@@ -41,6 +41,7 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
     const [editSupplierId, setEditSupplierId] = useState<string>(product.supplier_id ? String(product.supplier_id) : "");
     const [addQty, setAddQty] = useState(1);
     const [uploadingImage, setUploadingImage] = useState(false);
+    const [isDelicate, setIsDelicate] = useState<boolean>(!!product.is_delicate);
     const imageInputRef = useRef<HTMLInputElement>(null);
 
     const { settings } = useLabelSettings();
@@ -334,6 +335,35 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
                                 onChange={setEditSku} onSave={() => handleSaveField('sku')}
                                 saving={saving}
                             />
+
+                            {/* PRODUCTO DELICADO */}
+                            <div
+                                className={`p-4 rounded-2xl flex items-center justify-between gap-3 transition-colors cursor-pointer ${isDelicate ? 'bg-amber-50 dark:bg-amber-900/20 ring-1 ring-amber-300 dark:ring-amber-700' : 'bg-gray-50 dark:bg-gray-900/50'}`}
+                                onClick={async () => {
+                                    const next = !isDelicate;
+                                    setIsDelicate(next);
+                                    try {
+                                        await axios.put(`${API_URL}/invoices/products/${product.id}`, { is_delicate: next });
+                                        onUpdate({ ...product, is_delicate: next });
+                                        showToast(next ? "Marcado como delicado" : "Marcado como normal");
+                                    } catch {
+                                        setIsDelicate(!next);
+                                        showToast("Error al actualizar", "error");
+                                    }
+                                }}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <ShieldAlert className={`w-5 h-5 shrink-0 ${isDelicate ? 'text-amber-500' : 'text-gray-400'}`} />
+                                    <div>
+                                        <p className={`text-sm font-bold ${isDelicate ? 'text-amber-700 dark:text-amber-400' : 'text-gray-600 dark:text-gray-300'}`}>Producto delicado</p>
+                                        <p className="text-xs text-gray-400">Requiere manejo especial o cuidado</p>
+                                    </div>
+                                </div>
+                                {/* Toggle visual */}
+                                <div className={`w-11 h-6 rounded-full transition-colors shrink-0 ${isDelicate ? 'bg-amber-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
+                                    <div className={`w-5 h-5 bg-white rounded-full shadow mt-0.5 transition-transform ${isDelicate ? 'translate-x-5.5' : 'translate-x-0.5'}`} style={{ transform: isDelicate ? 'translateX(22px)' : 'translateX(2px)' }} />
+                                </div>
+                            </div>
 
                             {/* PROVEEDOR */}
                             <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-2xl">
