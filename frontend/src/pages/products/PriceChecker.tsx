@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import axios from 'axios';
+import * as XLSX from 'xlsx';
 import {
     Search, X, Camera, Filter, PackageOpen, Loader2, ArrowDownAZ, ArrowUpAZ,
     CheckCircle2, AlertTriangle, Tag, ShoppingCart, ChevronLeft, ChevronRight,
-    CheckSquare, Square, Clock, ListChecks, ShieldAlert
+    CheckSquare, Square, Clock, ListChecks, ShieldAlert, FileSpreadsheet
 } from 'lucide-react';
 import { BarcodeScanner } from '../../components/ui/BarcodeScanner';
 import { useProductSearch } from '../../hooks/useProductSearch';
@@ -35,6 +36,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
     const [bulkLoading, setBulkLoading] = useState(false);
     const [cartModal, setCartModal] = useState<{ product: any; quantity: number } | null>(null);
+    const [exporting, setExporting] = useState(false);
 
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     const isAdmin = user.role === 'admin';
@@ -80,6 +82,49 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
     const exitSelectionMode = () => {
         setSelectionMode(false);
         setSelectedIds(new Set());
+    };
+
+    const handleExportExcel = async () => {
+        setExporting(true);
+        try {
+            const params: any = {
+                q: searchTerm,
+                missing_price: filters.missingPrice,
+                only_delicate: filters.onlyDelicate || undefined,
+                sort_by: filters.sortBy,
+                sort_order: filters.sortOrder,
+                limit: 9999,
+                offset: 0,
+            };
+            if (filters.minPrice) params.min_price = filters.minPrice;
+            if (filters.maxPrice) params.max_price = filters.maxPrice;
+
+            const response = await axios.get(`${API_URL}/invoices/products`, { params });
+            const data = response.data.items;
+
+            const rows = data.map((p: any) => ({
+                'SKU': p.sku || '',
+                'UPC': p.upc || '',
+                'Nombre': p.name,
+                'Alias': p.alias || '',
+                'Proveedor': p.supplier_name || '',
+                'Precio Costo': p.price ?? '',
+                'Precio Venta': p.selling_price ?? '',
+                'Stock': p.stock ?? '',
+                'Delicado': p.is_delicate ? 'Sí' : 'No',
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(rows);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Productos');
+            const filename = `productos_${new Date().toISOString().slice(0, 10)}.xlsx`;
+            XLSX.writeFile(wb, filename);
+            showToast(`${data.length} productos exportados`);
+        } catch {
+            showToast('Error al exportar', 'error');
+        } finally {
+            setExporting(false);
+        }
     };
 
     const handleBulkTouch = async () => {
@@ -158,6 +203,14 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                                 className={`flex-1 md:flex-none px-4 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-sm ${showFilters || filters.minPrice || filters.missingPrice ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' : 'bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
                             >
                                 <Filter className="w-4 h-4" /> Filtros
+                            </button>
+                            <button
+                                onClick={handleExportExcel}
+                                disabled={exporting}
+                                title="Exportar a Excel"
+                                className="px-4 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-sm bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 disabled:opacity-50"
+                            >
+                                {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileSpreadsheet className="w-4 h-4" />}
                             </button>
                             <button
                                 onClick={() => { setSelectionMode(!selectionMode); setSelectedIds(new Set()); }}
