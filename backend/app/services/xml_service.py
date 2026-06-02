@@ -69,12 +69,15 @@ class XmlInvoiceParser:
                     precio_unitario_con_iva = precio_total_linea / cantidad
 
                 # 4. SKU (Misma lógica anterior)
+                sku_source = "no_identificacion"
                 sku = (c.get('NoIdentificacion') or '').strip()
                 if not sku:
+                    sku_source = "description"
                     sku = extract_sku_from_description(descripcion)
 
                 items.append({
                     "sku": sku,
+                    "sku_source": sku_source,
                     "name": descripcion,
                     "quantity": int(cantidad),
                     "unit_price_no_tax": valor_unitario,      # Precio Sin IVA

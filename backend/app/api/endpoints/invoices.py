@@ -18,6 +18,7 @@ from app.domain.models import Product, PriceHistory, ImportBatch, ImportBatchIte
 logger = logging.getLogger(__name__)
 router = APIRouter()
 parser = XmlInvoiceParser()
+EXTRACTED_SKU_NAME_MATCH_CUTOFF = 0.55
 
 
 def escape_like(value: str) -> str:
@@ -72,6 +73,17 @@ def extract_sku_from_text(text: str) -> str:
         return ""
     candidates = re.findall(r"\b(\d{4,8})\b", text)
     return candidates[-1] if candidates else ""
+
+
+def names_are_similar(left: str, right: str) -> bool:
+    left_norm = normalize_name(left)
+    right_norm = normalize_name(right)
+    if not left_norm or not right_norm:
+        return False
+    return (
+        difflib.SequenceMatcher(None, left_norm, right_norm).ratio()
+        >= EXTRACTED_SKU_NAME_MATCH_CUTOFF
+    )
 
 
 # --- 1. SUBIDA XML (MATCHING AGRESIVO) ---
@@ -164,6 +176,7 @@ async def upload_invoice(
         else:
             grouped_items[key] = {
                 "sku": item.get("sku", ""),
+                "sku_source": item.get("sku_source", ""),
                 "upc": item.get("upc", ""),
                 "name": item.get("name", "Sin Nombre"),
                 "qty": qty_val,
@@ -183,16 +196,19 @@ async def upload_invoice(
     for key, data in grouped_items.items():
         existing_product = None
         xml_sku = clean_code(data["sku"])
+        sku_from_description = data.get("sku_source") == "description"
         xml_upc = clean_code(data.get("upc", ""))
         xml_name_norm = normalize_name(data["name"])
         potential_codes = extract_potential_codes(data["name"])
 
         # Búsqueda
         if xml_sku and xml_sku in sku_map:
-            existing_product = sku_map[xml_sku]
-        elif xml_upc and xml_upc in upc_map:
+            sku_candidate = sku_map[xml_sku]
+            if not sku_from_description or names_are_similar(data["name"], sku_candidate.name):
+                existing_product = sku_candidate
+        if not existing_product and xml_upc and xml_upc in upc_map:
             existing_product = upc_map[xml_upc]
-        elif xml_name_norm in name_map:
+        if not existing_product and xml_name_norm in name_map:
             existing_product = name_map[xml_name_norm]
 
         status = "ok"
@@ -211,6 +227,9 @@ async def upload_invoice(
             if not sku_cand and potential_codes and not existing_product.sku:
                 sku_cand = potential_codes[0]
 
+            if sku_cand and not existing_product.sku:
+                if sku_from_description and clean_code(sku_cand) in sku_map:
+                    sku_cand = ""
             if sku_cand and not existing_product.sku:
                 existing_product.sku = sku_cand
             if not existing_product.upc and data.get("upc"):
@@ -263,13 +282,14 @@ async def upload_invoice(
             # --- PRODUCTO NUEVO (Sin ID aleatorio) ---
             status = "new"
             seen_ids = set()
+            has_blocked_sku = False
 
             if potential_codes:
                 for db_prod in all_db_products:
                     for code in potential_codes:
                         if (
-                            (code == db_prod.sku)
-                            or (code == db_prod.upc)
+                            (clean_code(code) == clean_code(db_prod.sku))
+                            or (clean_code(code) == clean_code(db_prod.upc))
                             or (code in (db_prod.name or ""))
                         ):
                             if db_prod.id not in seen_ids:
@@ -281,6 +301,8 @@ async def upload_invoice(
                                     }
                                 )
                                 seen_ids.add(db_prod.id)
+                                if sku_from_description and clean_code(code) == xml_sku:
+                                    has_blocked_sku = True
 
             matches = difflib.get_close_matches(
                 xml_name_norm, fuzzy_keys, n=5, cutoff=0.3
@@ -295,10 +317,15 @@ async def upload_invoice(
 
             # Lógica SKU: Usar SKU del XML, o UPC, o dejar vacío. NUNCA inventar.
             final_sku = xml_sku
+            if sku_from_description and has_blocked_sku:
+                final_sku = ""
             if not final_sku and potential_codes:
                 final_sku = potential_codes[0]
+            if sku_from_description and final_sku and clean_code(final_sku) in sku_map:
+                final_sku = ""
             if not final_sku and data.get("upc"):
                 final_sku = data.get("upc")
+            final_sku = final_sku or None
 
             new_p = Product(
                 sku=final_sku,
@@ -771,11 +798,13 @@ async def upload_catalog(
             extracted = extract_sku_from_text(desc)
             norm_desc = normalize_name(desc)
 
-            match = (
-                sku_map.get(clean_xml_sku)
-                or sku_map.get(extracted)
-                or name_map.get(norm_desc)
-            )
+            match = sku_map.get(clean_xml_sku) if clean_xml_sku else None
+            if not match and extracted and extracted in sku_map:
+                extracted_candidate = sku_map[extracted]
+                if names_are_similar(desc, extracted_candidate.name):
+                    match = extracted_candidate
+            if not match:
+                match = name_map.get(norm_desc)
             if not match:
                 fuzzy = difflib.get_close_matches(
                     norm_desc, fuzzy_keys, n=1, cutoff=0.85
@@ -786,6 +815,8 @@ async def upload_catalog(
             final_id = None
             if match:
                 sku_to_save = sku if sku else extracted
+                if not sku and sku_to_save and clean_code(sku_to_save) in sku_map:
+                    sku_to_save = ""
                 if not match.sku and sku_to_save:
                     match.sku = sku_to_save
                     sku_map[clean_code(sku_to_save)] = match
@@ -795,6 +826,8 @@ async def upload_catalog(
                 final_id = match.id
             else:
                 final_sku = sku if sku else extracted
+                if not sku and final_sku and clean_code(final_sku) in sku_map:
+                    final_sku = None
                 new_p = Product(
                     sku=final_sku,
                     name=desc,
