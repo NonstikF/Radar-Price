@@ -1,5 +1,14 @@
+import re
 import xml.etree.ElementTree as ET
 from typing import List, Dict, Any, Optional
+
+
+def extract_sku_from_description(description: str) -> str:
+    if not description:
+        return ""
+    matches = re.findall(r"\b(\d{4,8})\b", description)
+    return matches[-1] if matches else ""
+
 
 class XmlInvoiceParser:
     async def extract_data(self, file_content: bytes, db=None) -> Dict[str, Any]:
@@ -60,9 +69,9 @@ class XmlInvoiceParser:
                     precio_unitario_con_iva = precio_total_linea / cantidad
 
                 # 4. SKU (Misma lógica anterior)
-                sku = c.get('NoIdentificacion')
+                sku = (c.get('NoIdentificacion') or '').strip()
                 if not sku:
-                    sku = c.get('ClaveProdServ', 'GENERICO')
+                    sku = extract_sku_from_description(descripcion)
 
                 items.append({
                     "sku": sku,

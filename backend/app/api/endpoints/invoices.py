@@ -67,6 +67,13 @@ def extract_potential_codes(text: str) -> List[str]:
     return list(set(candidates))  # Elimina duplicados
 
 
+def extract_sku_from_text(text: str) -> str:
+    if not text:
+        return ""
+    candidates = re.findall(r"\b(\d{4,8})\b", text)
+    return candidates[-1] if candidates else ""
+
+
 # --- 1. SUBIDA XML (MATCHING AGRESIVO) ---
 @router.post("/upload")
 async def upload_invoice(
@@ -135,7 +142,11 @@ async def upload_invoice(
     # 5. Agrupar Items
     grouped_items = {}
     for item in extracted_items:
-        key = item.get("sku") or item.get("name")
+        key = (
+            clean_code(item.get("sku", ""))
+            or clean_code(item.get("upc", ""))
+            or normalize_name(item.get("name", ""))
+        )
         if not key:
             continue
 
