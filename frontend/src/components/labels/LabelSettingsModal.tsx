@@ -10,6 +10,7 @@ export function LabelSettingsModal({ onClose }: Props) {
 
     // Lista simple de tamaños disponibles
     const sizes = [
+        { id: '2.25x1.25', label: '2.25" x 1.25"' },
         { id: '50x25mm', label: '50mm x 25mm' },
         { id: '2x1', label: '2" x 1"' },
         { id: '1.5x1', label: '1.5" x 1"' },

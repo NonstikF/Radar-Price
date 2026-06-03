@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 
 // Definimos los tipos permitidos, incluyendo 'custom'
-export type LabelSize = '1.5x1' | '2x1' | '50x25mm' | 'custom';
+export type LabelSize = '1.5x1' | '2x1' | '2.25x1.25' | '50x25mm' | 'custom';
 
 export interface LabelSettings {
     size: LabelSize;
@@ -20,7 +20,7 @@ export interface LabelSettings {
 }
 
 const DEFAULT_SETTINGS: LabelSettings = {
-    size: '50x25mm',
+    size: '2.25x1.25',
     showPrice: true,
     showSku: true,
     showDate: true,

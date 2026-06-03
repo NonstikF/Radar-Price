@@ -40,6 +40,7 @@ export const ProductLabel = forwardRef<HTMLDivElement, Props>((props, ref) => {
         const sizeClasses: Record<string, { w: string, h: string }> = {
             '1.5x1': { w: '1.5in', h: '1in' },
             '2x1': { w: '2in', h: '1in' },
+            '2.25x1.25': { w: '2.25in', h: '1.25in' },
             '50x25mm': { w: '50mm', h: '25mm' },
         };
         return sizeClasses[settings.size] || { w: '50mm', h: '25mm' };
