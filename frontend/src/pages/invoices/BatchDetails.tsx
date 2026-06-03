@@ -169,7 +169,7 @@ const BatchItemRow = React.memo(({ p, onPriceUpdate, onUpcUpdate, onAliasUpdate 
 
             <td className="px-4 py-3">
                 <div className="flex flex-col justify-center">
-                    <span className="font-medium text-gray-900 dark:text-white text-sm max-w-xs truncate" title={p.name}>
+                    <span className="font-medium text-gray-900 dark:text-white text-sm break-words" title={p.name}>
                         {p.name}
                     </span>
                     <div className="flex items-center gap-1 mt-1 group/alias">
