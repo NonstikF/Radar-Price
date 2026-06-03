@@ -871,6 +871,60 @@ async def update_batch(
     return {"message": "Nombre actualizado"}
 
 
+@router.delete("/batches/{batch_id}")
+async def delete_batch(batch_id: int, db: AsyncSession = Depends(get_db)):
+    """
+    Borra una importación y revierte el stock que había sumado a cada producto.
+    Los productos permanecen en el catálogo (permite re-subir el XML limpio).
+    """
+    batch = await db.get(ImportBatch, batch_id)
+    if not batch:
+        raise HTTPException(status_code=404, detail="Importación no encontrada")
+
+    # 1. Líneas de esta importación
+    items = (
+        await db.execute(
+            select(ImportBatchItem).where(ImportBatchItem.batch_id == batch_id)
+        )
+    ).scalars().all()
+
+    # 2. Revertir stock por producto
+    reverted = 0
+    for it in items:
+        if not it.product_id or not it.quantity:
+            continue
+        product = await db.get(Product, it.product_id)
+        if not product:
+            continue
+        old_stock = product.stock_quantity or 0
+        new_stock = max(0, old_stock - int(it.quantity))
+        product.stock_quantity = new_stock
+        db.add(
+            StockHistory(
+                product_id=product.id,
+                change_type="REVERSA",
+                old_value=int(old_stock),
+                new_value=int(new_stock),
+                source=f"delete_batch:{batch.filename}",
+            )
+        )
+        reverted += 1
+
+    # 3. Borrar líneas y lote
+    await db.execute(
+        delete(ImportBatchItem).where(ImportBatchItem.batch_id == batch_id)
+    )
+    await db.delete(batch)
+
+    try:
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(500, f"Error DB: {str(e)}")
+
+    return {"message": "Importación eliminada", "stock_reverted": reverted}
+
+
 @router.get("/batches")
 async def get_batches(db: AsyncSession = Depends(get_db)):
     stmt = (

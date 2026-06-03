@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Calendar, FileText, ArrowRight, CheckCircle2, AlertTriangle, ChevronLeft, Loader2, Package, Pencil, X, Check } from 'lucide-react';
+import { Calendar, FileText, ArrowRight, CheckCircle2, AlertTriangle, ChevronLeft, Loader2, Package, Pencil, X, Check, Trash2 } from 'lucide-react';
 import { API_URL } from '../../config/api';
 
 interface Props {
@@ -17,6 +17,10 @@ export function History({ onBack }: Props) {
     const [editingId, setEditingId] = useState<number | null>(null);
     const [tempName, setTempName] = useState("");
     const [renaming, setRenaming] = useState(false);
+
+    // Estados para borrar
+    const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+    const [deleting, setDeleting] = useState(false);
 
     useEffect(() => {
         loadBatches();
@@ -67,6 +71,26 @@ export function History({ onBack }: Props) {
             alert("Error al renombrar");
         } finally {
             setRenaming(false);
+        }
+    };
+
+    // --- LÓGICA DE BORRADO ---
+    const askDelete = (e: React.MouseEvent, batch: any) => {
+        e.stopPropagation();
+        setDeleteTarget(batch);
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteTarget) return;
+        setDeleting(true);
+        try {
+            await axios.delete(`${API_URL}/invoices/batches/${deleteTarget.id}`);
+            setBatches(prev => prev.filter(b => b.id !== deleteTarget.id));
+            setDeleteTarget(null);
+        } catch (error) {
+            alert("Error al borrar la importación");
+        } finally {
+            setDeleting(false);
         }
     };
 
@@ -194,6 +218,14 @@ export function History({ onBack }: Props) {
                                         </span>
                                     )}
 
+                                    <button
+                                        onClick={(e) => askDelete(e, batch)}
+                                        title="Borrar importación"
+                                        className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all active:scale-95 shrink-0"
+                                    >
+                                        <Trash2 className="w-5 h-5" />
+                                    </button>
+
                                     <div className="flex items-center gap-1 text-sm font-bold text-blue-600 dark:text-blue-400 whitespace-nowrap">
                                         <span>Abrir</span>
                                         <ArrowRight className="w-4 h-4" />
@@ -204,6 +236,31 @@ export function History({ onBack }: Props) {
                     })
                 )}
             </div>
+
+            {/* MODAL CONFIRMAR BORRADO */}
+            {deleteTarget && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => !deleting && setDeleteTarget(null)}>
+                    <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-xl border border-gray-100 dark:border-gray-700 max-w-sm w-full animate-scale-in" onClick={(e) => e.stopPropagation()}>
+                        <div className="bg-red-100 dark:bg-red-900/30 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600 dark:text-red-400">
+                            <Trash2 className="w-8 h-8" />
+                        </div>
+                        <h3 className="text-xl font-black text-gray-900 dark:text-white mb-2 text-center">¿Borrar importación?</h3>
+                        <p className="text-gray-500 dark:text-gray-400 text-sm mb-1 text-center break-words">
+                            "{deleteTarget.filename}"
+                        </p>
+                        <p className="text-gray-500 dark:text-gray-400 text-sm mb-6 text-center">
+                            Se revertirá el stock que sumó esta carga. Los productos seguirán en el catálogo.
+                        </p>
+                        <div className="space-y-3">
+                            <button onClick={confirmDelete} disabled={deleting} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50">
+                                {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                {deleting ? 'Borrando...' : 'Sí, borrar'}
+                            </button>
+                            <button onClick={() => setDeleteTarget(null)} disabled={deleting} className="w-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 font-bold py-2 text-sm">Cancelar</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
