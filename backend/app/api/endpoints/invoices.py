@@ -151,6 +151,12 @@ async def upload_invoice(
     name_map = {normalize_name(p.name): p for p in all_db_products}
     fuzzy_keys = list(name_map.keys())
 
+    # SKUs ya ocupados (en BD). La columna sku es UNIQUE: si asignamos uno
+    # repetido el flush lanza IntegrityError. Reservamos aquí los que vamos
+    # usando durante el lote para no duplicar ni contra BD ni entre productos
+    # nuevos del mismo XML.
+    used_skus = set(sku_map.keys())
+
     # 5. Agrupar Items
     grouped_items = {}
     for item in extracted_items:
@@ -234,8 +240,12 @@ async def upload_invoice(
             if sku_cand and not existing_product.sku:
                 if sku_from_description and clean_code(sku_cand) in sku_map:
                     sku_cand = ""
+            # No asignar un SKU que ya esté ocupado (UNIQUE)
+            if sku_cand and clean_code(sku_cand) in used_skus:
+                sku_cand = ""
             if sku_cand and not existing_product.sku:
                 existing_product.sku = sku_cand
+                used_skus.add(clean_code(sku_cand))
             if not existing_product.upc and data.get("upc"):
                 existing_product.upc = data.get("upc")
 
@@ -329,7 +339,13 @@ async def upload_invoice(
                 final_sku = ""
             if not final_sku and data.get("upc"):
                 final_sku = data.get("upc")
+            # Evitar SKU duplicado (UNIQUE): ya en BD o ya usado por otro
+            # producto nuevo de este mismo lote.
+            if final_sku and clean_code(final_sku) in used_skus:
+                final_sku = None
             final_sku = final_sku or None
+            if final_sku:
+                used_skus.add(clean_code(final_sku))
 
             new_p = Product(
                 sku=final_sku,
