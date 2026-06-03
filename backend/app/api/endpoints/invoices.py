@@ -154,10 +154,14 @@ async def upload_invoice(
     # 5. Agrupar Items
     grouped_items = {}
     for item in extracted_items:
+        # Agrupar por NOMBRE primero: el NoIdentificacion del SAT suele ser un
+        # código de familia genérico (ej: "CALCETA", "ARTCABELLO", "60106500")
+        # compartido por productos distintos. Usar el SKU como clave los fusiona
+        # erróneamente. La descripción sí es única por producto.
         key = (
-            clean_code(item.get("sku", ""))
+            normalize_name(item.get("name", ""))
+            or clean_code(item.get("sku", ""))
             or clean_code(item.get("upc", ""))
-            or normalize_name(item.get("name", ""))
         )
         if not key:
             continue
