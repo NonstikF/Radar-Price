@@ -6,6 +6,7 @@ import {
     Barcode, Box, Search, X, Camera, Filter, Tag, LogOut
 } from 'lucide-react';
 import { BatchPrintButton } from '../../components/labels/BatchPrintButton';
+import { ItemPrintButton } from '../../components/labels/ItemPrintButton';
 import { BarcodeScanner } from '../../components/ui/BarcodeScanner';
 import { API_URL } from '../../config/api';
 
@@ -109,6 +110,13 @@ const BatchItemCard = React.memo(({ p, onPriceUpdate, onUpcUpdate, onAliasUpdate
                     </div>
                 </div>
             </div>
+
+            <div className="flex justify-end mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+                <div className="flex items-center gap-1 text-xs font-bold text-blue-600 dark:text-blue-400">
+                    <ItemPrintButton product={p} />
+                    <span>Etiqueta</span>
+                </div>
+            </div>
         </div>
     );
 });
@@ -207,6 +215,11 @@ const BatchItemRow = React.memo(({ p, onPriceUpdate, onUpcUpdate, onAliasUpdate 
                     ? <CheckCircle2 className="w-5 h-5 text-green-500 mx-auto" />
                     : <AlertTriangle className="w-5 h-5 text-red-400 mx-auto opacity-50" />
                 }
+            </td>
+            <td className="px-4 py-3 text-center">
+                <div className="flex justify-center">
+                    <ItemPrintButton product={p} />
+                </div>
             </td>
         </tr>
     );
@@ -483,6 +496,7 @@ export function BatchDetails() {
                                     <th className="px-4 py-3 text-center w-40">Precio Venta</th>
                                     <th className="px-4 py-3 text-center w-20">Margen</th>
                                     <th className="px-4 py-3 text-center w-16">Estado</th>
+                                    <th className="px-4 py-3 text-center w-16">Etiqueta</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">{displayedProducts.map(p => (<BatchItemRow key={p.id} p={p} onPriceUpdate={handlePriceUpdate} onUpcUpdate={handleUpcUpdate} onAliasUpdate={handleAliasUpdate} />))}</tbody>
