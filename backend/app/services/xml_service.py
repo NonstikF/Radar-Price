@@ -85,6 +85,24 @@ class XmlInvoiceParser:
                     "total_line": precio_total_linea          # Total (Con todo)
                 })
 
+            # --- DETECTAR SKU GENÉRICO (código de familia del SAT) ---
+            # Si un mismo NoIdentificacion (ej: "CALCETA", "ARTCABELLO", "60106500")
+            # aparece en productos con DESCRIPCIONES distintas, no es un SKU real:
+            # es un código de familia. Lo limpiamos para no fusionar productos
+            # diferentes ni guardar SKUs duplicados.
+            sku_names: Dict[str, set] = {}
+            for it in items:
+                sk = it.get("sku", "")
+                if sk:
+                    sku_names.setdefault(sk, set()).add((it.get("name") or "").strip().lower())
+            generic_skus = {sk for sk, names in sku_names.items() if len(names) > 1}
+            for it in items:
+                if it.get("sku") in generic_skus:
+                    it["sku"] = ""
+                    it["sku_source"] = "generic"
+            if generic_skus:
+                print(f"SKUs genéricos descartados: {generic_skus}")
+
             print(f"Productos procesados: {len(items)}")
             return {"emisor": emisor_data, "items": items}
 
