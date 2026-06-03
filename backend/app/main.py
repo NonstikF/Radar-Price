@@ -155,6 +155,28 @@ app.add_middleware(
 )
 
 
+# --- 7B. HANDLER GLOBAL: que los errores 500 lleven el error real + headers CORS ---
+import traceback
+from fastapi.responses import JSONResponse
+from fastapi import Request
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    tb = traceback.format_exc()
+    print(f"--- ERROR NO MANEJADO en {request.url.path} ---\n{tb}")
+    origin = request.headers.get("origin", "")
+    headers = {}
+    if origin and (ALLOWED_ORIGINS == ["*"] or origin in ALLOWED_ORIGINS):
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Access-Control-Allow-Credentials"] = "true"
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"{type(exc).__name__}: {str(exc)}"},
+        headers=headers,
+    )
+
+
 # --- 8. LOGIN ENDPOINT ---
 @app.post("/auth/token", response_model=Token)
 async def login_for_access_token(
