@@ -3,10 +3,11 @@ import { useParams, useNavigate, useBlocker } from 'react-router-dom';
 import axios from 'axios';
 import {
     ArrowLeft, FileText, Save, Loader2, AlertTriangle, CheckCircle2,
-    Barcode, Box, Search, X, Camera, Filter, Tag, LogOut
+    Barcode, Box, Search, X, Camera, Filter, Tag, LogOut, Ruler
 } from 'lucide-react';
 import { BatchPrintButton } from '../../components/labels/BatchPrintButton';
 import { ItemPrintButton } from '../../components/labels/ItemPrintButton';
+import { LabelSettingsModal } from '../../components/labels/LabelSettingsModal';
 import { BarcodeScanner } from '../../components/ui/BarcodeScanner';
 import { API_URL } from '../../config/api';
 
@@ -247,6 +248,7 @@ export function BatchDetails() {
     const [filter, setFilter] = useState<'all' | 'missing' | 'ready'>('all');
     const [searchTerm, setSearchTerm] = useState("");
     const [showScanner, setShowScanner] = useState(false);
+    const [showLabelSettings, setShowLabelSettings] = useState(false);
 
     // --- BLOQUEO DE NAVEGACIÓN (Sidebar, Links, Search, etc.) ---
     const blocker = useBlocker(
@@ -432,6 +434,16 @@ export function BatchDetails() {
                 </div>
                 <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
 
+                    {/* CONFIGURAR TAMAÑO DE ETIQUETA */}
+                    <button
+                        onClick={() => setShowLabelSettings(true)}
+                        title="Tamaño de etiqueta"
+                        className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 px-4 py-2 rounded-lg font-bold shadow-sm transition-all active:scale-95"
+                    >
+                        <Ruler className="w-5 h-5" />
+                        <span className="hidden md:inline">Tamaño</span>
+                    </button>
+
                     {/* BOTÓN DE IMPRESIÓN NUEVO */}
                     <BatchPrintButton products={products} />
 
@@ -526,6 +538,8 @@ export function BatchDetails() {
             )}
 
             {showScanner && (<BarcodeScanner onScan={handleScanSuccess} onClose={() => setShowScanner(false)} />)}
+
+            {showLabelSettings && (<LabelSettingsModal onClose={() => setShowLabelSettings(false)} />)}
         </div>
     );
 }
