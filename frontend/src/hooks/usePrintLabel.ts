@@ -1,79 +1,93 @@
 // src/hooks/usePrintLabel.ts
-// Impresión de etiquetas vía iframe aislado.
+// Impresión de etiquetas ocultando el resto de la app vía @media print.
 //
-// ¿Por qué no react-to-print? En Chrome Android no aislaba el contenido y
-// terminaba imprimiendo toda la app. Además el <style> con @page de la
-// etiqueta se filtraba al documento principal. Con un iframe propio:
-//   - Se imprime SOLO la etiqueta (su innerHTML).
-//   - El @page/tamaño de papel queda confinado al iframe.
-//   - Copiamos los estilos del documento (Tailwind) para que se vea igual.
-//   - No usa window.open => no lo bloquean los popups del móvil.
+// Historia: react-to-print y el truco del iframe NO funcionan en Chrome
+// Android (imprime el documento padre, no el iframe). La forma confiable en
+// móvil + desktop es imprimir el documento principal pero esconder todo
+// excepto la etiqueta con CSS de impresión.
+//
+// Flujo:
+//   1. Movemos el nodo real de la etiqueta a #rp-print-root (fijo en body).
+//   2. Añadimos la clase body.rp-printing.
+//   3. El CSS @media print oculta todo menos #rp-print-root.
+//   4. window.print() -> solo sale la etiqueta.
+//   5. Regresamos el nodo a su lugar original.
+//
+// Movemos el nodo (no usamos innerHTML) para no romper estilos ni exponernos
+// a inyección de HTML.
+
+const PRINT_STYLE_ID = "rp-print-style";
+const PRINT_ROOT_ID = "rp-print-root";
+
+function ensurePrintStyles() {
+    if (document.getElementById(PRINT_STYLE_ID)) return;
+    const style = document.createElement("style");
+    style.id = PRINT_STYLE_ID;
+    style.textContent = `
+        #${PRINT_ROOT_ID} { display: none; }
+        @media print {
+            body.rp-printing > *:not(#${PRINT_ROOT_ID}) { display: none !important; }
+            body.rp-printing #${PRINT_ROOT_ID} {
+                display: block !important;
+                position: absolute;
+                top: 0;
+                left: 0;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+}
 
 export function usePrintLabel(contentRef: any, documentTitle: string) {
     const handlePrint = () => {
-        const node = contentRef?.current;
+        const node: HTMLElement | null = contentRef?.current;
         if (!node) {
             console.error("usePrintLabel: contentRef vacío");
             return;
         }
 
-        const html = node.innerHTML;
+        ensurePrintStyles();
 
-        // Copiar hojas de estilo del documento (Tailwind compilado, etc.)
-        const headStyles = Array.from(
-            document.querySelectorAll('style, link[rel="stylesheet"]')
-        )
-            .map((el) => el.outerHTML)
-            .join("\n");
-
-        // iframe oculto
-        const iframe = document.createElement("iframe");
-        iframe.setAttribute("aria-hidden", "true");
-        iframe.style.position = "fixed";
-        iframe.style.right = "0";
-        iframe.style.bottom = "0";
-        iframe.style.width = "0";
-        iframe.style.height = "0";
-        iframe.style.border = "0";
-        document.body.appendChild(iframe);
-
-        const win = iframe.contentWindow;
-        const doc = win?.document;
-        if (!win || !doc) {
-            document.body.removeChild(iframe);
-            return;
+        let root = document.getElementById(PRINT_ROOT_ID);
+        if (!root) {
+            root = document.createElement("div");
+            root.id = PRINT_ROOT_ID;
+            document.body.appendChild(root);
         }
 
-        doc.open();
-        doc.write(
-            `<!DOCTYPE html><html><head><title>${documentTitle || "Etiqueta"}</title>${headStyles}</head><body>${html}</body></html>`
-        );
-        doc.close();
+        // Recordar de dónde sacamos el nodo para devolverlo intacto
+        const originalParent = node.parentNode;
+        const placeholder = document.createComment("rp-label-placeholder");
+        if (originalParent) {
+            originalParent.insertBefore(placeholder, node);
+        }
+        root.appendChild(node);
+
+        const prevTitle = document.title;
+        document.title = documentTitle || "Etiqueta";
+        document.body.classList.add("rp-printing");
 
         let cleaned = false;
         const cleanup = () => {
             if (cleaned) return;
             cleaned = true;
-            try {
-                document.body.removeChild(iframe);
-            } catch (e) {
-                /* noop */
+            document.body.classList.remove("rp-printing");
+            document.title = prevTitle;
+            // Regresar el nodo a su posición original
+            if (placeholder.parentNode) {
+                placeholder.parentNode.insertBefore(node, placeholder);
+                placeholder.parentNode.removeChild(placeholder);
             }
+            window.removeEventListener("afterprint", cleanup);
         };
 
-        win.onafterprint = cleanup;
+        window.addEventListener("afterprint", cleanup);
 
-        // Esperar a que el iframe renderice estilos/imágenes antes de imprimir
+        // Esperar render antes de imprimir; respaldo de limpieza para móviles
         setTimeout(() => {
-            try {
-                win.focus();
-                win.print();
-            } catch (e) {
-                console.error("Error al imprimir:", e);
-            }
-            // Respaldo: limpiar aunque no dispare onafterprint (algunos móviles)
-            setTimeout(cleanup, 2000);
-        }, 400);
+            window.print();
+            setTimeout(cleanup, 3000);
+        }, 300);
     };
 
     return handlePrint;
