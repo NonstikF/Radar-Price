@@ -1,20 +1,22 @@
 // src/hooks/usePrintLabel.ts
 // Impresión de etiquetas ocultando el resto de la app vía @media print.
 //
-// Historia: react-to-print y el truco del iframe NO funcionan en Chrome
-// Android (imprime el documento padre, no el iframe). La forma confiable en
-// móvil + desktop es imprimir el documento principal pero esconder todo
-// excepto la etiqueta con CSS de impresión.
+// Historia:
+//   - react-to-print y el truco del iframe NO funcionan en Chrome Android
+//     (imprime el documento padre, no el contenido aislado).
+//   - Tampoco sirve mover el nodo y limpiarlo en "afterprint": en móvil
+//     window.print() NO bloquea y "afterprint" se dispara de inmediato, así
+//     que limpiábamos antes de que Android capturara la página -> salía la app.
 //
-// Flujo:
-//   1. Movemos el nodo real de la etiqueta a #rp-print-root (fijo en body).
+// Solución confiable (desktop + móvil):
+//   1. CLONAMOS la etiqueta dentro de #rp-print-root (fijo en body).
+//      Clonar (no mover) evita romper el árbol de React.
 //   2. Añadimos la clase body.rp-printing.
 //   3. El CSS @media print oculta todo menos #rp-print-root.
 //   4. window.print() -> solo sale la etiqueta.
-//   5. Regresamos el nodo a su lugar original.
-//
-// Movemos el nodo (no usamos innerHTML) para no romper estilos ni exponernos
-// a inyección de HTML.
+//   5. NO limpiamos por tiempo/afterprint: el clon queda oculto en pantalla
+//      (display:none) y la clase solo afecta a la impresión. En la siguiente
+//      impresión se reemplaza el clon. Así no dependemos de ningún timing.
 
 const PRINT_STYLE_ID = "rp-print-style";
 const PRINT_ROOT_ID = "rp-print-root";
@@ -55,38 +57,16 @@ export function usePrintLabel(contentRef: any, documentTitle: string) {
             document.body.appendChild(root);
         }
 
-        // Recordar de dónde sacamos el nodo para devolverlo intacto
-        const originalParent = node.parentNode;
-        const placeholder = document.createComment("rp-label-placeholder");
-        if (originalParent) {
-            originalParent.insertBefore(placeholder, node);
-        }
-        root.appendChild(node);
+        // Reemplazar contenido previo con un CLON de la etiqueta actual
+        while (root.firstChild) root.removeChild(root.firstChild);
+        root.appendChild(node.cloneNode(true));
 
-        const prevTitle = document.title;
         document.title = documentTitle || "Etiqueta";
         document.body.classList.add("rp-printing");
 
-        let cleaned = false;
-        const cleanup = () => {
-            if (cleaned) return;
-            cleaned = true;
-            document.body.classList.remove("rp-printing");
-            document.title = prevTitle;
-            // Regresar el nodo a su posición original
-            if (placeholder.parentNode) {
-                placeholder.parentNode.insertBefore(node, placeholder);
-                placeholder.parentNode.removeChild(placeholder);
-            }
-            window.removeEventListener("afterprint", cleanup);
-        };
-
-        window.addEventListener("afterprint", cleanup);
-
-        // Esperar render antes de imprimir; respaldo de limpieza para móviles
+        // Esperar a que el clon renderice estilos antes de imprimir
         setTimeout(() => {
             window.print();
-            setTimeout(cleanup, 3000);
         }, 300);
     };
 
