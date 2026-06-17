@@ -49,6 +49,8 @@ export function AdminUsers() {
         } catch (error: any) {
             if (error.response?.status === 403) {
                 setErrorMsg("Acceso denegado: No tienes permisos.");
+            } else if (error.response?.status === 401) {
+                setErrorMsg("Sesión expirada. Inicia sesión de nuevo.");
             } else {
                 setErrorMsg("Error de conexión.");
             }

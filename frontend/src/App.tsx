@@ -78,6 +78,25 @@ function RootLayout() {
   };
 
   // --- EFECTOS ---
+  // Interceptor global: token vencido / inválido (401) => cerrar sesión y volver al login
+  // en vez de mostrar "Error de conexión" en cada pantalla.
+  useEffect(() => {
+    const interceptor = axios.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response?.status === 401) {
+          localStorage.clear();
+          delete axios.defaults.headers.common['Authorization'];
+          setIsAuthenticated(false);
+          setUser(null);
+          navigate('/');
+        }
+        return Promise.reject(error);
+      }
+    );
+    return () => axios.interceptors.response.eject(interceptor);
+  }, [navigate]);
+
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');
