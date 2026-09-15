@@ -291,7 +291,7 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
                                             ref={imageInputRef}
                                             type="file"
                                             accept="image/*"
-                                            capture="environment"
+
                                             onChange={handleImageUpload}
                                             className="hidden"
                                         />

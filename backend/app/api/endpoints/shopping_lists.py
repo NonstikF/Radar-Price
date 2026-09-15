@@ -7,6 +7,7 @@ from typing import Optional
 from pydantic import BaseModel
 
 from app.core.database import get_db
+from app.core.security import verify_admin
 from app.domain.models import ShoppingList, ShoppingListItem, Product, Supplier
 
 router = APIRouter()
@@ -255,7 +256,11 @@ async def update_notes(
 
 # --- ELIMINAR LISTA COMPLETA ---
 @router.delete("/{list_id}")
-async def delete_shopping_list(list_id: int, db: AsyncSession = Depends(get_db)):
+async def delete_shopping_list(
+    list_id: int,
+    db: AsyncSession = Depends(get_db),
+    _admin: dict = Depends(verify_admin),
+):
     sl = await db.get(ShoppingList, list_id)
     if not sl:
         raise HTTPException(404, "Lista no encontrada")

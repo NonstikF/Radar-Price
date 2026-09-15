@@ -6,6 +6,7 @@ from typing import Optional, List
 from pydantic import BaseModel
 
 from app.core.database import get_db
+from app.core.security import verify_admin
 from app.domain.models import Supplier, Product
 
 router = APIRouter()
@@ -181,7 +182,11 @@ async def update_supplier(
 
 
 @router.delete("/{supplier_id}")
-async def delete_supplier(supplier_id: int, db: AsyncSession = Depends(get_db)):
+async def delete_supplier(
+    supplier_id: int,
+    db: AsyncSession = Depends(get_db),
+    _admin: dict = Depends(verify_admin),
+):
     supplier = await db.get(Supplier, supplier_id)
     if not supplier:
         raise HTTPException(404, "Proveedor no encontrado")

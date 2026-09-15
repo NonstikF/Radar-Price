@@ -1,3 +1,4 @@
+import { useOutletContext } from 'react-router-dom';
 import { useState, useRef } from 'react';
 import axios from 'axios';
 import {
@@ -21,6 +22,7 @@ interface DuplicateModalState {
 }
 
 export function InvoiceUploader({ products, setProducts }: Props) {
+    const { isAdmin } = useOutletContext<{ isAdmin: boolean }>();
     // --- ESTADOS CARGA NORMAL ---
     const [file, setFile] = useState<File | null>(null);
     const [loading, setLoading] = useState(false);
@@ -414,7 +416,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                                                         {isMerged && <span className="bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-200 border border-purple-200 dark:border-purple-700 text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1"><Link className="w-3 h-3" /> FUSIONADO</span>}
 
                                                         {/* MENU DUPLICADOS (Solo si es nuevo y NO está fusionado) */}
-                                                        {p.status === 'new' && !isMerged && p.suggestions?.length > 0 && (
+                                                        {isAdmin && p.status === 'new' && !isMerged && p.suggestions?.length > 0 && (
                                                             <div className="relative">
                                                                 <button onClick={() => setMergeMenuOpen(mergeMenuOpen === i ? null : i)} className="mt-1 bg-orange-100 hover:bg-orange-200 dark:bg-orange-900/30 dark:hover:bg-orange-900/50 text-orange-800 dark:text-orange-300 text-[10px] font-bold px-2 py-1 rounded-md flex items-center gap-1 cursor-pointer border border-orange-300 dark:border-orange-800 transition-colors">
                                                                     <GitMerge className="w-3 h-3" /> Duplicado?
@@ -466,7 +468,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
             )}
 
             {/* --- MODAL DE FUSIÓN --- */}
-            {pendingMerge && (
+            {isAdmin && pendingMerge && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
                     <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden animate-scale-in relative text-center p-6 transition-colors">
                         <div className="bg-blue-100 dark:bg-blue-900/30 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-white dark:border-gray-800 shadow-lg relative -mt-10 transition-colors">

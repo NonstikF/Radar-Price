@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import axios from 'axios';
 import { Calendar, FileText, ArrowRight, CheckCircle2, AlertTriangle, ChevronLeft, Loader2, Package, Pencil, X, Check, Trash2 } from 'lucide-react';
 import { API_URL } from '../../config/api';
@@ -9,6 +9,7 @@ interface Props {
 }
 
 export function History({ onBack }: Props) {
+    const { isAdmin } = useOutletContext<{ isAdmin: boolean }>();
     const navigate = useNavigate();
     const [batches, setBatches] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
@@ -218,13 +219,13 @@ export function History({ onBack }: Props) {
                                         </span>
                                     )}
 
-                                    <button
+                                    {isAdmin && (<button
                                         onClick={(e) => askDelete(e, batch)}
                                         title="Borrar importación"
                                         className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all active:scale-95 shrink-0"
                                     >
                                         <Trash2 className="w-5 h-5" />
-                                    </button>
+                                    </button>)}
 
                                     <div className="flex items-center gap-1 text-sm font-bold text-blue-600 dark:text-blue-400 whitespace-nowrap">
                                         <span>Abrir</span>

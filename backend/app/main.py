@@ -4,8 +4,8 @@ from typing import List, Optional
 
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from jose import JWTError, jwt
+from fastapi.security import OAuth2PasswordRequestForm
+from jose import jwt
 import bcrypt as _bcrypt_lib
 from pydantic import BaseModel
 from sqlalchemy import Column, Integer, String, select, text
@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 # Asegúrate de que estos archivos existen y son correctos
 from app.api.endpoints import invoices, suppliers, shopping_lists, locations, categories, reports
 from app.core.database import engine, Base
+from app.core.security import get_current_user, verify_admin
 
 # --- 1. SECURITY CONFIGURATION ---
 import os
@@ -22,7 +23,9 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "change-me-in-production")
 ALGORITHM = os.environ.get("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
+# get_current_user / verify_admin / oauth2_scheme se importan desde
+# app.core.security (evita ciclo de imports con los routers). SECRET_KEY/ALGORITHM
+# de arriba se conservan solo para EMITIR el token en /auth/token.
 
 
 # --- 2. DATABASE MODELS ---
@@ -232,18 +235,7 @@ async def login_for_access_token(
 
 
 # --- 9. USER MANAGEMENT ENDPOINTS ---
-async def get_current_user(token: str = Depends(oauth2_scheme)):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return payload
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Could not validate credentials")
-
-
-async def verify_admin(current_user: dict = Depends(get_current_user)):
-    if current_user.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Solo administradores")
-    return current_user
+# get_current_user y verify_admin ahora viven en app.core.security (importados arriba).
 
 
 @app.get("/users", response_model=List[UserResponse])
@@ -374,9 +366,12 @@ async def delete_user(
     return {"message": "Eliminado"}
 
 
-app.include_router(invoices.router, prefix="/invoices", tags=["invoices"])
-app.include_router(suppliers.router, prefix="/suppliers", tags=["suppliers"])
-app.include_router(shopping_lists.router, prefix="/shopping-lists", tags=["shopping-lists"])
-app.include_router(locations.router, prefix="/locations", tags=["locations"])
-app.include_router(categories.router, prefix="/categories", tags=["categories"])
-app.include_router(reports.router, prefix="/inventory/reports", tags=["reports"])
+# Todos los routers de negocio requieren usuario autenticado (C-1).
+# Los borrados y merge requieren administrador; las cargas requieren el permiso upload.
+_auth = [Depends(get_current_user)]
+app.include_router(invoices.router, prefix="/invoices", tags=["invoices"], dependencies=_auth)
+app.include_router(suppliers.router, prefix="/suppliers", tags=["suppliers"], dependencies=_auth)
+app.include_router(shopping_lists.router, prefix="/shopping-lists", tags=["shopping-lists"], dependencies=_auth)
+app.include_router(locations.router, prefix="/locations", tags=["locations"], dependencies=_auth)
+app.include_router(categories.router, prefix="/categories", tags=["categories"], dependencies=_auth)
+app.include_router(reports.router, prefix="/inventory/reports", tags=["reports"], dependencies=_auth)

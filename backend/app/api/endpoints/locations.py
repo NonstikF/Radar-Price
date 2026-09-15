@@ -6,6 +6,7 @@ from typing import Optional, List
 from pydantic import BaseModel, Field
 
 from app.core.database import get_db
+from app.core.security import verify_admin
 from app.domain.models import Location, ProductLocation, Product
 
 router = APIRouter()
@@ -267,7 +268,11 @@ async def update_location(
 
 
 @router.delete("/{location_id}")
-async def delete_location(location_id: int, db: AsyncSession = Depends(get_db)):
+async def delete_location(
+    location_id: int,
+    db: AsyncSession = Depends(get_db),
+    _admin: dict = Depends(verify_admin),
+):
     location = await db.get(Location, location_id)
     if not location:
         raise HTTPException(404, "Ubicación no encontrada")

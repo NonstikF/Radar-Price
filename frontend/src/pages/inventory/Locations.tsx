@@ -1,3 +1,4 @@
+import { useOutletContext } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import {
@@ -838,7 +839,7 @@ export function Locations() {
                     ref={imageInputRef}
                     type="file"
                     accept="image/*"
-                    capture="environment"
+
                     onChange={handleImageChange}
                     className="hidden"
                 />
@@ -1091,6 +1092,7 @@ function GroupedLocations({
     onDelete: (id: number) => void;
     searchTerm: string;
 }) {
+    const { isAdmin } = useOutletContext<{ isAdmin: boolean }>();
     // Secciones inician colapsadas por defecto
     const [expanded, setExpanded] = useState<Record<string, boolean>>({});
     const isSearching = searchTerm.trim().length > 0;
@@ -1156,9 +1158,9 @@ function GroupedLocations({
                 <button onClick={(e) => { e.stopPropagation(); onEdit(loc); }} className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
                     <Edit3 className="w-3.5 h-3.5" />
                 </button>
-                <button onClick={(e) => { e.stopPropagation(); onDelete(loc.id); }} className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                {isAdmin && (<button onClick={(e) => { e.stopPropagation(); onDelete(loc.id); }} className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
                     <Trash2 className="w-3.5 h-3.5" />
-                </button>
+                </button>)}
             </div>
         </div>
     );

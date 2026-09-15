@@ -1,3 +1,4 @@
+import { useOutletContext } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import jsPDF from 'jspdf';
@@ -49,6 +50,7 @@ interface ShoppingListDetail {
 }
 
 export function ShoppingLists() {
+    const { isAdmin } = useOutletContext<{ isAdmin: boolean }>();
     const [lists, setLists] = useState<ShoppingListSummary[]>([]);
     const [selectedList, setSelectedList] = useState<ShoppingListDetail | null>(null);
     const [loading, setLoading] = useState(true);
@@ -368,9 +370,9 @@ export function ShoppingLists() {
                                     <XCircle className="w-4 h-4" />
                                 </button>
                             )}
-                            <button onClick={() => handleDeleteList(selectedList.id)} title="Eliminar lista" className="p-2 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-500 hover:bg-red-100 transition-all">
+                            {isAdmin && (<button onClick={() => handleDeleteList(selectedList.id)} title="Eliminar lista" className="p-2 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-500 hover:bg-red-100 transition-all">
                                 <Trash2 className="w-4 h-4" />
-                            </button>
+                            </button>)}
                         </div>
                     </div>
                 </div>

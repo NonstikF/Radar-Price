@@ -12,6 +12,7 @@ from sqlalchemy import or_, func, case, update, delete
 from typing import List, Dict, Optional, Set
 from pydantic import BaseModel
 from app.core.database import get_db
+from app.core.security import verify_admin, verify_upload_permission
 from app.services.xml_service import XmlInvoiceParser
 from app.domain.models import Product, PriceHistory, ImportBatch, ImportBatchItem, Supplier, StockHistory
 
@@ -89,7 +90,9 @@ def names_are_similar(left: str, right: str) -> bool:
 # --- 1. SUBIDA XML (MATCHING AGRESIVO) ---
 @router.post("/upload")
 async def upload_invoice(
-    file: UploadFile = File(...), db: AsyncSession = Depends(get_db)
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    _user: dict = Depends(verify_upload_permission),
 ):
     print(f"--- INICIANDO CARGA MEJORADA: {file.filename} ---")
 
@@ -642,7 +645,11 @@ async def update_product_single(
 
 # --- 5. FUSIONAR ---
 @router.post("/merge")
-async def merge_products(data: dict = Body(...), db: AsyncSession = Depends(get_db)):
+async def merge_products(
+    data: dict = Body(...),
+    db: AsyncSession = Depends(get_db),
+    _admin: dict = Depends(verify_admin),
+):
     keep_id = data.get("keep_id")
     discard_id = data.get("discard_id")
 
@@ -756,7 +763,11 @@ async def bulk_touch_products(data: dict = Body(...), db: AsyncSession = Depends
 
 # --- 8. ELIMINAR ---
 @router.delete("/products/{product_id}")
-async def delete_product(product_id: int, db: AsyncSession = Depends(get_db)):
+async def delete_product(
+    product_id: int,
+    db: AsyncSession = Depends(get_db),
+    _admin: dict = Depends(verify_admin),
+):
     # 1. Buscar el producto
     p = await db.get(Product, product_id)
     if not p:
@@ -782,7 +793,9 @@ async def delete_product(product_id: int, db: AsyncSession = Depends(get_db)):
 # --- 9. CATÁLOGO MASIVO ---
 @router.post("/upload-catalog")
 async def upload_catalog(
-    file: UploadFile = File(...), db: AsyncSession = Depends(get_db)
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    _user: dict = Depends(verify_upload_permission),
 ):
     content = await file.read()
     new_batch = ImportBatch(filename=f"CATALOGO-{file.filename}")
@@ -888,7 +901,11 @@ async def update_batch(
 
 
 @router.delete("/batches/{batch_id}")
-async def delete_batch(batch_id: int, db: AsyncSession = Depends(get_db)):
+async def delete_batch(
+    batch_id: int,
+    db: AsyncSession = Depends(get_db),
+    _admin: dict = Depends(verify_admin),
+):
     """
     Borra una importación y revierte el stock que había sumado a cada producto.
     Los productos permanecen en el catálogo (permite re-subir el XML limpio).

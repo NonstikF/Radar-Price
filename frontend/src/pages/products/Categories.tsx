@@ -1,3 +1,4 @@
+import { useOutletContext } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
@@ -62,6 +63,7 @@ const COLORS = [
 const getColor = (key: string) => COLORS.find(c => c.key === key) || COLORS[0];
 
 export function Categories() {
+    const { isAdmin } = useOutletContext<{ isAdmin: boolean }>();
     const [categories, setCategories] = useState<CategoryItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({ show: false, message: '', type: 'success' });
@@ -445,9 +447,9 @@ export function Categories() {
                                         }} className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20">
                                             <Edit3 className="w-3.5 h-3.5" />
                                         </button>
-                                        <button onClick={(e) => { e.stopPropagation(); setDeleteId(cat.id); }} className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20">
+                                        {isAdmin && (<button onClick={(e) => { e.stopPropagation(); setDeleteId(cat.id); }} className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20">
                                             <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
+                                        </button>)}
                                     </div>
                                 </div>
                             </div>
