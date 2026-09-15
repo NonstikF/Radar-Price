@@ -13,12 +13,13 @@ export function BatchPrintButton({ products }: Props) {
     const componentRef = useRef<HTMLDivElement>(null);
 
     // Usamos nuestro hook personalizado
-    const handlePrint = usePrintLabel(componentRef, `Lote_Etiquetas_${new Date().toLocaleDateString()}`);
+    const { handlePrint, printSettings, printOptions } = usePrintLabel(componentRef, `Lote_Etiquetas_${new Date().toLocaleDateString()}`, settings);
 
     if (!products || products.length === 0) return null;
 
     return (
         <>
+            {printOptions}
             {/* 1. EL BOTÓN VISIBLE */}
             <button
                 onClick={handlePrint}
@@ -36,7 +37,7 @@ export function BatchPrintButton({ products }: Props) {
                         <div key={product.id || index} style={{ pageBreakAfter: 'always' }}>
                             <ProductLabel
                                 product={product}
-                                settings={settings}
+                                settings={printSettings}
                             />
                         </div>
                     ))}

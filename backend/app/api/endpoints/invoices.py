@@ -587,6 +587,7 @@ async def get_products(
             "stock": p.stock_quantity,
             "supplier_id": p.supplier_id,
             "supplier_name": supplier_name or "",
+            "image_url": p.image_url or "",
             "is_delicate": p.is_delicate or False,
         }
         for p, supplier_name in result.all()

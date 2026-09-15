@@ -19,6 +19,9 @@ export const ProductLabel = forwardRef<HTMLDivElement, Props>((props, ref) => {
         return alias.length > 0 ? alias : originalName;
     };
     const displayName = getProductName();
+    const nameOnlyStyle = displayName.length > 60
+        ? 'text-xs leading-tight font-bold'
+        : displayName.length > 30 ? 'text-sm leading-tight font-bold' : 'text-lg leading-tight font-bold';
 
     // ESTILOS DE FUENTE
     const getNameStyle = (text: string) => {
@@ -55,7 +58,7 @@ export const ProductLabel = forwardRef<HTMLDivElement, Props>((props, ref) => {
     const priceFontSize = priceLength > 2 ? 'text-[4rem]' : 'text-[5rem]';
 
     return (
-        <>
+        <div ref={ref} className="bg-white mx-auto overflow-hidden">
             <style>
                 {`
                     @media print {
@@ -69,7 +72,6 @@ export const ProductLabel = forwardRef<HTMLDivElement, Props>((props, ref) => {
                 `}
             </style>
 
-            <div ref={ref} className="bg-white mx-auto overflow-hidden">
                 <div
                     style={{ width: width, height: height }}
                     className="bg-white text-black overflow-hidden relative"
@@ -86,7 +88,7 @@ export const ProductLabel = forwardRef<HTMLDivElement, Props>((props, ref) => {
                     {/* PRECIO */}
                     {settings.showPrice && (
                         <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-                            <div className={`flex items-start leading-none -translate-y-2`}>
+                            <div className={`flex items-start leading-none ${settings.showName ? '-translate-y-2' : ''}`}>
                                 <span className="text-xl font-bold mt-2 mr-1">$</span>
                                 <span className={`${priceFontSize} tracking-tighter leading-[0.75] ${settings.boldPrice ? 'font-black' : 'font-extrabold'}`}>
                                     {finalPrice}
@@ -97,16 +99,17 @@ export const ProductLabel = forwardRef<HTMLDivElement, Props>((props, ref) => {
 
                     {/* TEXTO INFERIOR */}
                     {settings.showName && (
-                        <div className="absolute bottom-0 left-0 w-full text-center px-1 z-20 bg-white">
-                            <div className="border-t-2 border-black w-full mb-[1px]"></div>
-                            <p className={`${getNameStyle(displayName)} break-words uppercase text-black w-full pb-[1px]`}>
+                        <div className={settings.showPrice
+                            ? 'absolute bottom-0 left-0 w-full text-center px-1 z-20 bg-white'
+                            : `absolute inset-0 flex items-center justify-center text-center px-2 z-10 ${settings.companyName ? 'pt-4' : ''}`}>
+                            {settings.showPrice && <div className="border-t-2 border-black w-full mb-[1px]"></div>}
+                            <p className={`${settings.showPrice ? getNameStyle(displayName) : nameOnlyStyle} break-words uppercase text-black w-full pb-[1px]`}>
                                 {displayName}
                             </p>
                         </div>
                     )}
                 </div>
-            </div>
-        </>
+        </div>
     );
 });
 

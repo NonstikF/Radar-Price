@@ -21,9 +21,6 @@ export default function LabelDesigner() {
         bottomText: 'TEXTO PERSONALIZADO'
     });
 
-    // Hook de impresión
-    const handlePrintFree = usePrintLabel(printRef, `Etiqueta_Libre_${new Date().toLocaleTimeString()}`);
-
     // Configuración del producto dummy
     const productToRender = mode === 'preview' ? {
         name: "Maceta Rattan Redonda D20 Chocolate Premium",
@@ -46,8 +43,18 @@ export default function LabelDesigner() {
         ? { ...settings, companyName: customData.topText }
         : settings;
 
+    const { handlePrint: handlePrintFree, printSettings, printOptions } = usePrintLabel(
+        printRef, `Etiqueta_Libre_${new Date().toLocaleTimeString()}`, settingsToRender,
+    );
+
     return (
         <div className="p-4 md:p-8 max-w-7xl mx-auto animate-fade-in">
+            {printOptions}
+            <div style={{ display: 'none' }}>
+                <div ref={printRef}>
+                    <ProductLabel product={productToRender} settings={printSettings} />
+                </div>
+            </div>
             {/* ENCABEZADO */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                 <div>
@@ -87,7 +94,7 @@ export default function LabelDesigner() {
                         </span>
 
                         <div className="shadow-xl transition-all duration-300 hover:scale-105">
-                            <div ref={printRef}>
+                            <div>
                                 <ProductLabel
                                     product={productToRender}
                                     settings={settingsToRender}

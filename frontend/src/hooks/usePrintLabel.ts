@@ -18,6 +18,13 @@
 //      (display:none) y la clase solo afecta a la impresión. En la siguiente
 //      impresión se reemplaza el clon. Así no dependemos de ningún timing.
 
+import { createElement, useState } from 'react';
+import type { RefObject } from 'react';
+import { flushSync } from 'react-dom';
+import type { LabelSettings } from './useLabelSettings';
+import { LabelPrintOptions } from '../components/labels/LabelPrintOptions';
+import type { LabelPrintContent } from '../components/labels/LabelPrintOptions';
+
 const PRINT_STYLE_ID = "rp-print-style";
 const PRINT_ROOT_ID = "rp-print-root";
 
@@ -40,8 +47,21 @@ function ensurePrintStyles() {
     document.head.appendChild(style);
 }
 
-export function usePrintLabel(contentRef: any, documentTitle: string) {
-    const handlePrint = () => {
+export function usePrintLabel(contentRef: RefObject<HTMLDivElement | null>, documentTitle: string, settings: LabelSettings) {
+    const [showOptions, setShowOptions] = useState(false);
+    const [content, setContent] = useState<LabelPrintContent | null>(null);
+    const printSettings = content ? {
+        ...settings,
+        showName: content !== 'price',
+        showPrice: content !== 'name',
+    } : settings;
+
+    const printSelected = (selection: LabelPrintContent) => {
+        // Actualizar la etiqueta antes de clonar, también en impresiones consecutivas.
+        flushSync(() => {
+            setContent(selection);
+            setShowOptions(false);
+        });
         const node: HTMLElement | null = contentRef?.current;
         if (!node) {
             console.error("usePrintLabel: contentRef vacío");
@@ -70,5 +90,12 @@ export function usePrintLabel(contentRef: any, documentTitle: string) {
         }, 300);
     };
 
-    return handlePrint;
+    return {
+        handlePrint: () => setShowOptions(true),
+        printSettings,
+        printOptions: showOptions ? createElement(LabelPrintOptions, {
+            onSelect: printSelected,
+            onClose: () => setShowOptions(false),
+        }) : null,
+    };
 }

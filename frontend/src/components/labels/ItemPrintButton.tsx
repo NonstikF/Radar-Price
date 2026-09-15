@@ -12,12 +12,13 @@ export function ItemPrintButton({ product }: Props) {
     const { settings } = useLabelSettings();
     const componentRef = useRef<HTMLDivElement>(null);
 
-    const handlePrint = usePrintLabel(componentRef, `Etiqueta_${product.sku || product.id}`);
+    const { handlePrint, printSettings, printOptions } = usePrintLabel(componentRef, `Etiqueta_${product.sku || product.id}`, settings);
 
     if (!product) return null;
 
     return (
         <>
+            {printOptions}
             {/* BOTÓN VISIBLE */}
             <button
                 onClick={handlePrint}
@@ -30,7 +31,7 @@ export function ItemPrintButton({ product }: Props) {
             {/* ETIQUETA INVISIBLE PARA IMPRESIÓN */}
             <div style={{ display: 'none' }}>
                 <div ref={componentRef}>
-                    <ProductLabel product={product} settings={settings} />
+                    <ProductLabel product={product} settings={printSettings} />
                 </div>
             </div>
         </>

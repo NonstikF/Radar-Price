@@ -58,7 +58,7 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
             .catch(err => console.error("Error proveedores", err));
     }, [product.id]);
 
-    const handlePrint = usePrintLabel(labelRef, product.alias || product.name);
+    const { handlePrint, printSettings, printOptions } = usePrintLabel(labelRef, product.alias || product.name, settings);
 
     // Lógica simplificada de "Hay cambios sin guardar"
     const hasUnsavedChanges = () => {
@@ -458,9 +458,10 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
                 )}
             </div>
 
+            {printOptions}
             {/* ETIQUETA INVISIBLE */}
             <div style={{ display: "none" }}>
-                <ProductLabel ref={labelRef} product={product} settings={settings} />
+                <ProductLabel ref={labelRef} product={product} settings={printSettings} />
             </div>
         </div>
     );
