@@ -358,6 +358,7 @@ async def upload_invoice(
                 stock_quantity=data["qty"],
                 selling_price=0.0,
                 supplier_id=supplier_id,
+                origin="imported",
             )
             new_products_buffer.append(new_p)
 
@@ -589,6 +590,7 @@ async def get_products(
             "supplier_name": supplier_name or "",
             "image_url": p.image_url or "",
             "is_delicate": p.is_delicate or False,
+            "origin": p.origin or "imported",
         }
         for p, supplier_name in result.all()
     ]
@@ -628,6 +630,28 @@ async def update_product_single(
                 p.selling_price = np
         if "supplier_id" in data:
             p.supplier_id = int(data["supplier_id"]) if data["supplier_id"] else None
+        if "name" in data:
+            # El nombre de un producto importado es la clave con la que se
+            # reconcilia contra la factura del proveedor: editarlo generaría un
+            # duplicado en la siguiente importación.
+            if p.origin != "manual":
+                raise HTTPException(
+                    400,
+                    "No se puede cambiar el nombre de un producto importado. Usa el alias.",
+                )
+            new_name = str(data["name"]).strip() if data["name"] else ""
+            if not new_name:
+                raise HTTPException(400, "El nombre no puede quedar vacío")
+            if new_name.lower() != (p.name or "").lower():
+                dup = await db.execute(
+                    select(Product).where(
+                        func.lower(Product.name) == new_name.lower(),
+                        Product.id != p.id,
+                    )
+                )
+                if dup.scalar_one_or_none():
+                    raise HTTPException(400, f"Ya existe un producto llamado {new_name}")
+            p.name = new_name
         if "alias" in data:
             p.alias = str(data["alias"]).strip() if data["alias"] else None
         if "image_url" in data:
@@ -731,6 +755,7 @@ async def create_manual(item: ManualProductSchema, db: AsyncSession = Depends(ge
         selling_price=item.selling_price,
         stock_quantity=item.stock,
         supplier_id=item.supplier_id,
+        origin="manual",
     )
     db.add(new_p)
     await db.flush()
@@ -868,6 +893,7 @@ async def upload_catalog(
                     price=price,
                     stock_quantity=int(qty),
                     selling_price=0.0,
+                    origin="imported",
                 )
                 db.add(new_p)
                 await db.flush()

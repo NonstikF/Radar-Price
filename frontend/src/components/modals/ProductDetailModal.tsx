@@ -3,7 +3,7 @@ import axios from 'axios';
 import {
     X, Save, Barcode, Hash,
     ArrowRight, Camera, Trash2, Loader2, Tag, Printer, Settings, AlertTriangle,
-    ShoppingCart, Truck, ImagePlus, ImageOff, ShieldAlert
+    ShoppingCart, Truck, ImagePlus, ImageOff, ShieldAlert, Package, Lock
 } from 'lucide-react';
 import { usePrintLabel } from '../../hooks/usePrintLabel';
 import { useShoppingList } from '../../hooks/useShoppingList';
@@ -27,6 +27,10 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
     const [editUpc, setEditUpc] = useState(product.upc ? String(product.upc) : "");
     const [editSku, setEditSku] = useState(product.sku ? String(product.sku) : "");
     const [editAlias, setEditAlias] = useState(product.alias ? String(product.alias) : "");
+    const [editName, setEditName] = useState(product.name ? String(product.name) : "");
+    // Solo los productos creados por nosotros pueden cambiar de nombre: el de un
+    // importado es la clave con la que se reconcilia la factura del proveedor.
+    const canEditName = product.origin === 'manual';
     const [editPrice, setEditPrice] = useState(product.selling_price ? String(product.selling_price) : "");
 
     const [saving, setSaving] = useState(false);
@@ -68,6 +72,7 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
             clean(editUpc) !== clean(product.upc) ||
             clean(editSku) !== clean(product.sku) ||
             clean(editAlias) !== clean(product.alias) ||
+            (canEditName && clean(editName) !== clean(product.name)) ||
             (isAdmin && priceChanged)
         );
     };
@@ -77,7 +82,7 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
         else onClose();
     };
 
-    const handleSaveField = async (field: 'upc' | 'sku' | 'price' | 'alias') => {
+    const handleSaveField = async (field: 'upc' | 'sku' | 'price' | 'alias' | 'name') => {
         setSaving(true);
         try {
             // Objeto de configuración para evitar IF/ELSE gigantes
@@ -85,10 +90,17 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
                 upc: { value: editUpc.trim(), payloadKey: 'upc' },
                 sku: { value: editSku.trim(), payloadKey: 'sku' },
                 alias: { value: editAlias.trim(), payloadKey: 'alias' },
+                name: { value: editName.trim(), payloadKey: 'name' },
                 price: { value: parseFloat(editPrice) || 0, payloadKey: 'selling_price' }
             };
 
             const config = fieldConfig[field];
+
+            if (field === 'name' && !config.value) {
+                showToast("El nombre no puede quedar vacío", 'error');
+                return;
+            }
+
             const payload = { [config.payloadKey]: config.value };
 
             await axios.put(`${API_URL}/invoices/products/${product.id}`, payload);
@@ -101,6 +113,7 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
             if (field === 'upc') setEditUpc(config.value as string);
             if (field === 'sku') setEditSku(config.value as string);
             if (field === 'alias') setEditAlias(config.value as string);
+            if (field === 'name') setEditName(config.value as string);
             // Price ya es string en el estado, cuidado con el parse
         } catch (error: any) {
             showToast(error.response?.data?.detail || "Error al guardar.", 'error');
@@ -321,10 +334,23 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
                     {activeTab === 'general' && (
                         <div className="space-y-4">
                             {/* NOMBRE DEL PRODUCTO */}
-                            <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-2xl">
-                                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Producto</label>
-                                <p className="text-gray-800 dark:text-gray-100 font-medium text-sm break-words">{product.name}</p>
-                            </div>
+                            {canEditName ? (
+                                <EditField
+                                    label="Producto" icon={<Package className="w-4 h-4 text-gray-500" />}
+                                    value={editName} original={product.name}
+                                    onChange={setEditName} onSave={() => handleSaveField('name')}
+                                    saving={saving}
+                                />
+                            ) : (
+                                <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-2xl">
+                                    <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Producto</label>
+                                    <p className="text-gray-800 dark:text-gray-100 font-medium text-sm break-words">{product.name}</p>
+                                    <p className="mt-2 flex items-start gap-1.5 text-[10px] text-gray-400 leading-snug">
+                                        <Lock className="w-3 h-3 shrink-0 mt-px" />
+                                        <span>Producto importado: el nombre debe coincidir con la factura del proveedor. Usa el alias para cambiar cómo lo ves e imprimes.</span>
+                                    </p>
+                                </div>
+                            )}
 
                             {/* COMPONENTES DE EDICIÓN */}
                             <EditField

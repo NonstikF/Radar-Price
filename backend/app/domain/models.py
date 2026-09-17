@@ -35,6 +35,10 @@ class Product(Base):
 
     supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=True)
     is_delicate = Column(Boolean, default=False, nullable=False)
+    # "manual" = creado por nosotros, "imported" = vino de una factura XML o de
+    # un lote importado. Solo el nombre de los manuales es editable: el de los
+    # importados se usa para reconciliar contra el proveedor al reimportar.
+    origin = Column(String, default="manual", nullable=False, server_default="imported")
     created_at = Column(DateTime, default=datetime.utcnow, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=True)
 
