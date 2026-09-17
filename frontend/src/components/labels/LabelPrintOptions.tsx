@@ -30,7 +30,11 @@ export const LabelPrintOptions = ({ onSelect, onClose }: Props) => {
             aria-labelledby="label-print-title"
             aria-describedby="label-print-description"
             onCancel={onClose}
-            className="m-auto w-[calc(100%-2rem)] max-w-sm rounded-2xl bg-white p-6 text-gray-900 shadow-xl backdrop:bg-black/60 dark:bg-gray-800 dark:text-white"
+            style={{
+                // Deja libre el safe-area de iOS para que la barra del navegador no lo tape.
+                maxHeight: 'calc(100dvh - 2rem - env(safe-area-inset-bottom) - env(safe-area-inset-top))',
+            }}
+            className="m-auto w-[calc(100%-2rem)] max-w-sm overflow-y-auto rounded-2xl bg-white p-6 text-gray-900 shadow-xl backdrop:bg-black/60 dark:bg-gray-800 dark:text-white"
         >
             <div className="mb-3 flex items-center justify-between gap-3">
                 <h2 id="label-print-title" className="text-lg font-bold">¿Qué quieres imprimir?</h2>

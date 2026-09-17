@@ -185,9 +185,18 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+            style={{
+                // En móvil la barra del navegador tapa el borde inferior: usamos la altura
+                // dinámica del viewport y respetamos el safe-area de iOS.
+                height: '100dvh',
+                paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))',
+                paddingTop: 'calc(1rem + env(safe-area-inset-top))',
+            }}
+        >
             <div className="absolute inset-0" onClick={handleAttemptClose}></div>
-            <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-scale-in relative z-10 flex flex-col max-h-[90vh]">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-scale-in relative z-10 flex flex-col max-h-full">
 
                 {/* HEADER AZUL */}
                 <div className="bg-blue-600 dark:bg-blue-700 p-6 md:p-8 text-white relative text-center shrink-0">

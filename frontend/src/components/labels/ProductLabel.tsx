@@ -1,4 +1,5 @@
 import { forwardRef } from 'react';
+import Barcode from 'react-barcode';
 import type { LabelSettings } from '../../hooks/useLabelSettings';
 
 interface Props {
@@ -30,6 +31,20 @@ export const ProductLabel = forwardRef<HTMLDivElement, Props>((props, ref) => {
         if (length < 25) return 'text-[11px] leading-none font-bold';
         return 'text-[9px] leading-none font-bold tracking-tight';
     };
+
+    // CÓDIGO DE BARRAS
+    const getBarcodeValue = () => {
+        const source = settings.barcodeSource || 'upc_if_available';
+        const upc = product.upc ? String(product.upc).trim() : '';
+        const sku = product.sku ? String(product.sku).trim() : '';
+        if (source === 'always_upc') return upc;
+        if (source === 'always_sku') return sku;
+        return upc.length > 0 ? upc : sku;
+    };
+    const barcodeValue = getBarcodeValue();
+    const showBarcode = settings.showBarcode && barcodeValue.length > 0;
+    // Alto reservado en la etiqueta para la franja del código (barras + número).
+    const BARCODE_STRIP_PX = 26;
 
     // --- CÁLCULO DE DIMENSIONES ---
     const getDimensions = () => {
@@ -85,27 +100,55 @@ export const ProductLabel = forwardRef<HTMLDivElement, Props>((props, ref) => {
                         </div>
                     )}
 
-                    {/* PRECIO */}
-                    {settings.showPrice && (
-                        <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-                            <div className={`flex items-start leading-none ${settings.showName ? '-translate-y-2' : ''}`}>
-                                <span className="text-xl font-bold mt-2 mr-1">$</span>
-                                <span className={`${priceFontSize} tracking-tighter leading-[0.75] ${settings.boldPrice ? 'font-black' : 'font-extrabold'}`}>
-                                    {finalPrice}
-                                </span>
+                    {/* ZONA PRINCIPAL: deja libre la franja inferior del código de barras */}
+                    <div
+                        className="absolute top-0 left-0 w-full"
+                        style={{ bottom: showBarcode ? `${BARCODE_STRIP_PX}px` : 0 }}
+                    >
+                        {/* PRECIO */}
+                        {settings.showPrice && (
+                            <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+                                <div className={`flex items-start leading-none ${settings.showName ? '-translate-y-2' : ''}`}>
+                                    <span className="text-xl font-bold mt-2 mr-1">$</span>
+                                    <span className={`${priceFontSize} tracking-tighter leading-[0.75] ${settings.boldPrice ? 'font-black' : 'font-extrabold'}`}>
+                                        {finalPrice}
+                                    </span>
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        )}
 
-                    {/* TEXTO INFERIOR */}
-                    {settings.showName && (
-                        <div className={settings.showPrice
-                            ? 'absolute bottom-0 left-0 w-full text-center px-1 z-20 bg-white'
-                            : `absolute inset-0 flex items-center justify-center text-center px-2 z-10 ${settings.companyName ? 'pt-4' : ''}`}>
-                            {settings.showPrice && <div className="border-t-2 border-black w-full mb-[1px]"></div>}
-                            <p className={`${settings.showPrice ? getNameStyle(displayName) : nameOnlyStyle} break-words uppercase text-black w-full pb-[1px]`}>
-                                {displayName}
-                            </p>
+                        {/* TEXTO INFERIOR */}
+                        {settings.showName && (
+                            <div className={settings.showPrice
+                                ? 'absolute bottom-0 left-0 w-full text-center px-1 z-20 bg-white'
+                                : `absolute inset-0 flex items-center justify-center text-center px-2 z-10 ${settings.companyName ? 'pt-4' : ''}`}>
+                                {settings.showPrice && <div className="border-t-2 border-black w-full mb-[1px]"></div>}
+                                <p className={`${settings.showPrice ? getNameStyle(displayName) : nameOnlyStyle} break-words uppercase text-black w-full pb-[1px]`}>
+                                    {displayName}
+                                </p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* CÓDIGO DE BARRAS (abajo, pequeño) */}
+                    {showBarcode && (
+                        <div
+                            className="absolute bottom-0 left-0 w-full flex items-end justify-center bg-white z-30 overflow-hidden"
+                            style={{ height: `${BARCODE_STRIP_PX}px` }}
+                        >
+                            <Barcode
+                                value={barcodeValue}
+                                format="CODE128"
+                                renderer="svg"
+                                height={16}
+                                width={1}
+                                margin={0}
+                                displayValue
+                                fontSize={7}
+                                textMargin={0}
+                                background="#ffffff"
+                                lineColor="#000000"
+                            />
                         </div>
                     )}
                 </div>

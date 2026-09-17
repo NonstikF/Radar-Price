@@ -3,6 +3,10 @@ import { useState, useEffect } from 'react';
 // Definimos los tipos permitidos, incluyendo 'custom'
 export type LabelSize = '1.5x1' | '2x1' | '2.25x1.25' | '50x25mm' | 'custom';
 
+// De dónde sale el valor del código de barras.
+// 'upc_if_available' usa el UPC del producto y, si no tiene, cae al SKU (ID interno).
+export type BarcodeSource = 'upc_if_available' | 'always_upc' | 'always_sku';
+
 export interface LabelSettings {
     size: LabelSize;
     showPrice: boolean;
@@ -13,6 +17,10 @@ export interface LabelSettings {
     fontSize: 'small' | 'normal' | 'large';
     companyName?: string;
     nameSource?: string;
+
+    // CÓDIGO DE BARRAS
+    showBarcode: boolean;
+    barcodeSource?: BarcodeSource;
 
     // CAMPOS NUEVOS PARA MEDIDA PERSONALIZADA
     customWidth?: string;
@@ -29,6 +37,9 @@ const DEFAULT_SETTINGS: LabelSettings = {
     fontSize: 'normal',
     companyName: '',
     nameSource: 'alias_if_available',
+
+    showBarcode: true,
+    barcodeSource: 'upc_if_available',
 
     // Valores por defecto
     customWidth: '2in',
