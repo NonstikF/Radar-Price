@@ -37,6 +37,7 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
     const [deleting, setDeleting] = useState(false);
     const [showExitConfirm, setShowExitConfirm] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [showRemoveImageConfirm, setShowRemoveImageConfirm] = useState(false);
     const [history, setHistory] = useState<any[]>([]);
     const [activeTab, setActiveTab] = useState<'general' | 'history' | 'shopping'>('general');
     const [showScanner, setShowScanner] = useState(false);
@@ -175,6 +176,7 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
             showToast("Error al eliminar imagen", "error");
         } finally {
             setUploadingImage(false);
+            setShowRemoveImageConfirm(false);
         }
     };
 
@@ -255,22 +257,27 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
                                 </button>
                             )}
 
-                            {/* Overlay de acciones (solo si ya hay foto) */}
+                            {/* Overlay de acciones (solo si ya hay foto).
+                                Con el puntero aparece al pasar por encima; en táctil no hay
+                                hover, así que se muestra siempre en vez de quedar invisible
+                                pero clicable, que hacía borrar la foto sin querer. */}
                             {product.image_url && (
-                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                                <div className="absolute inset-0 flex items-end justify-end gap-2 p-2 transition-opacity bg-transparent [@media(hover:hover)]:bg-black/50 [@media(hover:hover)]:items-center [@media(hover:hover)]:justify-center [@media(hover:hover)]:p-0 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:focus-within:opacity-100">
                                     <button
                                         onClick={() => imageInputRef.current?.click()}
                                         disabled={uploadingImage}
-                                        className="p-2 bg-white/20 hover:bg-white/30 rounded-lg text-white transition-colors"
+                                        className="p-2 rounded-lg text-white transition-colors bg-black/50 hover:bg-black/70 [@media(hover:hover)]:bg-white/20 [@media(hover:hover)]:hover:bg-white/30"
                                         title="Cambiar foto"
+                                        aria-label="Cambiar foto"
                                     >
                                         {uploadingImage ? <Loader2 className="w-5 h-5 animate-spin" /> : <ImagePlus className="w-5 h-5" />}
                                     </button>
                                     <button
-                                        onClick={handleRemoveImage}
+                                        onClick={() => setShowRemoveImageConfirm(true)}
                                         disabled={uploadingImage}
-                                        className="p-2 bg-red-500/40 hover:bg-red-500/60 rounded-lg text-white transition-colors"
+                                        className="p-2 rounded-lg text-white transition-colors bg-red-600/80 hover:bg-red-600 [@media(hover:hover)]:bg-red-500/40 [@media(hover:hover)]:hover:bg-red-500/60"
                                         title="Eliminar foto"
+                                        aria-label="Eliminar foto"
                                     >
                                         <Trash2 className="w-5 h-5" />
                                     </button>
@@ -492,6 +499,20 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
                                 {deleting ? <Loader2 className="animate-spin w-5 h-5" /> : "Sí, Eliminar permanentemente"}
                             </button>
                             <button onClick={() => setShowDeleteConfirm(false)} className="w-full bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700 py-3.5 rounded-xl font-bold transition-all shadow-sm">Cancelar</button>
+                        </div>
+                    </div>
+                )}
+
+                {showRemoveImageConfirm && (
+                    <div className="absolute inset-0 z-30 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md flex flex-col items-center justify-center p-8 text-center rounded-3xl animate-fade-in">
+                        <ImageOff className="w-16 h-16 text-red-500 mb-4" />
+                        <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-2">¿Quitar la foto?</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">El producto se queda sin imagen. Puedes volver a subir otra cuando quieras.</p>
+                        <div className="space-y-3 w-full max-w-xs">
+                            <button onClick={handleRemoveImage} disabled={uploadingImage} className="w-full bg-red-600 hover:bg-red-700 text-white py-3.5 rounded-xl font-bold transition-all shadow-md flex justify-center items-center">
+                                {uploadingImage ? <Loader2 className="animate-spin w-5 h-5" /> : "Sí, quitar la foto"}
+                            </button>
+                            <button onClick={() => setShowRemoveImageConfirm(false)} disabled={uploadingImage} className="w-full bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700 py-3.5 rounded-xl font-bold transition-all shadow-sm">Cancelar</button>
                         </div>
                     </div>
                 )}
