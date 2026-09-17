@@ -46,25 +46,45 @@ const DEFAULT_SETTINGS: LabelSettings = {
     customHeight: '1in'
 };
 
+// Usamos una clave nueva (v3) para evitar conflictos con configuraciones viejas
+const STORAGE_KEY = 'radar_label_settings_v3';
+
+function readStored(): LabelSettings {
+    try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
+    } catch (e) {
+        console.error("Error cargando settings", e);
+    }
+    return DEFAULT_SETTINGS;
+}
+
+// Los ajustes viven fuera de los componentes porque varios usan el hook a la vez:
+// el modal que los edita no es el mismo que imprime la etiqueta, y con un estado
+// por instancia el que imprimía se quedaba con la copia vieja hasta recargar.
+let sharedSettings: LabelSettings = readStored();
+const listeners = new Set<(s: LabelSettings) => void>();
+
 export function useLabelSettings() {
-    // Usamos una clave nueva (v3) para evitar conflictos con configuraciones viejas
-    const [settings, setSettings] = useState<LabelSettings>(DEFAULT_SETTINGS);
+    const [settings, setSettings] = useState<LabelSettings>(sharedSettings);
 
     useEffect(() => {
-        const saved = localStorage.getItem('radar_label_settings_v3');
-        if (saved) {
-            try {
-                setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(saved) });
-            } catch (e) {
-                console.error("Error cargando settings", e);
-            }
-        }
+        // Alinearse por si otra instancia guardó algo entre el render y el efecto.
+        setSettings(sharedSettings);
+        listeners.add(setSettings);
+        return () => {
+            listeners.delete(setSettings);
+        };
     }, []);
 
     const updateSettings = (newSettings: Partial<LabelSettings>) => {
-        const updated = { ...settings, ...newSettings };
-        setSettings(updated);
-        localStorage.setItem('radar_label_settings_v3', JSON.stringify(updated));
+        sharedSettings = { ...sharedSettings, ...newSettings };
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(sharedSettings));
+        } catch (e) {
+            console.error("Error guardando settings", e);
+        }
+        listeners.forEach(fn => fn(sharedSettings));
     };
 
     return { settings, updateSettings };
