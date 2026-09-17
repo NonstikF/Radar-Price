@@ -10,7 +10,7 @@ interface Props {
 }
 
 const options = [
-    { value: 'name', title: 'Solo título', detail: 'Nombre o alias del producto, sin precio. Para almacenamiento.' },
+    { value: 'name', title: 'Solo título', detail: 'Nombre del producto, sin precio. Para almacenamiento.' },
     { value: 'price', title: 'Solo precio', detail: 'Precio de venta, sin el nombre del producto.' },
     { value: 'both', title: 'Título y precio', detail: 'Nombre o alias del producto junto con su precio.' },
 ] as const;

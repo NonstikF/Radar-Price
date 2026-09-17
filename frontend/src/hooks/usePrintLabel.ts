@@ -54,6 +54,10 @@ export function usePrintLabel(contentRef: RefObject<HTMLDivElement | null>, docu
         ...settings,
         showName: content !== 'price',
         showPrice: content !== 'name',
+        // "Solo título" pide el nombre del producto, así que ignora la fuente
+        // configurada: con 'alias_if_available' saldría el alias y la etiqueta
+        // no diría lo que el usuario acaba de elegir.
+        ...(content === 'name' ? { nameSource: 'always_name' } : {}),
     } : settings;
 
     const printSelected = (selection: LabelPrintContent) => {
