@@ -198,51 +198,109 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
             <div className="absolute inset-0" onClick={handleAttemptClose}></div>
             <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-scale-in relative z-10 flex flex-col max-h-full">
 
-                {/* HEADER AZUL */}
-                <div className="bg-blue-600 dark:bg-blue-700 p-6 md:p-8 text-white relative text-center shrink-0">
-                    {/* BOTONES IZQUIERDA (Print/Config) */}
-                    <div className="absolute top-4 left-4 flex gap-3 z-20 items-center">
-                        <button onClick={() => setShowSettings(true)} className="bg-blue-800/40 hover:bg-blue-800/60 text-white p-2 rounded-lg backdrop-blur-md transition-all active:scale-95">
-                            <Settings className="w-5 h-5" />
-                        </button>
-                        <button onClick={handlePrint} className="bg-white text-blue-600 hover:bg-blue-50 p-2 rounded-full shadow-lg transition-all active:scale-95">
-                            <Printer className="w-5 h-5" />
-                        </button>
-                    </div>
-
-                    {/* BOTONES DERECHA (Cerrar/Borrar) */}
-                    <div className="absolute top-4 right-4 flex gap-2 z-20 items-center">
-                        {isAdmin && (
-                            <button onClick={() => setShowDeleteConfirm(true)} className="bg-red-500/20 hover:bg-red-500/40 p-2 rounded-full text-white backdrop-blur-sm transition-all active:scale-90">
-                                <Trash2 className="w-5 h-5" />
+                {/* HEADER: TOPBAR + SPLIT IMAGEN/PRECIO */}
+                <div className="shrink-0 bg-white dark:bg-gray-800">
+                    {/* TOPBAR DE ACCIONES */}
+                    <div className="flex items-center justify-between gap-2 px-4 pt-4 pb-3">
+                        <div className="flex gap-2 items-center">
+                            <button onClick={() => setShowSettings(true)} className="bg-blue-50 dark:bg-gray-700 hover:bg-blue-100 dark:hover:bg-gray-600 text-blue-600 dark:text-blue-400 p-2.5 rounded-xl transition-all active:scale-95">
+                                <Settings className="w-5 h-5" />
                             </button>
-                        )}
-                        <button onClick={handleAttemptClose} className="bg-black/10 hover:bg-black/20 p-2 rounded-full text-white backdrop-blur-sm transition-all active:scale-90">
-                            <X className="w-5 h-5" />
-                        </button>
-                    </div>
+                            <button onClick={handlePrint} className="bg-blue-50 dark:bg-gray-700 hover:bg-blue-100 dark:hover:bg-gray-600 text-blue-600 dark:text-blue-400 p-2.5 rounded-xl transition-all active:scale-95">
+                                <Printer className="w-5 h-5" />
+                            </button>
+                        </div>
 
-                    {/* PRECIO GIGANTE */}
-                    <p className="text-blue-200 text-xs font-bold uppercase tracking-widest mb-2 mt-6 md:mt-0">Precio de Venta</p>
-                    {isAdmin ? (
-                        <div className="relative inline-block w-full max-w-[200px]">
-                            <span className="absolute left-0 top-1/2 -translate-y-1/2 text-3xl font-black text-blue-300">$</span>
-                            <input
-                                type="number"
-                                value={editPrice}
-                                onChange={(e) => setEditPrice(e.target.value)}
-                                placeholder="0"
-                                className="w-full bg-transparent text-center text-6xl font-black text-white placeholder-blue-300/50 focus:outline-none border-b-2 border-transparent focus:border-white/50 pl-6 transition-colors"
-                            />
-                            {parseFloat(editPrice || "0") !== parseFloat(product.selling_price || "0") && (
-                                <button onClick={() => handleSaveField('price')} disabled={saving} className="absolute -right-10 top-1/2 -translate-y-1/2 bg-white text-blue-600 p-2 rounded-full shadow-lg animate-bounce-in hover:scale-110 active:scale-95 transition-all">
-                                    <Save className="w-5 h-5" />
+                        <h3 className="flex-1 text-center text-lg font-black text-gray-800 dark:text-gray-100 truncate px-2">Producto</h3>
+
+                        <div className="flex gap-2 items-center">
+                            {isAdmin && (
+                                <button onClick={() => setShowDeleteConfirm(true)} className="bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 p-2.5 rounded-xl text-red-500 transition-all active:scale-90">
+                                    <Trash2 className="w-5 h-5" />
                                 </button>
                             )}
+                            <button onClick={handleAttemptClose} className="bg-blue-50 dark:bg-gray-700 hover:bg-blue-100 dark:hover:bg-gray-600 p-2.5 rounded-xl text-blue-600 dark:text-blue-400 transition-all active:scale-90">
+                                <X className="w-5 h-5" />
+                            </button>
                         </div>
-                    ) : (
-                        <h2 className="text-6xl font-black tracking-tighter drop-shadow-lg">${(product.selling_price || 0).toFixed(2)}</h2>
-                    )}
+                    </div>
+
+                    {/* SPLIT: IMAGEN GRANDE + PRECIO */}
+                    <div className="flex items-stretch mx-4 mb-4 rounded-2xl overflow-hidden">
+                        {/* FOTO DEL PRODUCTO (GRANDE) */}
+                        <div className="relative group w-[45%] shrink-0 bg-gray-100 dark:bg-gray-900">
+                            {product.image_url ? (
+                                <img src={product.image_url} alt={product.name} className="absolute inset-0 w-full h-full object-cover" />
+                            ) : (
+                                <button
+                                    onClick={() => imageInputRef.current?.click()}
+                                    disabled={uploadingImage}
+                                    className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-gray-400 dark:text-gray-600 hover:text-blue-500 transition-colors"
+                                >
+                                    {uploadingImage ? <Loader2 className="w-8 h-8 animate-spin" /> : <ImageOff className="w-9 h-9" />}
+                                    <span className="text-[10px] font-bold uppercase">Agregar foto</span>
+                                </button>
+                            )}
+
+                            {/* Overlay de acciones (solo si ya hay foto) */}
+                            {product.image_url && (
+                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                                    <button
+                                        onClick={() => imageInputRef.current?.click()}
+                                        disabled={uploadingImage}
+                                        className="p-2 bg-white/20 hover:bg-white/30 rounded-lg text-white transition-colors"
+                                        title="Cambiar foto"
+                                    >
+                                        {uploadingImage ? <Loader2 className="w-5 h-5 animate-spin" /> : <ImagePlus className="w-5 h-5" />}
+                                    </button>
+                                    <button
+                                        onClick={handleRemoveImage}
+                                        disabled={uploadingImage}
+                                        className="p-2 bg-red-500/40 hover:bg-red-500/60 rounded-lg text-white transition-colors"
+                                        title="Eliminar foto"
+                                    >
+                                        <Trash2 className="w-5 h-5" />
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Input oculto */}
+                            <input
+                                ref={imageInputRef}
+                                type="file"
+                                accept="image/*"
+                                onChange={handleImageUpload}
+                                className="hidden"
+                            />
+                        </div>
+
+                        {/* PANEL DE PRECIO */}
+                        <div className="flex-1 min-w-0 aspect-square bg-blue-600 dark:bg-blue-700 text-white px-4 py-5 flex flex-col justify-center text-center">
+                            <p className="text-blue-200 text-[10px] font-bold uppercase tracking-widest mb-1">Precio de Venta</p>
+                            {isAdmin ? (
+                                <div className="relative w-full">
+                                    <div className="flex items-center justify-center">
+                                        <span className="text-3xl font-black text-blue-200 shrink-0">$</span>
+                                        <input
+                                            type="number"
+                                            value={editPrice}
+                                            onChange={(e) => setEditPrice(e.target.value)}
+                                            placeholder="0"
+                                            className="w-full min-w-0 bg-transparent text-center text-5xl font-black text-white placeholder-blue-300/50 focus:outline-none border-b-2 border-transparent focus:border-white/50 transition-colors"
+                                        />
+                                    </div>
+                                    {parseFloat(editPrice || "0") !== parseFloat(product.selling_price || "0") && (
+                                        <button onClick={() => handleSaveField('price')} disabled={saving} className="mt-2 mx-auto bg-white text-blue-600 px-3 py-1.5 rounded-full shadow-lg animate-bounce-in hover:scale-105 active:scale-95 transition-all flex items-center gap-1 text-xs font-bold">
+                                            <Save className="w-4 h-4" /> Guardar
+                                        </button>
+                                    )}
+                                </div>
+                            ) : (
+                                <h2 className="text-5xl font-black tracking-tighter drop-shadow-lg break-words">${(product.selling_price || 0).toFixed(2)}</h2>
+                            )}
+                            <p className="mt-2 text-sm font-bold text-blue-50 leading-tight line-clamp-3 break-words">{product.name}</p>
+                        </div>
+                    </div>
                 </div>
 
                 {/* TABS NAVEGACIÓN */}
@@ -262,64 +320,10 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
                 <div className="p-4 md:p-6 space-y-6 bg-white dark:bg-gray-800 overflow-y-auto">
                     {activeTab === 'general' && (
                         <div className="space-y-4">
-                            {/* IMAGEN + NOMBRE */}
+                            {/* NOMBRE DEL PRODUCTO */}
                             <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-2xl">
-                                <div className="flex gap-4 items-start">
-                                    {/* FOTO DEL PRODUCTO */}
-                                    <div className="relative group shrink-0">
-                                        <div className="w-20 h-20 rounded-xl bg-gray-200 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
-                                            {product.image_url ? (
-                                                <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
-                                            ) : (
-                                                <ImageOff className="w-8 h-8 text-gray-300 dark:text-gray-600" />
-                                            )}
-                                        </div>
-                                        {/* Overlay de acciones */}
-                                        <div className="absolute inset-0 bg-black/50 rounded-xl flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button
-                                                onClick={() => imageInputRef.current?.click()}
-                                                disabled={uploadingImage}
-                                                className="p-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-white transition-colors"
-                                                title="Subir foto"
-                                            >
-                                                {uploadingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
-                                            </button>
-                                            {product.image_url && (
-                                                <button
-                                                    onClick={handleRemoveImage}
-                                                    disabled={uploadingImage}
-                                                    className="p-1.5 bg-red-500/40 hover:bg-red-500/60 rounded-lg text-white transition-colors"
-                                                    title="Eliminar foto"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            )}
-                                        </div>
-                                        {/* Input oculto */}
-                                        <input
-                                            ref={imageInputRef}
-                                            type="file"
-                                            accept="image/*"
-
-                                            onChange={handleImageUpload}
-                                            className="hidden"
-                                        />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Producto</label>
-                                        <p className="text-gray-800 dark:text-gray-100 font-medium text-sm">{product.name}</p>
-                                        {!product.image_url && (
-                                            <button
-                                                onClick={() => imageInputRef.current?.click()}
-                                                disabled={uploadingImage}
-                                                className="mt-2 text-xs text-blue-500 hover:text-blue-700 font-bold flex items-center gap-1"
-                                            >
-                                                {uploadingImage ? <Loader2 className="w-3 h-3 animate-spin" /> : <Camera className="w-3 h-3" />}
-                                                Agregar foto
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
+                                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Producto</label>
+                                <p className="text-gray-800 dark:text-gray-100 font-medium text-sm break-words">{product.name}</p>
                             </div>
 
                             {/* COMPONENTES DE EDICIÓN */}
