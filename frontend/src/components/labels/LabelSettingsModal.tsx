@@ -109,10 +109,17 @@ export function LabelSettingsModal({ onClose }: Props) {
                         <div className="flex flex-col gap-2">
                             <button
                                 onClick={() => updateSettings({ nameSource: 'alias_if_available' })}
-                                className={`p-3 rounded-xl border text-left transition-all ${settings.nameSource === 'alias_if_available' ? 'bg-blue-50 border-blue-500' : 'bg-white border-gray-200'}`}
+                                className={`p-3 rounded-xl border text-left transition-all ${(settings.nameSource || 'alias_if_available') === 'alias_if_available' ? 'bg-blue-50 border-blue-500' : 'bg-white border-gray-200'}`}
                             >
                                 <span className="text-xs font-bold block text-gray-800">Automático</span>
                                 <span className="text-[10px] text-gray-500">Usa Alias si existe, si no usa el Nombre.</span>
+                            </button>
+                            <button
+                                onClick={() => updateSettings({ nameSource: 'always_name' })}
+                                className={`p-3 rounded-xl border text-left transition-all ${settings.nameSource === 'always_name' ? 'bg-blue-50 border-blue-500' : 'bg-white border-gray-200'}`}
+                            >
+                                <span className="text-xs font-bold block text-gray-800">Siempre Nombre</span>
+                                <span className="text-[10px] text-gray-500">Solo el nombre del producto, aunque tenga alias.</span>
                             </button>
                             <button
                                 onClick={() => updateSettings({ nameSource: 'always_alias' })}

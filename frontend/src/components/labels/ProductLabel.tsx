@@ -13,9 +13,11 @@ export const ProductLabel = forwardRef<HTMLDivElement, Props>((props, ref) => {
     // NOMBRES
     const getProductName = () => {
         const source = settings.nameSource || 'alias_if_available';
-        const alias = product.alias ? product.alias.trim() : '';
-        const originalName = product.name || '';
-        if (source === 'always_alias') return alias;
+        const alias = product.alias ? String(product.alias).trim() : '';
+        const originalName = product.name ? String(product.name).trim() : '';
+        // 'always_alias' cae al nombre si el producto no tiene alias, para no
+        // imprimir una etiqueta sin texto.
+        if (source === 'always_alias') return alias.length > 0 ? alias : originalName;
         if (source === 'always_name') return originalName;
         return alias.length > 0 ? alias : originalName;
     };
