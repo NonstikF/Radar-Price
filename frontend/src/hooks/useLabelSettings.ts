@@ -22,6 +22,9 @@ export interface LabelSettings {
     showBarcode: boolean;
     barcodeSource?: BarcodeSource;
 
+    // Última elección del diálogo de impresión, para reabrirlo como quedó.
+    lastPrintContent?: string;
+
     // CAMPOS NUEVOS PARA MEDIDA PERSONALIZADA
     customWidth?: string;
     customHeight?: string;

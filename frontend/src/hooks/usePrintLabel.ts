@@ -23,7 +23,7 @@ import type { RefObject } from 'react';
 import { flushSync } from 'react-dom';
 import type { LabelSettings } from './useLabelSettings';
 import { LabelPrintOptions } from '../components/labels/LabelPrintOptions';
-import type { LabelPrintContent } from '../components/labels/LabelPrintOptions';
+import type { LabelPrintChoice } from '../components/labels/LabelPrintOptions';
 
 const PRINT_STYLE_ID = "rp-print-style";
 const PRINT_ROOT_ID = "rp-print-root";
@@ -49,21 +49,21 @@ function ensurePrintStyles() {
 
 export function usePrintLabel(contentRef: RefObject<HTMLDivElement | null>, documentTitle: string, settings: LabelSettings) {
     const [showOptions, setShowOptions] = useState(false);
-    const [content, setContent] = useState<LabelPrintContent | null>(null);
-    const printSettings = content ? {
+    const [choice, setChoice] = useState<LabelPrintChoice | null>(null);
+    // Lo elegido en el diálogo manda sobre los ajustes guardados: es lo que el
+    // usuario acaba de ver en pantalla.
+    const printSettings = choice ? {
         ...settings,
-        showName: content !== 'price',
-        showPrice: content !== 'name',
-        // "Solo título" pide el nombre del producto, así que ignora la fuente
-        // configurada: con 'alias_if_available' saldría el alias y la etiqueta
-        // no diría lo que el usuario acaba de elegir.
-        ...(content === 'name' ? { nameSource: 'always_name' } : {}),
+        showName: choice.content !== 'price',
+        showPrice: choice.content !== 'name',
+        nameSource: choice.nameSource,
+        showBarcode: choice.showBarcode,
     } : settings;
 
-    const printSelected = (selection: LabelPrintContent) => {
+    const printSelected = (selection: LabelPrintChoice) => {
         // Actualizar la etiqueta antes de clonar, también en impresiones consecutivas.
         flushSync(() => {
-            setContent(selection);
+            setChoice(selection);
             setShowOptions(false);
         });
         const node: HTMLElement | null = contentRef?.current;

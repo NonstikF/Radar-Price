@@ -1,4 +1,4 @@
-import { X, Save, Tag, Ruler, Building2, Barcode } from 'lucide-react';
+import { X, Save, Ruler, Building2, Barcode } from 'lucide-react';
 import { useLabelSettings } from '../../hooks/useLabelSettings';
 
 interface Props {
@@ -101,80 +101,37 @@ export function LabelSettingsModal({ onClose }: Props) {
                         )}
                     </div>
 
-                    {/* 3. FUENTE DEL NOMBRE */}
-                    <div className="space-y-2">
-                        <label className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase">
-                            <Tag className="w-3 h-3" /> Mostrar Nombre
-                        </label>
-                        <div className="flex flex-col gap-2">
-                            <button
-                                onClick={() => updateSettings({ nameSource: 'alias_if_available' })}
-                                className={`p-3 rounded-xl border text-left transition-all ${(settings.nameSource || 'alias_if_available') === 'alias_if_available' ? 'bg-blue-50 border-blue-500' : 'bg-white border-gray-200'}`}
-                            >
-                                <span className="text-xs font-bold block text-gray-800">Automático</span>
-                                <span className="text-[10px] text-gray-500">Usa Alias si existe, si no usa el Nombre.</span>
-                            </button>
-                            <button
-                                onClick={() => updateSettings({ nameSource: 'always_name' })}
-                                className={`p-3 rounded-xl border text-left transition-all ${settings.nameSource === 'always_name' ? 'bg-blue-50 border-blue-500' : 'bg-white border-gray-200'}`}
-                            >
-                                <span className="text-xs font-bold block text-gray-800">Siempre Nombre</span>
-                                <span className="text-[10px] text-gray-500">Solo el nombre del producto, aunque tenga alias.</span>
-                            </button>
-                            <button
-                                onClick={() => updateSettings({ nameSource: 'always_alias' })}
-                                className={`p-3 rounded-xl border text-left transition-all ${settings.nameSource === 'always_alias' ? 'bg-blue-50 border-blue-500' : 'bg-white border-gray-200'}`}
-                            >
-                                <span className="text-xs font-bold block text-gray-800">Siempre Alias</span>
-                                <span className="text-[10px] text-gray-500">Solo muestra el alias (útil para etiquetas cortas).</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* 4. CÓDIGO DE BARRAS */}
+                    {/* 3. CÓDIGO DE BARRAS: qué valor codificar */}
                     <div className="space-y-2">
                         <label className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase">
                             <Barcode className="w-3 h-3" /> Código de Barras
                         </label>
-
-                        <button
-                            onClick={() => updateSettings({ showBarcode: !settings.showBarcode })}
-                            className={`w-full p-3 rounded-xl border text-left transition-all flex items-center justify-between gap-3 ${settings.showBarcode ? 'bg-blue-50 border-blue-500 dark:bg-blue-900/30' : 'bg-white border-gray-200 dark:bg-gray-700 dark:border-gray-600'}`}
-                        >
-                            <span>
-                                <span className="text-xs font-bold block text-gray-800 dark:text-white">Imprimir código de barras</span>
-                                <span className="text-[10px] text-gray-500">Aparece en pequeño en la parte inferior.</span>
-                            </span>
-                            <span className={`w-10 h-6 rounded-full shrink-0 relative transition-colors ${settings.showBarcode ? 'bg-blue-600' : 'bg-gray-300'}`}>
-                                <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${settings.showBarcode ? 'left-[1.125rem]' : 'left-0.5'}`}></span>
-                            </span>
-                        </button>
-
-                        {settings.showBarcode && (
-                            <div className="flex flex-col gap-2 animate-fade-in">
-                                <button
-                                    onClick={() => updateSettings({ barcodeSource: 'upc_if_available' })}
-                                    className={`p-3 rounded-xl border text-left transition-all ${(settings.barcodeSource || 'upc_if_available') === 'upc_if_available' ? 'bg-blue-50 border-blue-500' : 'bg-white border-gray-200'}`}
-                                >
-                                    <span className="text-xs font-bold block text-gray-800">Automático</span>
-                                    <span className="text-[10px] text-gray-500">Usa el UPC si existe, si no usa el ID interno.</span>
-                                </button>
-                                <button
-                                    onClick={() => updateSettings({ barcodeSource: 'always_upc' })}
-                                    className={`p-3 rounded-xl border text-left transition-all ${settings.barcodeSource === 'always_upc' ? 'bg-blue-50 border-blue-500' : 'bg-white border-gray-200'}`}
-                                >
-                                    <span className="text-xs font-bold block text-gray-800">Siempre UPC</span>
-                                    <span className="text-[10px] text-gray-500">Solo el código del fabricante.</span>
-                                </button>
-                                <button
-                                    onClick={() => updateSettings({ barcodeSource: 'always_sku' })}
-                                    className={`p-3 rounded-xl border text-left transition-all ${settings.barcodeSource === 'always_sku' ? 'bg-blue-50 border-blue-500' : 'bg-white border-gray-200'}`}
-                                >
-                                    <span className="text-xs font-bold block text-gray-800">Siempre ID interno</span>
-                                    <span className="text-[10px] text-gray-500">Solo el SKU de tu inventario.</span>
-                                </button>
-                            </div>
-                        )}
+                        <p className="text-[10px] text-gray-500">
+                            Si se imprime o no se elige al momento de imprimir. Aquí defines qué código lleva.
+                        </p>
+                        <div className="flex flex-col gap-2">
+                            <button
+                                onClick={() => updateSettings({ barcodeSource: 'upc_if_available' })}
+                                className={`p-3 rounded-xl border text-left transition-all ${(settings.barcodeSource || 'upc_if_available') === 'upc_if_available' ? 'bg-blue-50 border-blue-500' : 'bg-white border-gray-200'}`}
+                            >
+                                <span className="text-xs font-bold block text-gray-800">Automático</span>
+                                <span className="text-[10px] text-gray-500">Usa el UPC si existe, si no usa el ID interno.</span>
+                            </button>
+                            <button
+                                onClick={() => updateSettings({ barcodeSource: 'always_upc' })}
+                                className={`p-3 rounded-xl border text-left transition-all ${settings.barcodeSource === 'always_upc' ? 'bg-blue-50 border-blue-500' : 'bg-white border-gray-200'}`}
+                            >
+                                <span className="text-xs font-bold block text-gray-800">Siempre UPC</span>
+                                <span className="text-[10px] text-gray-500">Solo el código del fabricante.</span>
+                            </button>
+                            <button
+                                onClick={() => updateSettings({ barcodeSource: 'always_sku' })}
+                                className={`p-3 rounded-xl border text-left transition-all ${settings.barcodeSource === 'always_sku' ? 'bg-blue-50 border-blue-500' : 'bg-white border-gray-200'}`}
+                            >
+                                <span className="text-xs font-bold block text-gray-800">Siempre ID interno</span>
+                                <span className="text-[10px] text-gray-500">Solo el SKU de tu inventario.</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
