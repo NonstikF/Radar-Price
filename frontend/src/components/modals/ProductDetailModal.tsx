@@ -243,7 +243,7 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
                     {/* SPLIT: IMAGEN GRANDE + PRECIO */}
                     <div className="flex items-stretch mx-4 mb-4 rounded-2xl overflow-hidden">
                         {/* FOTO DEL PRODUCTO (GRANDE) */}
-                        <div className="relative group w-[45%] shrink-0 bg-gray-100 dark:bg-gray-900">
+                        <div className="relative group w-1/2 shrink-0 aspect-square bg-gray-100 dark:bg-gray-900">
                             {product.image_url ? (
                                 <img src={product.image_url} alt={product.name} className="absolute inset-0 w-full h-full object-cover" />
                             ) : (
@@ -295,18 +295,21 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
                         </div>
 
                         {/* PANEL DE PRECIO */}
-                        <div className="flex-1 min-w-0 aspect-square bg-blue-600 dark:bg-blue-700 text-white px-4 py-5 flex flex-col justify-center text-center">
+                        <div style={{ containerType: 'inline-size' }} className="w-1/2 min-w-0 bg-blue-600 dark:bg-blue-700 text-white px-3 py-4 flex flex-col justify-center text-center">
                             <p className="text-blue-200 text-[10px] font-bold uppercase tracking-widest mb-1">Precio de Venta</p>
                             {isAdmin ? (
                                 <div className="relative w-full">
                                     <div className="flex items-center justify-center">
-                                        <span className="text-3xl font-black text-blue-200 shrink-0">$</span>
+                                        <span className="text-2xl font-black text-blue-200 shrink-0">$</span>
                                         <input
                                             type="number"
                                             value={editPrice}
                                             onChange={(e) => setEditPrice(e.target.value)}
                                             placeholder="0"
-                                            className="w-full min-w-0 bg-transparent text-center text-5xl font-black text-white placeholder-blue-300/50 focus:outline-none border-b-2 border-transparent focus:border-white/50 transition-colors"
+                                            // El panel es angosto: el precio escala con el ancho
+                                            // en vez de desbordarse cuando lleva muchos dígitos.
+                                            style={{ fontSize: 'clamp(1.75rem, 11cqw, 3rem)' }}
+                                            className="w-full min-w-0 bg-transparent text-center font-black text-white placeholder-blue-300/50 focus:outline-none border-b-2 border-transparent focus:border-white/50 transition-colors"
                                         />
                                     </div>
                                     {parseFloat(editPrice || "0") !== parseFloat(product.selling_price || "0") && (
@@ -316,9 +319,9 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
                                     )}
                                 </div>
                             ) : (
-                                <h2 className="text-5xl font-black tracking-tighter drop-shadow-lg break-words">${(product.selling_price || 0).toFixed(2)}</h2>
+                                <h2 style={{ fontSize: 'clamp(1.75rem, 11cqw, 3rem)' }} className="font-black tracking-tighter drop-shadow-lg break-words leading-none">${(product.selling_price || 0).toFixed(2)}</h2>
                             )}
-                            <p className="mt-2 text-sm font-bold text-blue-50 leading-tight line-clamp-3 break-words">{product.name}</p>
+                            <p className="mt-2 text-xs font-bold text-blue-50 leading-tight line-clamp-2 break-words">{product.name}</p>
                         </div>
                     </div>
                 </div>
