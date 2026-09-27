@@ -58,6 +58,9 @@ export function usePrintLabel(contentRef: RefObject<HTMLDivElement | null>, docu
         showPrice: choice.content !== 'name',
         nameSource: choice.nameSource,
         showBarcode: choice.showBarcode,
+        // La hoja A4 es para esta impresión: no pisa la medida de etiqueta
+        // guardada, que sigue siendo la del rollo cargado.
+        size: choice.paper === 'a4' ? 'a4' as const : settings.size,
     } : settings;
 
     const printSelected = (selection: LabelPrintChoice) => {

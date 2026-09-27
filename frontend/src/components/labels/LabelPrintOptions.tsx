@@ -6,11 +6,14 @@ import type { BarcodeSource } from '../../hooks/useLabelSettings';
 
 export type LabelPrintContent = 'name' | 'price' | 'both';
 export type LabelNameSource = 'always_name' | 'always_alias' | 'alias_if_available';
+// 'label' usa la medida configurada en ajustes; 'a4' imprime una hoja entera.
+export type LabelPaper = 'label' | 'a4';
 
 export interface LabelPrintChoice {
     content: LabelPrintContent;
     nameSource: LabelNameSource;
     showBarcode: boolean;
+    paper: LabelPaper;
 }
 
 interface Props {
@@ -22,6 +25,11 @@ const contentOptions = [
     { value: 'both', title: 'Título y precio', detail: 'El nombre del producto junto con su precio.' },
     { value: 'name', title: 'Solo título', detail: 'Sin precio. Para almacenamiento.' },
     { value: 'price', title: 'Solo precio', detail: 'Sin el nombre del producto.' },
+] as const;
+
+const paperOptions = [
+    { value: 'label', title: 'Etiqueta', detail: 'La medida que tienes configurada en ajustes.' },
+    { value: 'a4', title: 'Hoja A4', detail: 'Un cartel: el contenido llena la hoja completa.' },
 ] as const;
 
 const nameOptions = [
@@ -43,6 +51,9 @@ export const LabelPrintOptions = ({ onSelect, onClose }: Props) => {
         (settings.nameSource as LabelNameSource) || 'always_name'
     );
     const [showBarcode, setShowBarcode] = useState<boolean>(settings.showBarcode !== false);
+    const [paper, setPaper] = useState<LabelPaper>(
+        (settings.lastPrintPaper as LabelPaper) || 'label'
+    );
 
     useEffect(() => {
         const dialog = dialogRef.current;
@@ -52,8 +63,8 @@ export const LabelPrintOptions = ({ onSelect, onClose }: Props) => {
 
     const handlePrint = () => {
         // Se recuerda para la próxima impresión.
-        updateSettings({ lastPrintContent: content, nameSource, showBarcode });
-        onSelect({ content, nameSource, showBarcode });
+        updateSettings({ lastPrintContent: content, lastPrintPaper: paper, nameSource, showBarcode });
+        onSelect({ content, nameSource, showBarcode, paper });
     };
 
     const optionClass = (active: boolean) =>
@@ -80,6 +91,27 @@ export const LabelPrintOptions = ({ onSelect, onClose }: Props) => {
                     <X className="h-5 w-5" />
                 </button>
             </div>
+
+            {/* TAMAÑO DE HOJA */}
+            <fieldset className="mb-5">
+                <legend className="mb-2 text-[11px] font-black uppercase tracking-wide text-gray-400">Hoja</legend>
+                <div className="space-y-2">
+                    {paperOptions.map(option => (
+                        <button
+                            key={option.value}
+                            type="button"
+                            aria-pressed={paper === option.value}
+                            onClick={() => setPaper(option.value)}
+                            className={optionClass(paper === option.value)}
+                        >
+                            <span className="min-w-0">
+                                <span className="block text-sm font-bold">{option.title}</span>
+                                <span className="mt-0.5 block text-[11px] text-gray-500 dark:text-gray-400">{option.detail}</span>
+                            </span>
+                        </button>
+                    ))}
+                </div>
+            </fieldset>
 
             {/* CONTENIDO DE LA ETIQUETA */}
             <fieldset className="mb-5">

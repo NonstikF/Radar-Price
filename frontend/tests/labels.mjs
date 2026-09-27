@@ -17,8 +17,11 @@ const settings = {
     size: '2x1', showName: true, showPrice: true, boldPrice: true,
     nameSource: 'alias_if_available', companyName: '',
 };
-const render = overrides => renderToStaticMarkup(
-    React.createElement(ProductLabel, { product, settings: { ...settings, ...overrides } }),
+const render = (overrides, productOverrides) => renderToStaticMarkup(
+    React.createElement(ProductLabel, {
+        product: { ...product, ...productOverrides },
+        settings: { ...settings, ...overrides },
+    }),
 );
 
 test('title-only labels include the alias and omit the price and currency', () => {
@@ -50,6 +53,64 @@ test('name source and custom paper size survive content selection', () => {
     assert.doesNotMatch(html, /Warehouse title/);
     assert.match(html, /size: 60mm 30mm/);
     assert.match(html, /width:60mm;height:30mm/);
+});
+
+test('A4 sheets ask for the whole page and drop the label dimensions', () => {
+    const html = render({ size: 'a4' });
+    assert.match(html, /size: A4 portrait/);
+    assert.match(html, /width:210mm;height:297mm/);
+    assert.doesNotMatch(html, /size: 2in 1in/);
+});
+
+test('A4 content scales through a viewBox instead of fixed type sizes', () => {
+    const html = render({ size: 'a4' });
+    // El precio y el título salen como SVG: es lo que los deja llenar la hoja.
+    assert.match(html, /viewBox=/);
+    assert.match(html, /\$187/);
+    assert.match(html, /WAREHOUSE/);
+    assert.doesNotMatch(html, /text-\[5rem\]|text-\[4rem\]/);
+});
+
+test('A4 blocks divide the printable height between what was asked for', () => {
+    const heights = html => [...html.matchAll(/height:([\d.]+)mm/g)].map(m => Number(m[1]));
+    const padding = 10 * 2;
+    const gap = 6;
+
+    // Solo el precio: se lleva todo el alto útil.
+    const [sheet, priceOnly] = heights(render({ size: 'a4', showName: false }));
+    assert.equal(sheet, 297);
+    assert.equal(priceOnly, 297 - padding);
+
+    // Precio y título: reparten ese mismo alto, con una separación entre ambos.
+    const [, price, name] = heights(render({ size: 'a4' }));
+    assert.ok(price > name, 'el precio manda sobre el título');
+    assert.equal(Math.round(price + gap + name), 297 - padding);
+});
+
+test('A4 titles are split across lines without losing or reordering words', () => {
+    const lines = html => [...html.matchAll(/>([^<>]+)<\/text>/g)].map(m => m[1]);
+
+    const short = lines(render({ size: 'a4', showPrice: false }));
+    assert.equal(short.join(' '), 'WAREHOUSE TITLE');
+
+    const long = lines(render({
+        size: 'a4', showPrice: false, nameSource: 'always_name',
+    }, { name: 'Maceta de rattan redonda color chocolate premium para exterior' }));
+    assert.equal(long.join(' '), 'MACETA DE RATTAN REDONDA COLOR CHOCOLATE PREMIUM PARA EXTERIOR');
+    // Repartirlo agranda la letra: en un solo renglón tendría que encogerse
+    // hasta caber en los 190mm de ancho útil.
+    assert.ok(long.length > short.length, 'un título largo ocupa más renglones');
+});
+
+test('A4 line widths stay inside the printable width', () => {
+    // textLength fija el ancho de cada renglón dentro del viewBox, así que
+    // ninguno puede pasarse del recuadro que el viewBox declara.
+    const html = render({ size: 'a4', showPrice: false, nameSource: 'always_name' },
+        { name: 'Maceta de rattan redonda color chocolate premium para exterior' });
+    const boxWidth = Number(html.match(/viewBox="0 0 ([\d.]+)/)[1]);
+    const widths = [...html.matchAll(/textLength="([\d.]+)"/g)].map(m => Number(m[1]));
+    assert.ok(widths.length > 0);
+    for (const width of widths) assert.ok(width <= boxWidth, `${width} > ${boxWidth}`);
 });
 
 test('individual and batch print entry points render without opening a dialog', async () => {
