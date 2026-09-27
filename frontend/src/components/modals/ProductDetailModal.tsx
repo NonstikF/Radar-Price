@@ -3,7 +3,7 @@ import axios from 'axios';
 import {
     X, Save, Barcode, Hash,
     ArrowRight, Camera, Trash2, Loader2, Tag, Printer, Settings, AlertTriangle,
-    ShoppingCart, Truck, ImagePlus, ImageOff, ShieldAlert, Package, Lock
+    ShoppingCart, Truck, ImagePlus, ImageOff, ShieldAlert, Package, Lock, StickyNote
 } from 'lucide-react';
 import { usePrintLabel } from '../../hooks/usePrintLabel';
 import { useShoppingList } from '../../hooks/useShoppingList';
@@ -32,6 +32,7 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
     // importado es la clave con la que se reconcilia la factura del proveedor.
     const canEditName = product.origin === 'manual';
     const [editPrice, setEditPrice] = useState(product.selling_price ? String(product.selling_price) : "");
+    const [editNotes, setEditNotes] = useState(product.notes ? String(product.notes) : "");
 
     const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState(false);
@@ -73,6 +74,7 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
             clean(editUpc) !== clean(product.upc) ||
             clean(editSku) !== clean(product.sku) ||
             clean(editAlias) !== clean(product.alias) ||
+            clean(editNotes) !== clean(product.notes) ||
             (canEditName && clean(editName) !== clean(product.name)) ||
             (isAdmin && priceChanged)
         );
@@ -83,7 +85,7 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
         else onClose();
     };
 
-    const handleSaveField = async (field: 'upc' | 'sku' | 'price' | 'alias' | 'name') => {
+    const handleSaveField = async (field: 'upc' | 'sku' | 'price' | 'alias' | 'name' | 'notes') => {
         setSaving(true);
         try {
             // Objeto de configuración para evitar IF/ELSE gigantes
@@ -92,6 +94,7 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
                 sku: { value: editSku.trim(), payloadKey: 'sku' },
                 alias: { value: editAlias.trim(), payloadKey: 'alias' },
                 name: { value: editName.trim(), payloadKey: 'name' },
+                notes: { value: editNotes.trim(), payloadKey: 'notes', toast: 'NOTAS ACTUALIZADAS' },
                 price: { value: parseFloat(editPrice) || 0, payloadKey: 'selling_price' }
             };
 
@@ -108,13 +111,14 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
 
             // Actualizar el padre
             onUpdate({ ...product, ...payload });
-            showToast(`${field.toUpperCase()} ACTUALIZADO`);
+            showToast((config as any).toast || `${field.toUpperCase()} ACTUALIZADO`);
 
             // Actualizar estados locales para reflejar que ya se guardó
             if (field === 'upc') setEditUpc(config.value as string);
             if (field === 'sku') setEditSku(config.value as string);
             if (field === 'alias') setEditAlias(config.value as string);
             if (field === 'name') setEditName(config.value as string);
+            if (field === 'notes') setEditNotes(config.value as string);
             // Price ya es string en el estado, cuidado con el parse
         } catch (error: any) {
             showToast(error.response?.data?.detail || "Error al guardar.", 'error');
@@ -370,6 +374,12 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
                                 saving={saving}
                             />
 
+                            <NotesField
+                                value={editNotes} original={product.notes}
+                                onChange={setEditNotes} onSave={() => handleSaveField('notes')}
+                                saving={saving}
+                            />
+
                             <EditField
                                 label="UPC" icon={<Barcode className="w-4 h-4 text-blue-500" />}
                                 value={editUpc} original={product.upc}
@@ -557,6 +567,38 @@ const EditField = ({ label, icon, value, original, onChange, onSave, saving, has
                         <Camera className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                     </button>
                 )}
+
+                <button
+                    onClick={onSave}
+                    disabled={saving || !isChanged}
+                    className={`px-4 rounded-xl flex items-center justify-center transition-colors shadow-sm ${isChanged ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-600'}`}
+                >
+                    <Save className="w-5 h-5" />
+                </button>
+            </div>
+        </div>
+    );
+};
+
+// Notas libres del producto: mismo lenguaje visual que EditField, pero con
+// textarea porque aquí se escriben frases, no códigos.
+const NotesField = ({ value, original, onChange, onSave, saving }: any) => {
+    const isChanged = String(value || "").trim() !== String(original || "").trim();
+
+    return (
+        <div className={`transition-all p-4 rounded-2xl ${isChanged ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-gray-50 dark:bg-gray-900/50'}`}>
+            <label className="flex items-center gap-2 text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase mb-3 tracking-wide">
+                <StickyNote className="w-4 h-4 text-amber-500" /> Notas
+                {isChanged && <span className="text-blue-500 animate-pulse ml-auto text-[10px]">● Sin guardar</span>}
+            </label>
+            <div className="flex gap-2 items-stretch">
+                <textarea
+                    value={value}
+                    onChange={(e) => onChange(e.target.value)}
+                    rows={3}
+                    placeholder="Dónde está, con qué se confunde, detalles de compra…"
+                    className="flex-1 bg-white dark:bg-gray-900 border-none p-3 rounded-xl text-sm outline-none ring-1 ring-transparent focus:ring-blue-500 text-gray-900 dark:text-white transition-all shadow-inner resize-y min-h-[5.5rem] placeholder:text-gray-400 dark:placeholder:text-gray-600"
+                />
 
                 <button
                     onClick={onSave}

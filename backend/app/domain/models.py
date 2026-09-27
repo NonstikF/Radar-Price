@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, Text, Float, DateTime, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.core.database import Base
@@ -35,6 +35,9 @@ class Product(Base):
 
     supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=True)
     is_delicate = Column(Boolean, default=False, nullable=False)
+    # Notas libres que escribimos nosotros sobre el producto (dónde va, con qué
+    # se confunde, detalles de compra). No sale en la etiqueta ni en la factura.
+    notes = Column(Text, nullable=True)
     # "manual" = creado por nosotros, "imported" = vino de una factura XML o de
     # un lote importado. Solo el nombre de los manuales es editable: el de los
     # importados se usa para reconciliar contra el proveedor al reimportar.

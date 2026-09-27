@@ -143,6 +143,12 @@ async def startup_event():
             )
         except Exception:
             pass
+        try:
+            await conn.execute(
+                text("ALTER TABLE products ADD COLUMN IF NOT EXISTS notes TEXT")
+            )
+        except Exception:
+            pass
         # Los productos que ya existían no registran su origen, así que se
         # marcan como importados: bloquear de más es preferible a dejar
         # editable el nombre de un producto de proveedor.

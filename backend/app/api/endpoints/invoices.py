@@ -590,6 +590,7 @@ async def get_products(
             "supplier_name": supplier_name or "",
             "image_url": p.image_url or "",
             "is_delicate": p.is_delicate or False,
+            "notes": p.notes or "",
             "origin": p.origin or "imported",
         }
         for p, supplier_name in result.all()
@@ -658,6 +659,8 @@ async def update_product_single(
             p.image_url = data["image_url"] if data["image_url"] else None
         if "is_delicate" in data:
             p.is_delicate = bool(data["is_delicate"])
+        if "notes" in data:
+            p.notes = str(data["notes"] or "").strip() or None
         await db.commit()
         await db.refresh(p)
         return {"msg": "Actualizado", "id": p.id, "new_price": p.selling_price}
