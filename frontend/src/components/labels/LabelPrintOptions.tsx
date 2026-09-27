@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Printer, X } from 'lucide-react';
+import { NativeActionDropdown } from '@/components/ui/action-dropdown';
+import type { ActionDropdownNode } from '@/components/ui/action-dropdown';
 import { useLabelSettings } from '../../hooks/useLabelSettings';
 import type { BarcodeSource } from '../../hooks/useLabelSettings';
 
@@ -22,23 +24,48 @@ interface Props {
     onClose: () => void;
 }
 
-const contentOptions = [
-    { value: 'both', title: 'Título y precio', detail: 'El nombre del producto junto con su precio.' },
-    { value: 'name', title: 'Solo título', detail: 'Sin precio. Para almacenamiento.' },
-    { value: 'price', title: 'Solo precio', detail: 'Sin el nombre del producto.' },
-] as const;
+// Cada opción repite su detalle como "summary" para que el botón cerrado
+// muestre también qué hace, no solo el nombre.
+const option = (id: string, name: string, detail: string): ActionDropdownNode =>
+    ({ id, name, detail, summary: detail });
 
 const paperOptions = [
-    { value: 'label', title: 'Etiqueta', detail: 'La medida que tienes configurada en ajustes.' },
-    { value: 'a4', title: 'Hoja A4 vertical', detail: 'Un cartel: el contenido llena la hoja completa.' },
-    { value: 'a4-landscape', title: 'Hoja A4 horizontal', detail: 'Cartel acostado: más ancho para títulos largos.' },
-] as const;
+    option('label', 'Etiqueta', 'La medida que tienes configurada en ajustes.'),
+    option('a4', 'Hoja A4 vertical', 'Un cartel: el contenido llena la hoja completa.'),
+    option('a4-landscape', 'Hoja A4 horizontal', 'Cartel acostado: más ancho para títulos largos.'),
+];
+
+const contentOptions = [
+    option('both', 'Título y precio', 'El nombre del producto junto con su precio.'),
+    option('name', 'Solo título', 'Sin precio. Para almacenamiento.'),
+    option('price', 'Solo precio', 'Sin el nombre del producto.'),
+];
 
 const nameOptions = [
-    { value: 'always_name', title: 'Nombre del producto', detail: 'El título completo, aunque tenga apodo.' },
-    { value: 'always_alias', title: 'Alias / apodo', detail: 'Más corto: útil en etiquetas chicas.' },
-    { value: 'alias_if_available', title: 'Automático', detail: 'Usa el alias si existe, si no el nombre.' },
-] as const;
+    option('always_name', 'Nombre del producto', 'El título completo, aunque tenga apodo.'),
+    option('always_alias', 'Alias / apodo', 'Más corto: útil en etiquetas chicas.'),
+    option('alias_if_available', 'Automático', 'Usa el alias si existe, si no el nombre.'),
+];
+
+// Título de sección + desplegable, con el mismo estilo de encabezado que el
+// resto del diálogo.
+const PrintField = ({ title, items, value, onChange }: {
+    title: string;
+    items: ActionDropdownNode[];
+    value: string;
+    onChange: (id: string) => void;
+}) => (
+    <div className="mb-5">
+        <p className="mb-2 text-[11px] font-black uppercase tracking-wide text-gray-400">{title}</p>
+        <NativeActionDropdown
+            items={items}
+            value={value}
+            onValueChange={onChange}
+            label={title}
+            className="max-w-none"
+        />
+    </div>
+);
 
 export const LabelPrintOptions = ({ onSelect, onClose }: Props) => {
     const dialogRef = useRef<HTMLDialogElement>(null);
@@ -94,69 +121,22 @@ export const LabelPrintOptions = ({ onSelect, onClose }: Props) => {
                 </button>
             </div>
 
-            {/* TAMAÑO DE HOJA */}
-            <fieldset className="mb-5">
-                <legend className="mb-2 text-[11px] font-black uppercase tracking-wide text-gray-400">Hoja</legend>
-                <div className="space-y-2">
-                    {paperOptions.map(option => (
-                        <button
-                            key={option.value}
-                            type="button"
-                            aria-pressed={paper === option.value}
-                            onClick={() => setPaper(option.value)}
-                            className={optionClass(paper === option.value)}
-                        >
-                            <span className="min-w-0">
-                                <span className="block text-sm font-bold">{option.title}</span>
-                                <span className="mt-0.5 block text-[11px] text-gray-500 dark:text-gray-400">{option.detail}</span>
-                            </span>
-                        </button>
-                    ))}
-                </div>
-            </fieldset>
+            <PrintField
+                title="Hoja" items={paperOptions}
+                value={paper} onChange={id => setPaper(id as LabelPaper)}
+            />
 
-            {/* CONTENIDO DE LA ETIQUETA */}
-            <fieldset className="mb-5">
-                <legend className="mb-2 text-[11px] font-black uppercase tracking-wide text-gray-400">Contenido</legend>
-                <div className="space-y-2">
-                    {contentOptions.map(option => (
-                        <button
-                            key={option.value}
-                            type="button"
-                            aria-pressed={content === option.value}
-                            onClick={() => setContent(option.value)}
-                            className={optionClass(content === option.value)}
-                        >
-                            <span className="min-w-0">
-                                <span className="block text-sm font-bold">{option.title}</span>
-                                <span className="mt-0.5 block text-[11px] text-gray-500 dark:text-gray-400">{option.detail}</span>
-                            </span>
-                        </button>
-                    ))}
-                </div>
-            </fieldset>
+            <PrintField
+                title="Contenido" items={contentOptions}
+                value={content} onChange={id => setContent(id as LabelPrintContent)}
+            />
 
             {/* QUÉ NOMBRE USAR (no aplica si solo va el precio) */}
             {content !== 'price' && (
-                <fieldset className="mb-5">
-                    <legend className="mb-2 text-[11px] font-black uppercase tracking-wide text-gray-400">Nombre a usar</legend>
-                    <div className="space-y-2">
-                        {nameOptions.map(option => (
-                            <button
-                                key={option.value}
-                                type="button"
-                                aria-pressed={nameSource === option.value}
-                                onClick={() => setNameSource(option.value)}
-                                className={optionClass(nameSource === option.value)}
-                            >
-                                <span className="min-w-0">
-                                    <span className="block text-sm font-bold">{option.title}</span>
-                                    <span className="mt-0.5 block text-[11px] text-gray-500 dark:text-gray-400">{option.detail}</span>
-                                </span>
-                            </button>
-                        ))}
-                    </div>
-                </fieldset>
+                <PrintField
+                    title="Nombre a usar" items={nameOptions}
+                    value={nameSource} onChange={id => setNameSource(id as LabelNameSource)}
+                />
             )}
 
             {/* CÓDIGO DE BARRAS */}
