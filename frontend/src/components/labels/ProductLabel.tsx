@@ -188,9 +188,14 @@ export const ProductLabel = forwardRef<HTMLDivElement, Props>((props, ref) => {
     // Es un cartel, no una etiqueta: en vez de meter el diseño chico dentro de
     // una hoja grande, repartimos la hoja entera entre lo que se pidió imprimir
     // y dejamos que cada bloque crezca hasta llenar su parte.
-    if (settings.size === 'a4') {
-        const contentW = A4_MM.w - SHEET_PADDING_MM * 2;
-        const contentH = A4_MM.h - SHEET_PADDING_MM * 2;
+    if (settings.size === 'a4' || settings.size === 'a4-landscape') {
+        const landscape = settings.size === 'a4-landscape';
+        // Acostada es la misma hoja con los lados cambiados. El reparto de
+        // abajo trabaja con estas dos medidas, así que no hay que tocarlo.
+        const sheetW = landscape ? A4_MM.h : A4_MM.w;
+        const sheetH = landscape ? A4_MM.w : A4_MM.h;
+        const contentW = sheetW - SHEET_PADDING_MM * 2;
+        const contentH = sheetH - SHEET_PADDING_MM * 2;
         const mainH = contentH
             - (settings.companyName ? SHEET_COMPANY_MM + SHEET_GAP_MM : 0)
             - (showBarcode ? SHEET_BARCODE_MM + SHEET_GAP_MM : 0);
@@ -206,7 +211,7 @@ export const ProductLabel = forwardRef<HTMLDivElement, Props>((props, ref) => {
                 <style>
                     {`
                     @media print {
-                        @page { margin: 0 !important; size: A4 portrait !important; }
+                        @page { margin: 0 !important; size: A4 ${landscape ? 'landscape' : 'portrait'} !important; }
                         body { margin: 0 !important; padding: 0 !important; }
                     }
                 `}
@@ -214,8 +219,8 @@ export const ProductLabel = forwardRef<HTMLDivElement, Props>((props, ref) => {
 
                 <div
                     style={{
-                        width: `${A4_MM.w}mm`,
-                        height: `${A4_MM.h}mm`,
+                        width: `${sheetW}mm`,
+                        height: `${sheetH}mm`,
                         padding: `${SHEET_PADDING_MM}mm`,
                         gap: `${SHEET_GAP_MM}mm`,
                     }}

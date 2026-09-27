@@ -6,8 +6,9 @@ import type { BarcodeSource } from '../../hooks/useLabelSettings';
 
 export type LabelPrintContent = 'name' | 'price' | 'both';
 export type LabelNameSource = 'always_name' | 'always_alias' | 'alias_if_available';
-// 'label' usa la medida configurada en ajustes; 'a4' imprime una hoja entera.
-export type LabelPaper = 'label' | 'a4';
+// 'label' usa la medida configurada en ajustes; las 'a4' imprimen una hoja
+// entera, de pie o acostada.
+export type LabelPaper = 'label' | 'a4' | 'a4-landscape';
 
 export interface LabelPrintChoice {
     content: LabelPrintContent;
@@ -29,7 +30,8 @@ const contentOptions = [
 
 const paperOptions = [
     { value: 'label', title: 'Etiqueta', detail: 'La medida que tienes configurada en ajustes.' },
-    { value: 'a4', title: 'Hoja A4', detail: 'Un cartel: el contenido llena la hoja completa.' },
+    { value: 'a4', title: 'Hoja A4 vertical', detail: 'Un cartel: el contenido llena la hoja completa.' },
+    { value: 'a4-landscape', title: 'Hoja A4 horizontal', detail: 'Cartel acostado: más ancho para títulos largos.' },
 ] as const;
 
 const nameOptions = [

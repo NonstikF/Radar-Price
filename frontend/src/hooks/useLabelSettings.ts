@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 
 // Definimos los tipos permitidos, incluyendo 'custom'
-// 'a4' no es una etiqueta sino una hoja entera: se elige al imprimir, no aquí,
-// porque es para un cartel suelto y no cambia el rollo que tienes cargado.
-export type LabelSize = '1.5x1' | '2x1' | '2.25x1.25' | '50x25mm' | 'custom' | 'a4';
+// 'a4' y 'a4-landscape' no son etiquetas sino hojas enteras: se eligen al
+// imprimir, no aquí, porque son para un cartel suelto y no cambian el rollo
+// que tienes cargado.
+export type LabelSize = '1.5x1' | '2x1' | '2.25x1.25' | '50x25mm' | 'custom' | 'a4' | 'a4-landscape';
 
 // De dónde sale el valor del código de barras.
 // 'upc_if_available' usa el UPC del producto y, si no tiene, cae al SKU (ID interno).

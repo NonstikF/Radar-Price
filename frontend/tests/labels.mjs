@@ -62,6 +62,18 @@ test('A4 sheets ask for the whole page and drop the label dimensions', () => {
     assert.doesNotMatch(html, /size: 2in 1in/);
 });
 
+test('landscape A4 swaps the sheet sides and asks the printer to turn the page', () => {
+    const html = render({ size: 'a4-landscape' });
+    assert.match(html, /size: A4 landscape/);
+    assert.match(html, /width:297mm;height:210mm/);
+    assert.doesNotMatch(html, /portrait/);
+
+    // El alto útil ahora es el lado corto: 210mm menos el margen.
+    const heights = [...html.matchAll(/height:([\d.]+)mm/g)].map(m => Number(m[1]));
+    const [, price, name] = heights;
+    assert.equal(Math.round(price + 6 + name), 210 - 20);
+});
+
 test('A4 content scales through a viewBox instead of fixed type sizes', () => {
     const html = render({ size: 'a4' });
     // El precio y el título salen como SVG: es lo que los deja llenar la hoja.
