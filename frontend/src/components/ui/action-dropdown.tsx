@@ -45,10 +45,8 @@ export interface NativeActionDropdownProps {
   defaultValue?: string;
   /** Fired with the selected leaf id. */
   onValueChange?: (id: string) => void;
-  /** Panel header title. */
+  /** Accessible name of the menu (not shown: the option list speaks for itself). */
   label?: string;
-  /** Panel header subtitle. */
-  description?: string;
   /** Trigger text when nothing is selected. */
   placeholder?: string;
   className?: string;
@@ -148,7 +146,6 @@ export function NativeActionDropdown({
   defaultValue,
   onValueChange,
   label = "Elige una opción",
-  description,
   placeholder = "Selecciona…",
   className,
 }: NativeActionDropdownProps) {
@@ -687,15 +684,6 @@ export function NativeActionDropdown({
                   : "top-full mt-2 origin-top"
               )}
             >
-              <div role="none" className="px-2 pb-1.5 pt-2">
-                <p className="text-sm font-bold">{label}</p>
-                {description ? (
-                  <p className="mt-0.5 text-[11px] leading-4 text-gray-500 dark:text-gray-400">
-                    {description}
-                  </p>
-                ) : null}
-              </div>
-
               {hasGroups ? (
                 groupKeys.map((group) => (
                   <div
@@ -728,30 +716,6 @@ export function NativeActionDropdown({
                 </div>
               )}
 
-              <div
-                role="none"
-                className="mt-1 flex items-center justify-between border-t border-gray-200 px-2 pb-1 pt-2 text-[11px] leading-4 text-gray-500 dark:border-gray-700 dark:text-gray-400"
-              >
-                <span className="truncate">
-                  Actual:{" "}
-                  <span className="font-bold text-gray-900 dark:text-white">
-                    {selection.name}
-                  </span>
-                </span>
-                <span
-                  aria-hidden="true"
-                  className="hidden shrink-0 items-center gap-1 sm:flex"
-                >
-                  {["↑↓", "←", "→", "↵"].map((key) => (
-                    <kbd
-                      key={key}
-                      className="rounded border border-gray-200 bg-white px-1 font-sans text-[10px] dark:border-gray-600 dark:bg-gray-800"
-                    >
-                      {key}
-                    </kbd>
-                  ))}
-                </span>
-              </div>
             </motion.div>
           </>
         ) : null}
