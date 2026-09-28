@@ -50,6 +50,7 @@ function ensurePrintStyles() {
 export function usePrintLabel(contentRef: RefObject<HTMLDivElement | null>, documentTitle: string, settings: LabelSettings) {
     const [showOptions, setShowOptions] = useState(false);
     const [choice, setChoice] = useState<LabelPrintChoice | null>(null);
+    const [printedAt, setPrintedAt] = useState<string>();
     // Lo elegido en el diálogo manda sobre los ajustes guardados: es lo que el
     // usuario acaba de ver en pantalla.
     const printSettings = choice ? {
@@ -61,12 +62,16 @@ export function usePrintLabel(contentRef: RefObject<HTMLDivElement | null>, docu
         // La hoja A4 es para esta impresión: no pisa la medida de etiqueta
         // guardada, que sigue siendo la del rollo cargado.
         size: choice.paper === 'label' ? settings.size : choice.paper,
+        showDate: choice.showDate,
+        printedAt,
     } : settings;
 
     const printSelected = (selection: LabelPrintChoice) => {
         // Actualizar la etiqueta antes de clonar, también en impresiones consecutivas.
         flushSync(() => {
             setChoice(selection);
+            // Cada impresión lleva su propia hora, aunque se repita la misma elección.
+            setPrintedAt(new Date().toISOString());
             setShowOptions(false);
         });
         const node: HTMLElement | null = contentRef?.current;

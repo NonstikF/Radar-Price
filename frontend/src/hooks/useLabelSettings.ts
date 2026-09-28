@@ -28,6 +28,11 @@ export interface LabelSettings {
     // Última elección del diálogo de impresión, para reabrirlo como quedó.
     lastPrintContent?: string;
     lastPrintPaper?: string;
+    lastPrintDate?: boolean;
+
+    // Momento de la impresión en curso (ISO). No se guarda: lo pone el hook de
+    // impresión para que la fecha del cartel sea la de cuando se imprimió.
+    printedAt?: string;
 
     // CAMPOS NUEVOS PARA MEDIDA PERSONALIZADA
     customWidth?: string;

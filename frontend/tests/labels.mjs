@@ -74,6 +74,24 @@ test('landscape A4 swaps the sheet sides and asks the printer to turn the page',
     assert.equal(Math.round(price + 6 + name), 210 - 20);
 });
 
+test('A4 sheets print the date and time only when asked and a print time exists', () => {
+    const printedAt = new Date(2026, 8, 27, 14, 35).toISOString();
+    const stamped = render({ size: 'a4', showDate: true, printedAt });
+    assert.match(stamped, /2026/);
+    assert.match(stamped, /14:35/);
+    // Va en la esquina inferior derecha, fuera del área repartida.
+    assert.match(stamped, /"bottom:5mm;right:10mm/);
+
+    assert.doesNotMatch(render({ size: 'a4', showDate: false, printedAt }), /14:35/);
+    // Sin hora de impresión no hay fecha, aunque el ajuste viejo diga que sí.
+    assert.doesNotMatch(render({ size: 'a4', showDate: true }), /"bottom:5mm;right:10mm/);
+});
+
+test('the date never lands on a small label', () => {
+    const printedAt = new Date(2026, 8, 27, 14, 35).toISOString();
+    assert.doesNotMatch(render({ showDate: true, printedAt }), /14:35/);
+});
+
 test('A4 content scales through a viewBox instead of fixed type sizes', () => {
     const html = render({ size: 'a4' });
     // El precio y el título salen como SVG: es lo que los deja llenar la hoja.

@@ -17,6 +17,8 @@ export interface LabelPrintChoice {
     nameSource: LabelNameSource;
     showBarcode: boolean;
     paper: LabelPaper;
+    // Solo aplica a las hojas A4; en etiqueta no hay espacio para ella.
+    showDate: boolean;
 }
 
 interface Props {
@@ -46,6 +48,31 @@ const nameOptions = [
     option('always_alias', 'Alias / apodo', 'Más corto: útil en etiquetas chicas.'),
     option('alias_if_available', 'Automático', 'Usa el alias si existe, si no el nombre.'),
 ];
+
+// Interruptor de sí/no con título y explicación.
+const PrintToggle = ({ title, detail, checked, onChange, className }: {
+    title: string;
+    detail: string;
+    checked: boolean;
+    onChange: (checked: boolean) => void;
+    className: string;
+}) => (
+    <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className={className + ' items-center justify-between'}
+    >
+        <span className="min-w-0">
+            <span className="block text-sm font-bold">{title}</span>
+            <span className="mt-0.5 block text-[11px] text-gray-500 dark:text-gray-400">{detail}</span>
+        </span>
+        <span className={`relative h-6 w-10 shrink-0 rounded-full transition-colors ${checked ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'}`}>
+            <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${checked ? 'left-[1.125rem]' : 'left-0.5'}`}></span>
+        </span>
+    </button>
+);
 
 // Título de sección + desplegable, con el mismo estilo de encabezado que el
 // resto del diálogo.
@@ -83,6 +110,9 @@ export const LabelPrintOptions = ({ onSelect, onClose }: Props) => {
     const [paper, setPaper] = useState<LabelPaper>(
         (settings.lastPrintPaper as LabelPaper) || 'label'
     );
+    // Apagada de inicio: es un dato de control, no algo que todo cartel lleve.
+    const [showDate, setShowDate] = useState<boolean>(settings.lastPrintDate === true);
+    const isSheet = paper !== 'label';
 
     useEffect(() => {
         const dialog = dialogRef.current;
@@ -92,8 +122,8 @@ export const LabelPrintOptions = ({ onSelect, onClose }: Props) => {
 
     const handlePrint = () => {
         // Se recuerda para la próxima impresión.
-        updateSettings({ lastPrintContent: content, lastPrintPaper: paper, nameSource, showBarcode });
-        onSelect({ content, nameSource, showBarcode, paper });
+        updateSettings({ lastPrintContent: content, lastPrintPaper: paper, lastPrintDate: showDate, nameSource, showBarcode });
+        onSelect({ content, nameSource, showBarcode, paper, showDate: isSheet && showDate });
     };
 
     const optionClass = (active: boolean) =>
@@ -139,22 +169,26 @@ export const LabelPrintOptions = ({ onSelect, onClose }: Props) => {
                 />
             )}
 
-            {/* CÓDIGO DE BARRAS */}
-            <button
-                type="button"
-                role="switch"
-                aria-checked={showBarcode}
-                onClick={() => setShowBarcode(v => !v)}
-                className={optionClass(showBarcode) + ' mb-6 items-center justify-between'}
-            >
-                <span className="min-w-0">
-                    <span className="block text-sm font-bold">Imprimir código de barras</span>
-                    <span className="mt-0.5 block text-[11px] text-gray-500 dark:text-gray-400">Aparece en pequeño en la parte inferior.</span>
-                </span>
-                <span className={`relative h-6 w-10 shrink-0 rounded-full transition-colors ${showBarcode ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'}`}>
-                    <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${showBarcode ? 'left-[1.125rem]' : 'left-0.5'}`}></span>
-                </span>
-            </button>
+            <div className="mb-6 space-y-2">
+                <PrintToggle
+                    title="Imprimir código de barras"
+                    detail="Aparece en pequeño en la parte inferior."
+                    checked={showBarcode}
+                    onChange={setShowBarcode}
+                    className={optionClass(showBarcode)}
+                />
+
+                {/* FECHA Y HORA (solo en hoja A4) */}
+                {isSheet && (
+                    <PrintToggle
+                        title="Imprimir fecha y hora"
+                        detail="En letra chica, en la esquina inferior derecha."
+                        checked={showDate}
+                        onChange={setShowDate}
+                        className={optionClass(showDate)}
+                    />
+                )}
+            </div>
 
             <button
                 type="button"

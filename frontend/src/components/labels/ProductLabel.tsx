@@ -20,6 +20,20 @@ const SHEET_COMPANY_MM = 14;
 const SHEET_BARCODE_MM = 32;
 // Línea divisoria entre precio y nombre, con su margen.
 const SHEET_RULE_MM = 5;
+// La fecha va en el margen inferior, fuera del área que se reparte: así no le
+// quita espacio a nada y no hay que recalcular el resto al activarla. 5mm del
+// borde porque muchas impresoras no llegan a imprimir más cerca.
+const SHEET_DATE_INSET_MM = 5;
+const SHEET_DATE_FONT_MM = 3;
+
+// "27 sept 2026, 14:35": corto, sin segundos, en el formato local.
+function formatPrintDate(iso: string): string {
+    const date = new Date(iso);
+    return date.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
+        // 24 horas: más corto que "02:35 p.m." y sin ambigüedad.
+        + ', ' + date.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
 // Reparto de la zona principal cuando van nombre y precio juntos: el precio
 // manda, que es lo que se lee de lejos.
 const SHEET_PRICE_SHARE = 0.62;
@@ -224,7 +238,7 @@ export const ProductLabel = forwardRef<HTMLDivElement, Props>((props, ref) => {
                         padding: `${SHEET_PADDING_MM}mm`,
                         gap: `${SHEET_GAP_MM}mm`,
                     }}
-                    className="bg-white text-black overflow-hidden flex flex-col"
+                    className="relative bg-white text-black overflow-hidden flex flex-col"
                 >
                     {settings.companyName && (
                         <div style={{ height: `${SHEET_COMPANY_MM}mm` }} className="shrink-0">
@@ -250,6 +264,19 @@ export const ProductLabel = forwardRef<HTMLDivElement, Props>((props, ref) => {
                                 <FittedText lines={fitLines(displayName.toUpperCase(), contentW, nameBoxH)} />
                             </div>
                         </div>
+                    )}
+
+                    {settings.showDate && settings.printedAt && (
+                        <p
+                            style={{
+                                bottom: `${SHEET_DATE_INSET_MM}mm`,
+                                right: `${SHEET_PADDING_MM}mm`,
+                                fontSize: `${SHEET_DATE_FONT_MM}mm`,
+                            }}
+                            className="absolute leading-none text-gray-500"
+                        >
+                            {formatPrintDate(settings.printedAt)}
+                        </p>
                     )}
 
                     {showBarcode && (
