@@ -77,14 +77,21 @@ test('landscape A4 swaps the sheet sides and asks the printer to turn the page',
 test('A4 sheets print the date and time only when asked and a print time exists', () => {
     const printedAt = new Date(2026, 8, 27, 14, 35).toISOString();
     const stamped = render({ size: 'a4', showDate: true, printedAt });
-    assert.match(stamped, /2026/);
-    assert.match(stamped, /14:35/);
-    // Va en la esquina inferior derecha, fuera del área repartida.
-    assert.match(stamped, /"bottom:5mm;right:10mm/);
+    assert.match(stamped, /27 sep 2026, 14:35/);
+    // Renglón propio al pie, a la derecha, de 12mm.
+    assert.match(stamped, /"height:12mm;font-size:12mm"[^>]*text-right/);
 
     assert.doesNotMatch(render({ size: 'a4', showDate: false, printedAt }), /14:35/);
     // Sin hora de impresión no hay fecha, aunque el ajuste viejo diga que sí.
-    assert.doesNotMatch(render({ size: 'a4', showDate: true }), /"bottom:5mm;right:10mm/);
+    assert.doesNotMatch(render({ size: 'a4', showDate: true }), /font-size:12mm/);
+});
+
+test('the date row takes its height from the price and name, not from the page', () => {
+    const printedAt = new Date(2026, 8, 27, 14, 35).toISOString();
+    const heights = html => [...html.matchAll(/height:([\d.]+)mm/g)].map(m => Number(m[1]));
+    const [, price, name, stamp] = heights(render({ size: 'a4', showDate: true, printedAt }));
+    assert.equal(stamp, 12);
+    assert.equal(Math.round(price + 6 + name + 6 + stamp), 297 - 20);
 });
 
 test('the date never lands on a small label', () => {
