@@ -20,9 +20,12 @@ const SHEET_COMPANY_MM = 14;
 const SHEET_BARCODE_MM = 32;
 // Línea divisoria entre precio y nombre, con su margen.
 const SHEET_RULE_MM = 5;
-// La fecha lleva su propio renglón al pie, alineada a la derecha. A este
-// tamaño ya no cabe en el margen: chocaría con el código de barras.
-const SHEET_DATE_MM = 12;
+// La fecha va en el margen inferior derecho, fuera del área que se reparte:
+// así no le quita tamaño al precio ni al nombre. A este tamaño cabe a la derecha del
+// número del código de barras y por debajo de sus barras, sin tocarlos. 5mm del
+// borde porque muchas impresoras no llegan a imprimir más cerca.
+const SHEET_DATE_MM = 3.6;
+const SHEET_DATE_INSET_MM = 5;
 
 // "27 sept 2026, 14:35": corto, sin segundos, en el formato local.
 function formatPrintDate(iso: string): string {
@@ -211,8 +214,7 @@ export const ProductLabel = forwardRef<HTMLDivElement, Props>((props, ref) => {
         const showStamp = !!(settings.showDate && settings.printedAt);
         const mainH = contentH
             - (settings.companyName ? SHEET_COMPANY_MM + SHEET_GAP_MM : 0)
-            - (showBarcode ? SHEET_BARCODE_MM + SHEET_GAP_MM : 0)
-            - (showStamp ? SHEET_DATE_MM + SHEET_GAP_MM : 0);
+            - (showBarcode ? SHEET_BARCODE_MM + SHEET_GAP_MM : 0);
 
         const bothVisible = settings.showPrice && settings.showName;
         const priceH = bothVisible ? mainH * SHEET_PRICE_SHARE : mainH;
@@ -238,7 +240,7 @@ export const ProductLabel = forwardRef<HTMLDivElement, Props>((props, ref) => {
                         padding: `${SHEET_PADDING_MM}mm`,
                         gap: `${SHEET_GAP_MM}mm`,
                     }}
-                    className="bg-white text-black overflow-hidden flex flex-col"
+                    className="relative bg-white text-black overflow-hidden flex flex-col"
                 >
                     {settings.companyName && (
                         <div style={{ height: `${SHEET_COMPANY_MM}mm` }} className="shrink-0">
@@ -289,8 +291,12 @@ export const ProductLabel = forwardRef<HTMLDivElement, Props>((props, ref) => {
 
                     {showStamp && (
                         <p
-                            style={{ height: `${SHEET_DATE_MM}mm`, fontSize: `${SHEET_DATE_MM}mm` }}
-                            className="mt-auto shrink-0 whitespace-nowrap text-right leading-none text-gray-500"
+                            style={{
+                                bottom: `${SHEET_DATE_INSET_MM}mm`,
+                                right: `${SHEET_PADDING_MM}mm`,
+                                fontSize: `${SHEET_DATE_MM}mm`,
+                            }}
+                            className="absolute whitespace-nowrap font-bold leading-none text-gray-500"
                         >
                             {formatPrintDate(settings.printedAt!)}
                         </p>
