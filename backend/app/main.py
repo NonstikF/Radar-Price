@@ -130,6 +130,14 @@ async def startup_event():
         try:
             await conn.execute(
                 text(
+                    "ALTER TABLE import_batches ADD COLUMN IF NOT EXISTS supplier_id INTEGER REFERENCES suppliers(id)"
+                )
+            )
+        except Exception:
+            pass
+        try:
+            await conn.execute(
+                text(
                     "ALTER TABLE products ADD COLUMN IF NOT EXISTS image_url VARCHAR"
                 )
             )

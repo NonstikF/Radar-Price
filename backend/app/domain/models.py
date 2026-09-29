@@ -90,6 +90,7 @@ class ImportBatch(Base):
     id = Column(Integer, primary_key=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     filename = Column(String)  # Nombre del archivo XML o "Carga Masiva Manual test"
+    supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=True)
 
     # Relación para borrar en cascada si borras el historial
     items = relationship(

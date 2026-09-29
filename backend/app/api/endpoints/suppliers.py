@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.core.security import verify_admin
-from app.domain.models import Supplier, Product
+from app.domain.models import Supplier, Product, ImportBatch
 
 router = APIRouter()
 
@@ -197,6 +197,12 @@ async def delete_supplier(
     if count.scalar() > 0:
         raise HTTPException(400, "No se puede eliminar: tiene productos asociados")
 
+    # Las facturas importadas se conservan, solo pierden el proveedor
+    await db.execute(
+        update(ImportBatch)
+        .where(ImportBatch.supplier_id == supplier_id)
+        .values(supplier_id=None)
+    )
     await db.delete(supplier)
     await db.commit()
     return {"message": "Proveedor eliminado"}

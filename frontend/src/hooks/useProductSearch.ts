@@ -16,6 +16,7 @@ export function useProductSearch(initialFilter = false) {
         maxPrice: "",
         missingPrice: initialFilter,
         onlyDelicate: false,
+        supplierId: "", // "" = todos, "0" = sin proveedor
         sortBy: "updated_at",
         sortOrder: "desc"
     });
@@ -50,6 +51,7 @@ export function useProductSearch(initialFilter = false) {
             };
             if (filters.minPrice) params.min_price = filters.minPrice;
             if (filters.maxPrice) params.max_price = filters.maxPrice;
+            if (filters.supplierId) params.supplier_id = filters.supplierId;
 
             const response = await axios.get(`${API_URL}/invoices/products`, { params });
             setProducts(response.data.items);
@@ -75,6 +77,7 @@ export function useProductSearch(initialFilter = false) {
             maxPrice: "",
             missingPrice: false,
             onlyDelicate: false,
+            supplierId: "",
             sortBy: "updated_at",
             sortOrder: "desc"
         });

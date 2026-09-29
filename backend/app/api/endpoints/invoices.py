@@ -42,6 +42,13 @@ class BatchUpdateSchema(BaseModel):
     filename: str
 
 
+class BatchSupplierSchema(BaseModel):
+    supplier_id: Optional[int] = None
+    # True: todos los productos de la factura pasan a este proveedor.
+    # False: solo se llenan los que no tienen proveedor.
+    overwrite: bool = False
+
+
 # --- UTILIDADES ---
 def normalize_name(text: str) -> str:
     if not text:
@@ -87,6 +94,20 @@ def names_are_similar(left: str, right: str) -> bool:
     )
 
 
+async def get_or_create_supplier(db: AsyncSession, emisor_info: Optional[dict]) -> Optional[int]:
+    """Busca el proveedor por el RFC del emisor; lo crea si no existe."""
+    if not emisor_info or not emisor_info.get("rfc"):
+        return None
+    rfc_clean = emisor_info["rfc"].strip().upper()
+    stmt_sup = select(Supplier).where(Supplier.rfc == rfc_clean)
+    supplier = (await db.execute(stmt_sup)).scalar_one_or_none()
+    if not supplier:
+        supplier = Supplier(rfc=rfc_clean, name=emisor_info.get("nombre", rfc_clean))
+        db.add(supplier)
+        await db.flush()
+    return supplier.id
+
+
 # --- 1. SUBIDA XML (MATCHING AGRESIVO) ---
 @router.post("/upload")
 async def upload_invoice(
@@ -127,20 +148,12 @@ async def upload_invoice(
         raise HTTPException(500, f"Error leyendo estructura XML: {str(e)}")
 
     # 2.5 Crear/obtener proveedor desde emisor
-    supplier_id = None
-    if emisor_info and emisor_info.get("rfc"):
-        rfc_clean = emisor_info["rfc"].strip().upper()
-        stmt_sup = select(Supplier).where(Supplier.rfc == rfc_clean)
-        sup_result = await db.execute(stmt_sup)
-        supplier = sup_result.scalar_one_or_none()
-        if not supplier:
-            supplier = Supplier(rfc=rfc_clean, name=emisor_info.get("nombre", rfc_clean))
-            db.add(supplier)
-            await db.flush()
-        supplier_id = supplier.id
+    supplier_id = await get_or_create_supplier(db, emisor_info)
 
     # 3. Crear Lote
-    new_batch = ImportBatch(filename=file.filename, created_at=datetime.now())
+    new_batch = ImportBatch(
+        filename=file.filename, created_at=datetime.now(), supplier_id=supplier_id
+    )
     db.add(new_batch)
     await db.flush()
     current_batch_id = new_batch.id
@@ -516,6 +529,7 @@ async def get_products(
     min_price: float = None,
     max_price: float = None,
     min_stock: int = None,
+    supplier_id: Optional[int] = None,  # 0 = sin proveedor
     sort_by: str = "updated_at",
     sort_order: str = "desc",
     limit: int = 50,
@@ -551,6 +565,10 @@ async def get_products(
         stmt = stmt.where(Product.selling_price <= max_price)
     if min_stock is not None:
         stmt = stmt.where(Product.stock_quantity <= min_stock)
+    if supplier_id == 0:
+        stmt = stmt.where(or_(Product.supplier_id == None, Product.supplier_id == 0))
+    elif supplier_id is not None:
+        stmt = stmt.where(Product.supplier_id == supplier_id)
 
     # --- Ordenamiento (whitelist de columnas permitidas) ---
     ALLOWED_SORT = {"id", "name", "price", "selling_price", "stock_quantity", "updated_at", "created_at", "sku"}
@@ -840,6 +858,18 @@ async def upload_catalog(
             ".//cfdi3:Concepto", ns
         )
 
+        emisor_node = root.find(".//cfdi:Emisor", ns)
+        if emisor_node is None:
+            emisor_node = root.find(".//cfdi3:Emisor", ns)
+        emisor_info = None
+        if emisor_node is not None:
+            emisor_info = {
+                "rfc": emisor_node.get("Rfc", "").strip(),
+                "nombre": emisor_node.get("Nombre", "").strip(),
+            }
+        supplier_id = await get_or_create_supplier(db, emisor_info)
+        new_batch.supplier_id = supplier_id
+
         all_p = (await db.execute(select(Product))).scalars().all()
         sku_map = {clean_code(p.sku): p for p in all_p if p.sku}
         name_map = {normalize_name(p.name): p for p in all_p}
@@ -884,6 +914,8 @@ async def upload_catalog(
                     sku_map[clean_code(sku_to_save)] = match
                 match.stock_quantity += int(qty)
                 match.price = price
+                if supplier_id and not match.supplier_id:
+                    match.supplier_id = supplier_id
                 count_upd += 1
                 final_id = match.id
             else:
@@ -896,6 +928,7 @@ async def upload_catalog(
                     price=price,
                     stock_quantity=int(qty),
                     selling_price=0.0,
+                    supplier_id=supplier_id,
                     origin="imported",
                 )
                 db.add(new_p)
@@ -1023,6 +1056,67 @@ async def get_batches(db: AsyncSession = Depends(get_db)):
     ]
 
 
+@router.get("/batches/{batch_id}")
+async def get_batch(batch_id: int, db: AsyncSession = Depends(get_db)):
+    stmt = (
+        select(ImportBatch, Supplier.name.label("supplier_name"))
+        .outerjoin(Supplier, ImportBatch.supplier_id == Supplier.id)
+        .where(ImportBatch.id == batch_id)
+    )
+    row = (await db.execute(stmt)).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Lote no encontrado")
+    batch, supplier_name = row
+    return {
+        "id": batch.id,
+        "date": batch.created_at,
+        "filename": batch.filename,
+        "supplier_id": batch.supplier_id,
+        "supplier_name": supplier_name or "",
+    }
+
+
+@router.put("/batches/{batch_id}/supplier")
+async def set_batch_supplier(
+    batch_id: int,
+    data: BatchSupplierSchema,
+    db: AsyncSession = Depends(get_db),
+    _user: dict = Depends(verify_upload_permission),
+):
+    """
+    Guarda el proveedor de la factura y lo aplica a sus productos.
+    Sin overwrite solo llena los productos que no tienen proveedor.
+    """
+    batch = await db.get(ImportBatch, batch_id)
+    if not batch:
+        raise HTTPException(status_code=404, detail="Lote no encontrado")
+
+    if data.supplier_id is not None:
+        if not await db.get(Supplier, data.supplier_id):
+            raise HTTPException(status_code=404, detail="Proveedor no encontrado")
+    batch.supplier_id = data.supplier_id
+
+    updated = 0
+    if data.supplier_id is not None:
+        product_ids = select(ImportBatchItem.product_id).where(
+            ImportBatchItem.batch_id == batch_id
+        )
+        stmt = update(Product).where(Product.id.in_(product_ids))
+        if not data.overwrite:
+            stmt = stmt.where(
+                or_(Product.supplier_id == None, Product.supplier_id == 0)
+            )
+        result = await db.execute(
+            stmt.values(supplier_id=data.supplier_id).execution_options(
+                synchronize_session=False
+            )
+        )
+        updated = result.rowcount or 0
+
+    await db.commit()
+    return {"message": "Proveedor actualizado", "updated": updated}
+
+
 @router.get("/batches/{batch_id}/products")
 async def get_batch_items(batch_id: int, db: AsyncSession = Depends(get_db)):
     """
@@ -1035,8 +1129,10 @@ async def get_batch_items(batch_id: int, db: AsyncSession = Depends(get_db)):
             ImportBatchItem.quantity.label(
                 "batch_qty"
             ),  # <--- Aquí recuperamos el dato guardado
+            Supplier.name.label("supplier_name"),
         )
         .join(ImportBatchItem, ImportBatchItem.product_id == Product.id)
+        .outerjoin(Supplier, Product.supplier_id == Supplier.id)
         .where(ImportBatchItem.batch_id == batch_id)
     )
 
@@ -1059,6 +1155,8 @@ async def get_batch_items(batch_id: int, db: AsyncSession = Depends(get_db)):
             "missing_price": (
                 True if (not p.selling_price or p.selling_price <= 0) else False
             ),
+            "supplier_id": p.supplier_id,
+            "supplier_name": supplier_name or "",
         }
-        for p, batch_qty in rows
+        for p, batch_qty, supplier_name in rows
     ]

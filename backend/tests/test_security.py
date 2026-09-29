@@ -84,7 +84,7 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
         app.dependency_overrides.update(self.overrides)
 
     def test_all_business_routes_require_authentication(self):
-        self.assertEqual(len(self.routes), 51)
+        self.assertEqual(len(self.routes), 53)
         for route in self.routes:
             with self.subTest(path=route.path):
                 self.assertTrue(has_dependency(route.dependant, get_current_user))

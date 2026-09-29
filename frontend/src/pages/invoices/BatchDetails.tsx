@@ -3,7 +3,7 @@ import { useParams, useNavigate, useBlocker } from 'react-router-dom';
 import axios from 'axios';
 import {
     ArrowLeft, FileText, Save, Loader2, AlertTriangle, CheckCircle2,
-    Barcode, Box, Search, X, Camera, Filter, Tag, LogOut, Ruler
+    Barcode, Box, Search, X, Camera, Filter, Tag, LogOut, Ruler, Truck
 } from 'lucide-react';
 import { BatchPrintButton } from '../../components/labels/BatchPrintButton';
 import { ItemPrintButton } from '../../components/labels/ItemPrintButton';
@@ -50,6 +50,9 @@ const BatchItemCard = React.memo(({ p, onPriceUpdate, onUpcUpdate, onAliasUpdate
                             </span>
                         </div>
                         <h3 className="text-sm font-bold text-gray-900 dark:text-white leading-snug">{p.name}</h3>
+                        {p.supplier_name
+                            ? <p className="text-[10px] text-gray-400 mt-1 flex items-center gap-1"><Truck className="w-3 h-3" /> {p.supplier_name}</p>
+                            : <p className="text-[10px] text-amber-500 mt-1 flex items-center gap-1"><Truck className="w-3 h-3" /> Sin proveedor</p>}
 
                         <div className="mt-2 flex items-center gap-2">
                             <Tag className="w-3 h-3 text-purple-500" />
@@ -183,6 +186,9 @@ const BatchItemRow = React.memo(({ p, onPriceUpdate, onUpcUpdate, onAliasUpdate 
                             className="text-xs bg-transparent border-b border-transparent hover:border-gray-300 focus:border-purple-500 outline-none text-purple-600 dark:text-purple-300 placeholder-gray-400/50 w-full transition-all"
                         />
                     </div>
+                    {p.supplier_name
+                        ? <p className="text-[10px] text-gray-400 mt-1 flex items-center gap-1"><Truck className="w-3 h-3" /> {p.supplier_name}</p>
+                        : <p className="text-[10px] text-amber-500 mt-1 flex items-center gap-1"><Truck className="w-3 h-3" /> Sin proveedor</p>}
                 </div>
             </td>
 
@@ -250,6 +256,16 @@ export function BatchDetails() {
     const [showScanner, setShowScanner] = useState(false);
     const [showLabelSettings, setShowLabelSettings] = useState(false);
 
+    // --- PROVEEDOR DE LA FACTURA ---
+    const [suppliers, setSuppliers] = useState<{ id: number; name: string }[]>([]);
+    const [batchSupplierId, setBatchSupplierId] = useState<string>("");
+    const [supplierPrompt, setSupplierPrompt] = useState(false);
+    const [assigningSupplier, setAssigningSupplier] = useState(false);
+
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const canAssignSupplier = user.role === 'admin'
+        || (Array.isArray(user.permissions) && user.permissions.includes('upload'));
+
     // --- BLOQUEO DE NAVEGACIÓN (Sidebar, Links, Search, etc.) ---
     const blocker = useBlocker(
         ({ currentLocation, nextLocation }) =>
@@ -279,9 +295,21 @@ export function BatchDetails() {
         const fetchBatchData = async () => {
             try {
                 setLoading(true);
-                const response = await axios.get(`${API_URL}/invoices/batches/${id}/products`);
+                const [response, batchRes] = await Promise.all([
+                    axios.get(`${API_URL}/invoices/batches/${id}/products`),
+                    axios.get(`${API_URL}/invoices/batches/${id}`),
+                ]);
                 setProducts(response.data);
                 setHasChanges(false);
+                // Las facturas viejas no guardaban proveedor: se sugiere el más común de sus productos
+                let supplierId = batchRes.data.supplier_id;
+                if (!supplierId) {
+                    const counts: Record<number, number> = {};
+                    response.data.forEach((p: any) => { if (p.supplier_id) counts[p.supplier_id] = (counts[p.supplier_id] || 0) + 1; });
+                    const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+                    supplierId = top ? Number(top[0]) : null;
+                }
+                setBatchSupplierId(supplierId ? String(supplierId) : "");
             } catch (err) {
                 console.error(err);
                 setError("No se pudo cargar la información del lote.");
@@ -291,6 +319,36 @@ export function BatchDetails() {
         };
         if (id) fetchBatchData();
     }, [id]);
+
+    useEffect(() => {
+        axios.get(`${API_URL}/suppliers`)
+            .then(res => setSuppliers(res.data))
+            .catch(() => setSuppliers([]));
+    }, []);
+
+    const handleAssignSupplier = async (overwrite: boolean) => {
+        if (!batchSupplierId) return;
+        setAssigningSupplier(true);
+        try {
+            const supplierId = Number(batchSupplierId);
+            const res = await axios.put(`${API_URL}/invoices/batches/${id}/supplier`, {
+                supplier_id: supplierId,
+                overwrite,
+            });
+            const supplierName = suppliers.find(s => s.id === supplierId)?.name || "";
+            // Solo se tocan los campos de proveedor para no perder precios sin guardar
+            setProducts(prev => prev.map(p =>
+                overwrite || !p.supplier_id ? { ...p, supplier_id: supplierId, supplier_name: supplierName } : p
+            ));
+            setSuccessMsg(`Proveedor asignado a ${res.data.updated} productos`);
+            setTimeout(() => setSuccessMsg(""), 3000);
+            setSupplierPrompt(false);
+        } catch (err: any) {
+            alert(err.response?.data?.detail || "Error al asignar proveedor.");
+        } finally {
+            setAssigningSupplier(false);
+        }
+    };
 
     // Botón manual "Volver" (ahora solo navega, el blocker lo interceptará si es necesario)
     const handleBack = () => {
@@ -378,7 +436,8 @@ export function BatchDetails() {
         const itemsReady = products.filter(p => parseFloat(p.selling_price) > 0).length;
         const itemsMissing = totalItems - itemsReady;
         const progress = totalItems > 0 ? Math.round((itemsReady / totalItems) * 100) : 0;
-        return { totalItems, itemsReady, itemsMissing, progress, totalPiezas };
+        const withoutSupplier = products.filter(p => !p.supplier_id).length;
+        return { totalItems, itemsReady, itemsMissing, progress, totalPiezas, withoutSupplier };
     }, [products]);
 
     const displayedProducts = useMemo(() => {
@@ -457,6 +516,34 @@ export function BatchDetails() {
                 </div>
             </div>
 
+            {/* PROVEEDOR DE LA FACTURA */}
+            <div className="bg-white dark:bg-gray-800 p-3 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col md:flex-row md:items-center gap-3">
+                <div className="flex items-center gap-2 text-sm font-bold text-gray-700 dark:text-gray-200 shrink-0">
+                    <Truck className="w-5 h-5 text-blue-600 dark:text-blue-400" /> Proveedor de la factura
+                </div>
+                <select
+                    value={batchSupplierId}
+                    onChange={(e) => setBatchSupplierId(e.target.value)}
+                    disabled={!canAssignSupplier}
+                    className="flex-1 min-w-0 p-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
+                >
+                    <option value="">Selecciona un proveedor...</option>
+                    {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+                {stats.withoutSupplier > 0 && (
+                    <span className="text-xs font-bold text-amber-600 dark:text-amber-400 whitespace-nowrap">{stats.withoutSupplier} sin proveedor</span>
+                )}
+                {canAssignSupplier && (
+                    <button
+                        onClick={() => setSupplierPrompt(true)}
+                        disabled={!batchSupplierId}
+                        className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold transition-all active:scale-95 disabled:opacity-50 whitespace-nowrap"
+                    >
+                        Aplicar a productos
+                    </button>
+                )}
+            </div>
+
             {/* BARRA DE HERRAMIENTAS */}
             <div className="sticky top-16 z-30 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur py-2 -mx-4 px-4 md:mx-0 md:px-0">
                 <div className="space-y-3">
@@ -532,6 +619,28 @@ export function BatchDetails() {
                                 <LogOut className="w-4 h-4" /> Salir sin guardar
                             </button>
                             <button onClick={handleCancelExit} className="w-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 font-bold py-2 text-sm">Cancelar</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL: APLICAR PROVEEDOR */}
+            {supplierPrompt && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-xl border border-gray-100 dark:border-gray-700 max-w-sm w-full animate-scale-in">
+                        <div className="bg-blue-100 dark:bg-blue-900/30 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600 dark:text-blue-400"><Truck className="w-8 h-8" /></div>
+                        <h3 className="text-xl font-black text-gray-900 dark:text-white mb-2 text-center">Asignar proveedor</h3>
+                        <p className="text-gray-500 dark:text-gray-400 text-sm mb-6 text-center">
+                            {suppliers.find(s => String(s.id) === batchSupplierId)?.name} a los productos de esta factura.
+                        </p>
+                        <div className="space-y-3">
+                            <button onClick={() => handleAssignSupplier(false)} disabled={assigningSupplier || stats.withoutSupplier === 0} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50">
+                                {assigningSupplier && <Loader2 className="w-4 h-4 animate-spin" />} Solo los que no tienen ({stats.withoutSupplier})
+                            </button>
+                            <button onClick={() => handleAssignSupplier(true)} disabled={assigningSupplier} className="w-full bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-700 dark:text-amber-400 font-bold py-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50">
+                                Todos, reemplazando ({stats.totalItems})
+                            </button>
+                            <button onClick={() => setSupplierPrompt(false)} className="w-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 font-bold py-2 text-sm">Cancelar</button>
                         </div>
                     </div>
                 </div>

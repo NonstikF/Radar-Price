@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
 import {
@@ -37,6 +37,13 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
     const [bulkLoading, setBulkLoading] = useState(false);
     const [cartModal, setCartModal] = useState<{ product: any; quantity: number } | null>(null);
     const [exporting, setExporting] = useState(false);
+    const [suppliers, setSuppliers] = useState<{ id: number; name: string }[]>([]);
+
+    useEffect(() => {
+        axios.get(`${API_URL}/suppliers`)
+            .then(res => setSuppliers(res.data))
+            .catch(() => setSuppliers([]));
+    }, []);
 
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     const isAdmin = user.role === 'admin';
@@ -98,6 +105,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
             };
             if (filters.minPrice) params.min_price = filters.minPrice;
             if (filters.maxPrice) params.max_price = filters.maxPrice;
+            if (filters.supplierId) params.supplier_id = filters.supplierId;
 
             const response = await axios.get(`${API_URL}/invoices/products`, { params });
             const data = response.data.items;
@@ -200,7 +208,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                         <div className="flex gap-2 w-full md:w-auto">
                             <button
                                 onClick={() => setShowFilters(!showFilters)}
-                                className={`flex-1 md:flex-none px-4 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-sm ${showFilters || filters.minPrice || filters.missingPrice ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' : 'bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                                className={`flex-1 md:flex-none px-4 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-sm ${showFilters || filters.minPrice || filters.missingPrice || filters.supplierId ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' : 'bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
                             >
                                 <Filter className="w-4 h-4" /> Filtros
                             </button>
@@ -219,7 +227,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                             >
                                 <ListChecks className="w-4 h-4" />
                             </button>
-                            {(searchTerm || filters.minPrice || filters.missingPrice) && (
+                            {(searchTerm || filters.minPrice || filters.missingPrice || filters.supplierId) && (
                                 <button onClick={handleClearAllFilters} className="px-4 py-3 rounded-xl font-bold text-red-500 dark:text-red-400 bg-white dark:bg-gray-900 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">
                                     <X className="w-5 h-5" />
                                 </button>
@@ -257,6 +265,14 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                                 <input type="checkbox" checked={(filters as any).onlyDelicate || false} onChange={(e) => setFilters({ ...filters, onlyDelicate: e.target.checked } as any)} className="text-amber-500 rounded" />
                                 <span className="text-sm font-medium text-amber-700 dark:text-amber-400 flex items-center gap-1"><ShieldAlert className="w-3.5 h-3.5" /> Solo delicados</span>
                             </label>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-gray-400 uppercase">Proveedor</label>
+                            <select value={filters.supplierId} onChange={(e) => setFilters({ ...filters, supplierId: e.target.value })} className="w-full p-2 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">Todos</option>
+                                <option value="0">Sin proveedor</option>
+                                {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                            </select>
                         </div>
                     </div>
                 </div>
