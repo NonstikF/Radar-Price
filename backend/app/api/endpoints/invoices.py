@@ -14,7 +14,17 @@ from pydantic import BaseModel
 from app.core.database import get_db
 from app.core.security import verify_admin, verify_upload_permission
 from app.services.xml_service import XmlInvoiceParser
-from app.domain.models import Product, PriceHistory, ImportBatch, ImportBatchItem, Supplier, StockHistory
+from app.domain.models import (
+    Product,
+    PriceHistory,
+    ImportBatch,
+    ImportBatchItem,
+    Supplier,
+    StockHistory,
+    ShoppingListItem,
+    ProductCategory,
+    ProductLocation,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -829,6 +839,10 @@ async def delete_product(
 
     # B) Eliminar el historial de precios de este producto
     await db.execute(delete(PriceHistory).where(PriceHistory.product_id == product_id))
+
+    # C) Historial de stock, listas de compras, categorías y ubicaciones
+    for model in (StockHistory, ShoppingListItem, ProductCategory, ProductLocation):
+        await db.execute(delete(model).where(model.product_id == product_id))
 
     # 3. Ahora sí, eliminar el producto de forma segura
     await db.delete(p)

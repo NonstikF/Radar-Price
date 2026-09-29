@@ -191,12 +191,11 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
             onDelete();
         } catch (error: any) {
             console.error(error);
-            // Mensaje más útil para el usuario
-            if (error.response && error.response.status === 500) {
-                showToast("No se puede eliminar: El producto tiene ventas asociadas.", "error");
-            } else {
-                showToast("Error al eliminar el producto", "error");
-            }
+            const detail = error.response?.data?.detail;
+            showToast(
+                typeof detail === "string" ? detail : "Error al eliminar el producto",
+                "error"
+            );
         } finally {
             setDeleting(false);
             setShowDeleteConfirm(false); // Cerramos el modal de confirmación
