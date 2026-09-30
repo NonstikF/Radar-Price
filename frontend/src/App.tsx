@@ -236,7 +236,7 @@ const router = createBrowserRouter(
         <Route path="inventory/locations" element={<PermissionGuard module="inventory"><Locations /></PermissionGuard>} />
         <Route path="inventory/assign" element={<PermissionGuard module="inventory"><AssignProduct /></PermissionGuard>} />
         <Route path="inventory/reports" element={<PermissionGuard module="inventory"><InventoryReports /></PermissionGuard>} />
-        <Route path="inventory/stock" element={<AdminGuard><StockAdjust /></AdminGuard>} />
+        <Route path="inventory/stock" element={<PermissionGuard module="inventory"><StockAdjust /></PermissionGuard>} />
 
         <Route path="admin" element={<AdminGuard><AdminUsers /></AdminGuard>} />
         <Route path="settings" element={<AdminGuard><Settings /></AdminGuard>} />

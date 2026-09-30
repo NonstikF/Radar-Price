@@ -1,6 +1,6 @@
 import {
     Package, ShoppingCart, Warehouse, Search, FileUp, Plus, ListChecks, Tag, Layers,
-    History, Truck, MapPin, PackagePlus, ChartColumn, SlidersHorizontal,
+    History, Truck, MapPin, PackagePlus, ChartColumn,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { canAccess, type SessionUser } from '../lib/permissions';
@@ -90,10 +90,9 @@ export const workspaceModules: WorkspaceModule[] = [
     {
         key: 'inventory', title: 'Inventario', description: 'Controla existencias y ubicaciones.', path: '/inventory', icon: Warehouse, colors: moduleColors.inventory,
         actions: [
-            { title: 'Consultar inventario', description: 'Revisa qué hay en el almacén.', path: '/inventory', icon: Package, permission: 'inventory' },
+            { title: 'Consultar inventario', description: 'Revisa existencias y ubicaciones del almacén.', path: '/inventory/stock', icon: Package, permission: 'inventory' },
             { title: 'Ubicaciones', description: 'Administra estantes, racks y ubicaciones del almacén.', path: '/inventory/locations', icon: MapPin, permission: 'inventory' },
             { title: 'Asignar productos', description: 'Escanea un producto y asígnalo a una ubicación.', path: '/inventory/assign', icon: PackagePlus, permission: 'inventory' },
-            { title: 'Existencias', description: 'Ajusta el stock con conteos físicos, entradas y mermas.', path: '/inventory/stock', icon: SlidersHorizontal, permission: 'admin' },
             { title: 'Reportes de inventario', description: 'Consulta los movimientos de existencias.', path: '/inventory/reports', icon: ChartColumn, permission: 'inventory' },
         ],
     },

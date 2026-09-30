@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Search, Loader2, CheckCircle2, AlertTriangle, X, PackageOpen, SlidersHorizontal } from 'lucide-react';
+import { Search, Loader2, CheckCircle2, AlertTriangle, X, PackageOpen, SlidersHorizontal, MapPin } from 'lucide-react';
 import { API_URL } from '../../config/api';
 import { DEBOUNCE_DELAY, TOAST_DURATION } from '../../config/constants';
 import { PageHeader } from '../../components/ui/PageHeader';
+import { canAccess, getSessionUser } from '../../lib/permissions';
 
 interface StockItem {
     id: number;
@@ -12,7 +13,16 @@ interface StockItem {
     alias: string;
     supplier_name: string;
     stock: number;
+    locations: { code: string; quantity: number }[];
 }
+
+type Availability = 'all' | 'in' | 'out';
+
+const AVAILABILITY: { id: Availability; label: string }[] = [
+    { id: 'all', label: 'Todos' },
+    { id: 'in', label: 'Con existencia' },
+    { id: 'out', label: 'Sin existencia' },
+];
 
 type Mode = 'set' | 'add' | 'subtract';
 
@@ -27,7 +37,11 @@ const PAGE_SIZE = 50;
 const errorDetail = (err: unknown, fallback: string) =>
     (axios.isAxiosError(err) && err.response?.data?.detail) || fallback;
 
+// Consulta del inventario del almacén: cualquiera con permiso de inventario ve
+// existencias y ubicaciones; solo el admin puede ajustar.
 export function StockAdjust() {
+    const canAdjust = canAccess(getSessionUser(), 'admin');
+    const [availability, setAvailability] = useState<Availability>('all');
     const [items, setItems] = useState<StockItem[]>([]);
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(true);
@@ -46,7 +60,7 @@ export function StockAdjust() {
     };
 
     const fetchPage = async (q: string, offset: number) => {
-        const res = await axios.get(`${API_URL}/inventory/stock`, { params: { q: q || undefined, limit: PAGE_SIZE, offset } });
+        const res = await axios.get(`${API_URL}/inventory/stock`, { params: { q: q || undefined, availability, limit: PAGE_SIZE, offset } });
         return res.data as { total: number; items: StockItem[] };
     };
 
@@ -64,7 +78,7 @@ export function StockAdjust() {
             }
         }, DEBOUNCE_DELAY);
         return () => clearTimeout(timer);
-    }, [search]);
+    }, [search, availability]);
 
     const loadMore = async () => {
         setLoadingMore(true);
@@ -118,9 +132,15 @@ export function StockAdjust() {
                 )}
             </div>
 
-            <PageHeader parent="inventory" title="Existencias" description="Ajusta el stock del almacén con conteos físicos, entradas sin factura y mermas." />
+            <PageHeader
+                parent="inventory"
+                title="Consultar inventario"
+                description={canAdjust
+                    ? 'Existencias y ubicaciones del almacén. Ajusta con conteos físicos, entradas sin factura y mermas.'
+                    : 'Existencias y ubicaciones de los productos del almacén.'}
+            />
 
-            <div className="relative mb-4">
+            <div className="relative mb-3">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" aria-hidden="true" />
                 <input
                     type="search"
@@ -132,13 +152,33 @@ export function StockAdjust() {
                 />
             </div>
 
+            <div role="radiogroup" aria-label="Filtrar por existencia" className="flex flex-wrap gap-2 mb-4">
+                {AVAILABILITY.map(a => (
+                    <button
+                        key={a.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={availability === a.id}
+                        onClick={() => setAvailability(a.id)}
+                        className={`min-h-10 px-4 rounded-full text-sm font-semibold transition-colors ${availability === a.id ? 'bg-amber-600 text-white' : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                    >
+                        {a.label}
+                    </button>
+                ))}
+            </div>
+
             {loading ? (
                 <div className="text-center py-20"><Loader2 className="animate-spin h-8 w-8 text-blue-600 mx-auto" aria-label="Cargando existencias" /></div>
             ) : items.length === 0 ? (
                 <div className="text-center py-16 px-6 text-gray-500 dark:text-gray-400 flex flex-col items-center">
                     <PackageOpen className="w-12 h-12 mb-3 opacity-50" aria-hidden="true" />
-                    <p className="font-medium">{search ? `Ningún producto del almacén coincide con "${search}".` : 'No hay productos en el almacén.'}</p>
-                    {!search && <p className="text-sm mt-1">Activa la gestión de inventario de un proveedor en Configuración.</p>}
+                    <p className="font-medium">
+                        {search ? `Ningún producto del almacén coincide con "${search}".`
+                            : availability === 'in' ? 'No hay productos con existencia.'
+                            : availability === 'out' ? 'Todos los productos del almacén tienen existencia.'
+                            : 'No hay productos en el almacén.'}
+                    </p>
+                    {!search && availability === 'all' && <p className="text-sm mt-1">Activa la gestión de inventario de un proveedor en Configuración.</p>}
                 </div>
             ) : (
                 <>
@@ -151,19 +191,28 @@ export function StockAdjust() {
                                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
                                         {item.sku && <span className="font-mono">{item.sku} · </span>}{item.supplier_name}
                                     </p>
+                                    {item.locations.length > 0 && (
+                                        <div className="flex flex-wrap gap-1 mt-1.5" aria-label="Ubicaciones">
+                                            {item.locations.map(loc => (
+                                                <span key={loc.code} className="inline-flex items-center gap-1 rounded-md bg-amber-50 dark:bg-amber-900/20 px-1.5 py-0.5 text-[11px] font-semibold text-amber-800 dark:text-amber-300">
+                                                    <MapPin className="w-3 h-3" aria-hidden="true" />{loc.code} <span className="font-mono">({loc.quantity})</span>
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="text-right shrink-0">
                                     <p className={`text-xl font-black tabular-nums ${item.stock > 0 ? 'text-gray-900 dark:text-white' : 'text-red-600 dark:text-red-400'}`}>{item.stock}</p>
                                     <p className="text-[10px] uppercase tracking-wide text-gray-400">piezas</p>
                                 </div>
-                                <button
+                                {canAdjust && <button
                                     type="button"
                                     onClick={() => openAdjust(item)}
                                     aria-label={`Ajustar existencia de ${item.name}`}
                                     className="min-h-11 shrink-0 inline-flex items-center gap-1.5 rounded-xl border border-gray-200 dark:border-gray-600 px-3 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
                                 >
                                     <SlidersHorizontal className="w-4 h-4" aria-hidden="true" /> Ajustar
-                                </button>
+                                </button>}
                             </li>
                         ))}
                     </ul>

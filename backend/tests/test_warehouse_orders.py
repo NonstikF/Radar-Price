@@ -20,7 +20,9 @@ from app.api.endpoints.shopping_lists import (
     delete_shopping_list, get_shopping_list, update_item, update_status,
 )
 from app.api.endpoints.stock import StockAdjust, adjust_stock, get_stock
-from app.domain.models import Base, Product, ShoppingList, ShoppingListItem, StockHistory, Supplier
+from app.domain.models import (
+    Base, Location, Product, ProductLocation, ShoppingList, ShoppingListItem, StockHistory, Supplier,
+)
 
 MANAGED, UNMANAGED = 1, 2
 PRODUCT, OTHER, OUTSIDE = 1, 2, 3
@@ -194,8 +196,21 @@ class WarehouseOrderTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(moves, [("AJUSTE", "Conteo"), ("ENTRADA", "manual"), ("SALIDA", "Merma")])
 
     async def test_stock_list_only_shows_warehouse_products(self):
+        with Session(self.engine) as session:
+            session.add_all([
+                Location(id=1, code="R1B2"),
+                ProductLocation(location_id=1, product_id=PRODUCT, quantity=6),
+                Product(id=4, name="Agotada", supplier_id=MANAGED, stock_quantity=0),
+            ])
+            session.commit()
         result = await self.call(get_stock, q=None)
-        self.assertEqual([(i["name"], i["stock"]) for i in result["items"]], [("Maceta", 10), ("Tierra", 4)])
+        self.assertEqual([(i["name"], i["stock"]) for i in result["items"]],
+                         [("Agotada", 0), ("Maceta", 10), ("Tierra", 4)])
+        self.assertEqual(result["items"][1]["locations"], [{"code": "R1B2", "quantity": 6}])
+        for availability, expected in [("in", ["Maceta", "Tierra"]), ("out", ["Agotada"])]:
+            with self.subTest(availability=availability):
+                result = await self.call(get_stock, q=None, availability=availability)
+                self.assertEqual([i["name"] for i in result["items"]], expected)
 
 
 if __name__ == "__main__":
