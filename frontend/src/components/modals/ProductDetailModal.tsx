@@ -45,6 +45,7 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
     const [showSettings, setShowSettings] = useState(false);
     const [suppliers, setSuppliers] = useState<any[]>([]);
     const [editSupplierId, setEditSupplierId] = useState<string>(product.supplier_id ? String(product.supplier_id) : "");
+    const [savingSupplier, setSavingSupplier] = useState(false);
     const [addQty, setAddQty] = useState(1);
     const [uploadingImage, setUploadingImage] = useState(false);
     const [isDelicate, setIsDelicate] = useState<boolean>(!!product.is_delicate);
@@ -425,43 +426,41 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
 
                             {/* PROVEEDOR */}
                             <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-2xl">
-                                <label className="flex items-center gap-2 text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase mb-3 tracking-wide">
+                                <label htmlFor="product-supplier" className="flex items-center gap-2 text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase mb-3 tracking-wide">
                                     <Truck className="w-4 h-4 text-emerald-500" /> Proveedor
+                                    {savingSupplier && <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" aria-label="Guardando proveedor" />}
                                 </label>
-                                <div className="flex gap-2">
-                                    <select
-                                        value={editSupplierId}
-                                        onChange={(e) => setEditSupplierId(e.target.value)}
-                                        className="flex-1 bg-white dark:bg-gray-900 border-none p-3 rounded-xl text-sm outline-none ring-1 ring-transparent focus:ring-blue-500 text-gray-900 dark:text-white transition-all shadow-inner"
-                                    >
-                                        <option value="">Sin proveedor</option>
-                                        {suppliers.map((s: any) => (
-                                            <option key={s.id} value={s.id}>{s.name} ({s.rfc})</option>
-                                        ))}
-                                    </select>
-                                    {String(editSupplierId) !== String(product.supplier_id || "") && (
-                                        <button
-                                            onClick={async () => {
-                                                setSaving(true);
-                                                try {
-                                                    await axios.put(`${API_URL}/invoices/products/${product.id}`, {
-                                                        supplier_id: editSupplierId || null
-                                                    });
-                                                    onUpdate({ ...product, supplier_id: editSupplierId ? Number(editSupplierId) : null, supplier_name: suppliers.find((s: any) => s.id === Number(editSupplierId))?.name || "" });
-                                                    showToast("PROVEEDOR ACTUALIZADO");
-                                                } catch (err: any) {
-                                                    showToast(err.response?.data?.detail || "Error", "error");
-                                                } finally {
-                                                    setSaving(false);
-                                                }
-                                            }}
-                                            disabled={saving}
-                                            className="px-4 rounded-xl flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white transition-colors shadow-sm"
-                                        >
-                                            <Save className="w-5 h-5" />
-                                        </button>
-                                    )}
-                                </div>
+                                {/* Se guarda al elegir: sin botón aparte */}
+                                <select
+                                    id="product-supplier"
+                                    value={editSupplierId}
+                                    disabled={savingSupplier}
+                                    onChange={async (e) => {
+                                        const next = e.target.value;
+                                        const previous = editSupplierId;
+                                        setEditSupplierId(next);
+                                        setSavingSupplier(true);
+                                        try {
+                                            await axios.put(`${API_URL}/invoices/products/${product.id}`, { supplier_id: next || null });
+                                            const supplier = suppliers.find((s: any) => s.id === Number(next));
+                                            onUpdate({ ...product, supplier_id: next ? Number(next) : null, supplier_name: supplier?.name || "" });
+                                            showToast(supplier ? `Proveedor: ${supplier.name}` : "Producto sin proveedor");
+                                        } catch (err: any) {
+                                            setEditSupplierId(previous);
+                                            showToast(err.response?.data?.detail || "No se pudo cambiar el proveedor", "error");
+                                        } finally {
+                                            setSavingSupplier(false);
+                                        }
+                                    }}
+                                    className="w-full min-w-0 bg-white dark:bg-gray-900 border-none p-3 rounded-xl text-sm outline-none ring-1 ring-transparent focus:ring-blue-500 text-gray-900 dark:text-white transition-all shadow-inner disabled:opacity-60 truncate"
+                                >
+                                    <option value="">Sin proveedor</option>
+                                    {suppliers.map((s: any) => (
+                                        <option key={s.id} value={s.id}>
+                                            {s.name}{s.rfc ? ` · ${s.rfc}` : ''}{s.manages_inventory ? ' · almacén' : ''}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
                         </div>
                     )}
