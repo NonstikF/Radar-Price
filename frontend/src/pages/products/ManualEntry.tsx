@@ -1,18 +1,24 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Save, Barcode, Hash, Tag, PlusCircle, CheckCircle2, Loader2, AlertCircle, Camera, Trash2 } from 'lucide-react'; // <--- AGREGAMOS TRASH2
+import { Save, Barcode, Hash, Tag, CheckCircle2, Loader2, AlertCircle, Camera, Trash2, Truck } from 'lucide-react'; // <--- AGREGAMOS TRASH2
 import { BarcodeScanner } from '../../components/ui/BarcodeScanner';
 
 // IMPORTAMOS LA CONFIGURACIÓN CENTRALIZADA
 import { API_URL } from '../../config/api';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 
 interface ManualEntryProps {
+    initialName?: string;
     initialSku?: string;
     initialUpc?: string;
     onCreated?: (product: { id: number; name: string; sku: string }) => void;
+    // Desde Inventario: el producto debe ser de un proveedor con gestión de
+    // inventario, o no se podría asignar a una ubicación.
+    requireInventorySupplier?: boolean;
 }
 
-export function ManualEntry({ initialSku, initialUpc, onCreated }: ManualEntryProps = {}) {
+export function ManualEntry({ initialName, initialSku, initialUpc, onCreated, requireInventorySupplier }: ManualEntryProps = {}) {
     const [loading, setLoading] = useState(false);
     const [successMsg, setSuccessMsg] = useState("");
     const [errorMsg, setErrorMsg] = useState("");
@@ -20,17 +26,33 @@ export function ManualEntry({ initialSku, initialUpc, onCreated }: ManualEntryPr
 
     // 1. ESTADO INICIAL DEFINIDO
     const initialState = {
-        name: "",
+        name: initialName || "",
         sku: initialSku || "",
         upc: initialUpc || "",
         price: "",        // Costo
         selling_price: "", // Venta
-        stock: ""
+        stock: "",
+        supplier_id: ""
     };
 
     const [formData, setFormData] = useState(initialState);
+    const isDirty = (Object.keys(initialState) as (keyof typeof initialState)[]).some(key => formData[key] !== initialState[key]);
+    const { dialog: unsavedDialog } = useUnsavedChanges(isDirty);
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Proveedores para el selector. Desde Inventario solo sirven los que
+    // gestionan inventario; en los demás casos el proveedor es opcional.
+    const [suppliers, setSuppliers] = useState<{ id: number; name: string; manages_inventory: boolean }[] | null>(null);
+    useEffect(() => {
+        axios.get(`${API_URL}/suppliers`)
+            .then(res => setSuppliers(res.data))
+            .catch(() => setErrorMsg("No se pudieron cargar los proveedores."));
+    }, []);
+    const supplierOptions = requireInventorySupplier ? suppliers?.filter(s => s.manages_inventory) : suppliers;
+    const noInventorySuppliers = requireInventorySupplier && supplierOptions?.length === 0;
+    // La existencia inicial solo aplica a productos del almacén
+    const selectedInWarehouse = !!suppliers?.find(s => String(s.id) === formData.supplier_id)?.manages_inventory;
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
         setSuccessMsg(""); // Limpiar mensajes al escribir
         setErrorMsg("");
@@ -59,6 +81,11 @@ export function ManualEntry({ initialSku, initialUpc, onCreated }: ManualEntryPr
             setLoading(false);
             return;
         }
+        if (requireInventorySupplier && !formData.supplier_id) {
+            setErrorMsg("Elige el proveedor del producto");
+            setLoading(false);
+            return;
+        }
 
         try {
             const payload = {
@@ -67,7 +94,8 @@ export function ManualEntry({ initialSku, initialUpc, onCreated }: ManualEntryPr
                 upc: formData.upc || null,
                 price: parseFloat(formData.price) || 0,
                 selling_price: parseFloat(formData.selling_price) || 0,
-                stock: parseInt(formData.stock) || 0
+                stock: selectedInWarehouse ? parseInt(formData.stock) || 0 : 0,
+                supplier_id: formData.supplier_id ? Number(formData.supplier_id) : null
             };
 
             const res = await axios.post(`${API_URL}/invoices/products/manual`, payload);
@@ -90,14 +118,8 @@ export function ManualEntry({ initialSku, initialUpc, onCreated }: ManualEntryPr
     return (
         <div className="w-full max-w-2xl mx-auto p-4 pb-24">
 
-            {/* Título */}
-            <div className="text-center mb-8">
-                <div className="bg-blue-100 dark:bg-blue-900/30 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 transition-colors">
-                    <PlusCircle className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-                </div>
-                <h2 className="text-2xl font-black text-gray-900 dark:text-white transition-colors">Agregar Producto</h2>
-                <p className="text-gray-500 dark:text-gray-400 text-sm transition-colors">Registro manual de inventario</p>
-            </div>
+            <PageHeader parent={onCreated ? undefined : 'products'} title="Agregar producto" description="Registra a mano un producto nuevo." />
+            {unsavedDialog}
 
             <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 rounded-3xl shadow-xl border border-gray-100 dark:border-gray-700 p-6 md:p-8 space-y-6 transition-colors">
 
@@ -117,7 +139,7 @@ export function ManualEntry({ initialSku, initialUpc, onCreated }: ManualEntryPr
 
                 {/* NOMBRE (Obligatorio) */}
                 <div>
-                    <label className="block text-xs font-bold text-gray-400 dark:text-gray-500 uppercase mb-2 ml-1">Nombre del Producto *</label>
+                    <label className="block text-xs font-bold text-gray-400 dark:text-gray-500 uppercase mb-2 ml-1">Nombre del producto *</label>
                     <div className="relative">
                         <Tag className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
                         <input
@@ -126,16 +148,67 @@ export function ManualEntry({ initialSku, initialUpc, onCreated }: ManualEntryPr
                             value={formData.name}
                             onChange={handleChange}
                             className="w-full pl-12 pr-4 py-4 bg-gray-50 dark:bg-gray-700 border-2 border-gray-100 dark:border-gray-600 rounded-2xl focus:bg-white dark:focus:bg-gray-600 focus:border-blue-500 dark:focus:border-blue-500 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none transition-all font-medium"
-                            placeholder="Ej. Maceta de Barro 12cm"
+                            placeholder="Ej. Maceta de barro 12 cm"
                             autoFocus
                         />
                     </div>
                 </div>
 
+                {/* PROVEEDOR (obligatorio solo desde Inventario) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className={selectedInWarehouse ? '' : 'md:col-span-2'}>
+                        <label htmlFor="manual-supplier" className="block text-xs font-bold text-gray-400 dark:text-gray-500 uppercase mb-2 ml-1">
+                            Proveedor {requireInventorySupplier ? '*' : <span className="text-[10px] font-normal lowercase">(opcional)</span>}
+                        </label>
+                        {noInventorySuppliers ? (
+                            <p className="bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 p-4 rounded-2xl text-sm border border-amber-100 dark:border-amber-800">
+                                Ningún proveedor tiene gestión de inventario. Actívala en Configuración para registrar productos desde aquí.
+                            </p>
+                        ) : (
+                            <div className="relative">
+                                <Truck className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5 pointer-events-none" />
+                                <select
+                                    id="manual-supplier"
+                                    name="supplier_id"
+                                    value={formData.supplier_id}
+                                    onChange={handleChange}
+                                    disabled={!supplierOptions}
+                                    className="w-full pl-12 pr-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-100 dark:border-gray-600 rounded-2xl focus:bg-white dark:focus:bg-gray-600 focus:border-blue-500 dark:focus:border-blue-500 text-gray-900 dark:text-white focus:outline-none transition-all"
+                                >
+                                    <option value="">
+                                        {!supplierOptions ? 'Cargando proveedores...' : requireInventorySupplier ? 'Elige un proveedor con inventario' : 'Sin proveedor'}
+                                    </option>
+                                    {supplierOptions?.map(s => (
+                                        <option key={s.id} value={s.id}>{s.name}{!requireInventorySupplier && s.manages_inventory ? ' · almacén' : ''}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* EXISTENCIA INICIAL (solo proveedores del almacén) */}
+                    {selectedInWarehouse && (
+                        <div>
+                            <label htmlFor="manual-stock" className="block text-xs font-bold text-gray-400 dark:text-gray-500 uppercase mb-2 ml-1">Existencia inicial <span className="text-[10px] font-normal lowercase">(piezas)</span></label>
+                            <input
+                                id="manual-stock"
+                                type="number"
+                                inputMode="numeric"
+                                min={0}
+                                name="stock"
+                                value={formData.stock}
+                                onChange={handleChange}
+                                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-100 dark:border-gray-600 rounded-2xl focus:bg-white dark:focus:bg-gray-600 focus:border-blue-500 dark:focus:border-blue-500 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none transition-all font-bold"
+                                placeholder="0"
+                            />
+                        </div>
+                    )}
+                </div>
+
                 {/* FILA 1: SKU y UPC */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-xs font-bold text-gray-400 dark:text-gray-500 uppercase mb-2 ml-1">ID Interno / SKU <span className="text-[10px] font-normal lowercase">(Opcional)</span></label>
+                        <label className="block text-xs font-bold text-gray-400 dark:text-gray-500 uppercase mb-2 ml-1">SKU <span className="text-[10px] font-normal lowercase">(opcional)</span></label>
                         <div className="relative">
                             <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
                             <input
@@ -151,7 +224,7 @@ export function ManualEntry({ initialSku, initialUpc, onCreated }: ManualEntryPr
 
                     {/* CAMPO UPC CON BOTÓN DE CÁMARA */}
                     <div>
-                        <label className="block text-xs font-bold text-gray-400 dark:text-gray-500 uppercase mb-2 ml-1">Código de Barras <span className="text-[10px] font-normal lowercase">(Opcional)</span></label>
+                        <label className="block text-xs font-bold text-gray-400 dark:text-gray-500 uppercase mb-2 ml-1">Código de barras <span className="text-[10px] font-normal lowercase">(opcional)</span></label>
                         <div className="flex gap-2">
                             <div className="relative flex-1">
                                 <Barcode className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
@@ -179,7 +252,7 @@ export function ManualEntry({ initialSku, initialUpc, onCreated }: ManualEntryPr
                 {/* FILA 2: Costo y Venta */}
                 <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-xs font-bold text-gray-400 dark:text-gray-500 uppercase mb-2 ml-1">Costo (Compra)</label>
+                        <label className="block text-xs font-bold text-gray-400 dark:text-gray-500 uppercase mb-2 ml-1">Costo</label>
                         <div className="relative">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 font-bold">$</span>
                             <input
@@ -193,7 +266,7 @@ export function ManualEntry({ initialSku, initialUpc, onCreated }: ManualEntryPr
                         </div>
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-blue-500 dark:text-blue-400 uppercase mb-2 ml-1">Precio Venta</label>
+                        <label className="block text-xs font-bold text-blue-500 dark:text-blue-400 uppercase mb-2 ml-1">Precio de venta</label>
                         <div className="relative">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-500 dark:text-blue-400 font-bold">$</span>
                             <input
@@ -222,11 +295,11 @@ export function ManualEntry({ initialSku, initialUpc, onCreated }: ManualEntryPr
 
                     <button
                         type="submit"
-                        disabled={loading}
+                        disabled={loading || noInventorySuppliers}
                         className="flex-1 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold py-4 rounded-2xl shadow-lg hover:bg-black dark:hover:bg-gray-200 active:scale-95 transition-all flex items-center justify-center gap-2"
                     >
                         {loading ? <Loader2 className="animate-spin w-5 h-5" /> : <Save className="w-5 h-5" />}
-                        Guardar Producto
+                        Guardar producto
                     </button>
                 </div>
 

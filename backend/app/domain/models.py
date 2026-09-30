@@ -11,6 +11,9 @@ class Supplier(Base):
     id = Column(Integer, primary_key=True, index=True)
     rfc = Column(String, unique=True, nullable=True, index=True)
     name = Column(String)
+    # Solo los productos de proveedores con esta bandera llevan stock,
+    # ubicaciones y reportes de inventario. Se activa desde Configuración.
+    manages_inventory = Column(Boolean, default=False, nullable=False, server_default="false")
     created_at = Column(DateTime, default=datetime.utcnow)
 
     products = relationship("Product", back_populates="supplier")
@@ -105,6 +108,9 @@ class ImportBatchItem(Base):
     batch_id = Column(Integer, ForeignKey("import_batches.id"))
     product_id = Column(Integer, ForeignKey("products.id"))
     quantity = Column(Float, default=0)
+    # Si la cantidad se sumó al stock. Al borrar el lote solo se revierte lo
+    # que sí se sumó (los proveedores sin inventario no suman).
+    stock_applied = Column(Boolean, default=True, nullable=False, server_default="true")
     batch = relationship("ImportBatch", back_populates="items")
     product = relationship("Product")  # Para poder acceder a los datos del producto
 
@@ -133,6 +139,9 @@ class ShoppingListItem(Base):
     list_id = Column(Integer, ForeignKey("shopping_lists.id"))
     product_id = Column(Integer, ForeignKey("products.id"))
     quantity = Column(Integer, default=1)
+    # Piezas que este renglón tiene descontadas del almacén. Se guarda aparte
+    # de quantity para regresar exactamente lo descontado al cancelar o editar.
+    stock_deducted = Column(Integer, default=0, nullable=False, server_default="0")
     added_at = Column(DateTime, default=datetime.utcnow)
 
     shopping_list = relationship("ShoppingList", back_populates="items")

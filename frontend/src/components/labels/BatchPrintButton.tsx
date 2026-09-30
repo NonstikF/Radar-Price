@@ -26,7 +26,7 @@ export function BatchPrintButton({ products }: Props) {
                 className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold shadow-md transition-all active:scale-95"
             >
                 <Printer className="w-5 h-5" />
-                <span className="hidden md:inline">Imprimir Lote ({products.length})</span>
+                <span className="hidden md:inline">Imprimir etiquetas ({products.length})</span>
             </button>
 
             {/* 2. LO QUE SE IMPRIME (INVISIBLE EN PANTALLA) */}

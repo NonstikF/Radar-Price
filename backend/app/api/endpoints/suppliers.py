@@ -26,6 +26,10 @@ class SupplierUpdate(BaseModel):
     name: Optional[str] = None
 
 
+class InventoryToggle(BaseModel):
+    enabled: bool
+
+
 class BulkAssignRequest(BaseModel):
     product_ids: List[int]
     supplier_id: int
@@ -47,6 +51,7 @@ async def get_suppliers(db: AsyncSession = Depends(get_db)):
             "id": s.id,
             "rfc": s.rfc,
             "name": s.name,
+            "manages_inventory": s.manages_inventory,
             "created_at": s.created_at,
             "product_count": count,
         }
@@ -142,7 +147,8 @@ async def get_supplier_detail(supplier_id: int, db: AsyncSession = Depends(get_d
             "upc": p.upc or "",
             "price": p.price,
             "selling_price": p.selling_price,
-            "stock": p.stock_quantity,
+            # Sin gestión de inventario el stock no se lleva: no se muestra.
+            "stock": p.stock_quantity if supplier.manages_inventory else None,
         }
         for p in result.scalars().all()
     ]
@@ -151,6 +157,7 @@ async def get_supplier_detail(supplier_id: int, db: AsyncSession = Depends(get_d
         "id": supplier.id,
         "rfc": supplier.rfc,
         "name": supplier.name,
+        "manages_inventory": supplier.manages_inventory,
         "created_at": supplier.created_at,
         "products": products,
         "product_count": len(products),
@@ -179,6 +186,23 @@ async def update_supplier(
 
     await db.commit()
     return {"message": "Proveedor actualizado"}
+
+
+@router.put("/{supplier_id}/inventory")
+async def set_supplier_inventory(
+    supplier_id: int,
+    data: InventoryToggle,
+    db: AsyncSession = Depends(get_db),
+    _admin: dict = Depends(verify_admin),
+):
+    """Activa o desactiva la gestión de inventario de un proveedor."""
+    supplier = await db.get(Supplier, supplier_id)
+    if not supplier:
+        raise HTTPException(404, "Proveedor no encontrado")
+
+    supplier.manages_inventory = data.enabled
+    await db.commit()
+    return {"id": supplier_id, "manages_inventory": data.enabled}
 
 
 @router.delete("/{supplier_id}")

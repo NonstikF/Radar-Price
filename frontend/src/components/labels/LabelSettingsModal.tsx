@@ -35,7 +35,7 @@ export function LabelSettingsModal({ onClose }: Props) {
                 </button>
 
                 <h2 className="text-xl font-black text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-                    <Ruler className="w-6 h-6 text-blue-600" /> Configurar Etiqueta
+                    <Ruler className="w-6 h-6 text-blue-600" /> Configurar etiqueta
                 </h2>
 
                 <div className="space-y-6">
@@ -50,14 +50,14 @@ export function LabelSettingsModal({ onClose }: Props) {
                             value={settings.companyName || ''}
                             onChange={(e) => updateSettings({ companyName: e.target.value })}
                             className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500 font-bold text-gray-800 dark:text-white"
-                            placeholder="Ej: Mi Tienda"
+                            placeholder="Ej. Mi tienda"
                         />
                     </div>
 
                     {/* 2. TAMAÑO DE PAPEL */}
                     <div className="space-y-2">
                         <label className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase">
-                            <Ruler className="w-3 h-3" /> Tamaño de Papel
+                            <Ruler className="w-3 h-3" /> Tamaño de papel
                         </label>
 
                         {/* Botones de selección */}
@@ -104,7 +104,7 @@ export function LabelSettingsModal({ onClose }: Props) {
                     {/* 3. CÓDIGO DE BARRAS: qué valor codificar */}
                     <div className="space-y-2">
                         <label className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase">
-                            <Barcode className="w-3 h-3" /> Código de Barras
+                            <Barcode className="w-3 h-3" /> Código de barras
                         </label>
                         <p className="text-[10px] text-gray-500">
                             Si se imprime o no se elige al momento de imprimir. Aquí defines qué código lleva.
@@ -115,7 +115,7 @@ export function LabelSettingsModal({ onClose }: Props) {
                                 className={`p-3 rounded-xl border text-left transition-all ${(settings.barcodeSource || 'upc_if_available') === 'upc_if_available' ? 'bg-blue-50 border-blue-500' : 'bg-white border-gray-200'}`}
                             >
                                 <span className="text-xs font-bold block text-gray-800">Automático</span>
-                                <span className="text-[10px] text-gray-500">Usa el UPC si existe, si no usa el ID interno.</span>
+                                <span className="text-[10px] text-gray-500">Usa el UPC si existe; si no, el SKU.</span>
                             </button>
                             <button
                                 onClick={() => updateSettings({ barcodeSource: 'always_upc' })}
@@ -128,8 +128,8 @@ export function LabelSettingsModal({ onClose }: Props) {
                                 onClick={() => updateSettings({ barcodeSource: 'always_sku' })}
                                 className={`p-3 rounded-xl border text-left transition-all ${settings.barcodeSource === 'always_sku' ? 'bg-blue-50 border-blue-500' : 'bg-white border-gray-200'}`}
                             >
-                                <span className="text-xs font-bold block text-gray-800">Siempre ID interno</span>
-                                <span className="text-[10px] text-gray-500">Solo el SKU de tu inventario.</span>
+                                <span className="text-xs font-bold block text-gray-800">Siempre SKU</span>
+                                <span className="text-[10px] text-gray-500">Aunque el producto tenga UPC.</span>
                             </button>
                         </div>
                     </div>
@@ -137,7 +137,7 @@ export function LabelSettingsModal({ onClose }: Props) {
 
                 <div className="mt-8">
                     <button onClick={onClose} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-blue-500/30 transition-all active:scale-95">
-                        <Save className="w-5 h-5" /> Guardar Cambios
+                        <Save className="w-5 h-5" /> Guardar cambios
                     </button>
                 </div>
             </div>

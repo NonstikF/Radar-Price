@@ -4,6 +4,7 @@ from sqlalchemy.future import select
 from sqlalchemy import func, desc
 from app.core.database import get_db
 from app.domain.models import StockHistory, Product, Supplier
+from app.services.inventory import product_in_inventory
 
 router = APIRouter()
 
@@ -28,6 +29,7 @@ async def get_stock_history(
             Product.sku,
         )
         .join(Product, StockHistory.product_id == Product.id)
+        .where(product_in_inventory())
         .order_by(desc(StockHistory.date))
     )
 
@@ -62,8 +64,13 @@ async def get_stock_history(
 
 @router.get("/summary")
 async def get_inventory_summary(db: AsyncSession = Depends(get_db)):
+    # Solo cuentan los productos de proveedores con gestión de inventario
+    in_inventory = product_in_inventory()
+
     # Total productos
-    total_products = (await db.execute(select(func.count(Product.id)))).scalar() or 0
+    total_products = (
+        await db.execute(select(func.count(Product.id)).where(in_inventory))
+    ).scalar() or 0
 
     # Valor de inventario (stock × costo y stock × precio venta)
     value_result = (
@@ -71,7 +78,7 @@ async def get_inventory_summary(db: AsyncSession = Depends(get_db)):
             select(
                 func.sum(Product.stock_quantity * Product.price).label("cost_value"),
                 func.sum(Product.stock_quantity * Product.selling_price).label("sale_value"),
-            )
+            ).where(in_inventory)
         )
     ).one()
 
@@ -79,7 +86,8 @@ async def get_inventory_summary(db: AsyncSession = Depends(get_db)):
     no_price = (
         await db.execute(
             select(func.count(Product.id)).where(
-                (Product.selling_price == None) | (Product.selling_price == 0)
+                (Product.selling_price == None) | (Product.selling_price == 0),
+                in_inventory,
             )
         )
     ).scalar() or 0
@@ -90,6 +98,7 @@ async def get_inventory_summary(db: AsyncSession = Depends(get_db)):
             select(func.count(Product.id)).where(
                 Product.selling_price > 0,
                 Product.price > Product.selling_price,
+                in_inventory,
             )
         )
     ).scalar() or 0
@@ -97,7 +106,7 @@ async def get_inventory_summary(db: AsyncSession = Depends(get_db)):
     # Sin stock
     no_stock = (
         await db.execute(
-            select(func.count(Product.id)).where(Product.stock_quantity <= 0)
+            select(func.count(Product.id)).where(Product.stock_quantity <= 0, in_inventory)
         )
     ).scalar() or 0
 
@@ -106,7 +115,9 @@ async def get_inventory_summary(db: AsyncSession = Depends(get_db)):
     today_start = datetime.combine(date.today(), datetime.min.time())
     movements_today = (
         await db.execute(
-            select(func.count(StockHistory.id)).where(StockHistory.date >= today_start)
+            select(func.count(StockHistory.id))
+            .join(Product, StockHistory.product_id == Product.id)
+            .where(StockHistory.date >= today_start, in_inventory)
         )
     ).scalar() or 0
 

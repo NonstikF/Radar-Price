@@ -7,6 +7,7 @@ import {
     FileStack, History, X, Link
 } from 'lucide-react';
 import { API_URL } from '../../config/api';
+import { PageHeader } from '../../components/ui/PageHeader';
 
 interface Props {
     products: any[];
@@ -202,6 +203,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
 
     return (
         <div className="w-full max-w-7xl mx-auto p-4 md:p-6 pb-24 relative space-y-8 animate-fade-in">
+            <PageHeader parent="purchases" title="Importar factura XML" description="Sube el XML del proveedor para actualizar costos." />
 
             {/* --- ZONA 1: CARGA NORMAL --- */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6 border border-gray-200 dark:border-gray-700 transition-colors">
@@ -210,8 +212,8 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                         <Upload className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div>
-                        <h3 className="font-bold text-lg text-gray-900 dark:text-white">Cargar Factura (Actualizar Precios)</h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Sube tu XML para detectar cambios.</p>
+                        <h3 className="font-bold text-lg text-gray-900 dark:text-white">Factura del proveedor</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Actualiza costos y detecta productos nuevos o con cambio de precio.</p>
                     </div>
                 </div>
 
@@ -227,7 +229,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                     </div>
                     <button onClick={handleUpload} disabled={!file || loading} className="w-full md:w-auto bg-blue-600 dark:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 flex justify-center items-center gap-2 transition-colors shadow-lg shadow-blue-500/20 active:scale-95">
                         {loading ? <Loader2 className="animate-spin w-4 h-4" /> : <FileText className="w-4 h-4" />}
-                        {loading ? 'Procesando...' : 'Cargar Lista'}
+                        {loading ? 'Procesando...' : 'Importar factura'}
                     </button>
                 </div>
             </div>
@@ -239,7 +241,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                         <Database className="w-6 h-6 text-purple-600 dark:text-purple-400" />
                     </div>
                     <div>
-                        <h3 className="font-bold text-lg text-gray-900 dark:text-white">Importador Masivo de Catálogo</h3>
+                        <h3 className="font-bold text-lg text-gray-900 dark:text-white">Catálogo de productos</h3>
                         <p className="text-sm text-gray-500 dark:text-gray-400">
                             Soporta múltiples archivos. <span className="bg-white dark:bg-gray-800 px-2 py-0.5 rounded mx-1 font-mono text-xs border border-gray-200 dark:border-gray-700">ClaveProdServ ➔ UPC</span>
                         </p>
@@ -264,7 +266,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                     </div>
                     <button onClick={handleCatalogUpload} disabled={catalogFiles.length === 0 || catalogLoading} className="w-full md:w-auto bg-purple-600 dark:bg-purple-700 text-white px-6 py-3 rounded-xl font-bold hover:bg-purple-700 dark:hover:bg-purple-600 disabled:opacity-50 flex justify-center items-center gap-2 transition-colors shadow-lg shadow-purple-500/20 active:scale-95">
                         {catalogLoading ? <Loader2 className="animate-spin w-4 h-4" /> : <Upload className="w-4 h-4" />}
-                        {catalogLoading ? `Importando ${catalogProgress.current}/${catalogProgress.total}` : 'Importar Todo'}
+                        {catalogLoading ? `Importando ${catalogProgress.current}/${catalogProgress.total}` : 'Importar catálogo'}
                     </button>
                 </div>
                 {catalogLoading && (
@@ -295,7 +297,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                         <div className="flex flex-col">
                             <h3 className="font-bold text-gray-700 dark:text-gray-200 flex items-center gap-2 text-base md:text-lg">
                                 <DollarSign className="w-5 h-5 text-green-600 dark:text-green-400" />
-                                <span>Gestión de Precios</span>
+                                <span>Productos de la factura</span>
                             </h3>
                             <span className="text-gray-400 dark:text-gray-500 text-xs md:hidden">({products.length} visibles)</span>
                         </div>
@@ -362,7 +364,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                                         </div>
                                         <div>
                                             <p className={`text-[10px] uppercase font-bold mb-1 ${venta > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                                                Precio Venta
+                                                Precio de venta
                                             </p>
                                             <div className="relative">
                                                 <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
@@ -391,7 +393,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                                         <th className="px-4 py-3">Producto</th>
                                         <th className="px-4 py-3 text-center">Cant.</th>
                                         <th className="px-4 py-3 text-right">Costo</th>
-                                        <th className="px-4 py-3 text-center bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-l border-blue-100 dark:border-blue-800 w-40">PRECIO VENTA</th>
+                                        <th className="px-4 py-3 text-center bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-l border-blue-100 dark:border-blue-800 w-40">Precio de venta</th>
                                         <th className="px-4 py-3 text-right">Margen</th>
                                     </tr>
                                 </thead>
@@ -429,7 +431,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                                                                                 <button key={s.id} onClick={() => initiateMerge(i, s.id, s.name)} className="w-full text-left p-2 hover:bg-blue-50 dark:hover:bg-gray-700 rounded-lg text-xs border border-gray-100 dark:border-gray-700 group transition-colors">
                                                                                     <div className="font-bold text-gray-800 dark:text-gray-200 group-hover:text-blue-700 dark:group-hover:text-blue-400">{s.name}</div>
                                                                                     <div className="text-gray-400 dark:text-gray-500 flex justify-between mt-1">
-                                                                                        <span>Costo BD: ${s.price}</span>
+                                                                                        <span>Costo actual: ${s.price}</span>
                                                                                         <span className="text-blue-600 dark:text-blue-400 font-bold flex items-center gap-1">Fusionar <ArrowRight className="w-3 h-3" /></span>
                                                                                     </div>
                                                                                 </button>
@@ -474,7 +476,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                         <div className="bg-blue-100 dark:bg-blue-900/30 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-white dark:border-gray-800 shadow-lg relative -mt-10 transition-colors">
                             <GitMerge className="w-10 h-10 text-blue-600 dark:text-blue-400" />
                         </div>
-                        <h3 className="text-xl font-black text-gray-900 dark:text-white mb-2">Unificar Producto</h3>
+                        <h3 className="text-xl font-black text-gray-900 dark:text-white mb-2">Unificar producto</h3>
                         <p className="text-gray-500 dark:text-gray-400 text-sm mb-6 leading-relaxed">
                             Este producto se registrará como: <br />
                             <strong className="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded-md mt-2 inline-block border border-blue-100 dark:border-blue-900">{pendingMerge.targetName}</strong>
@@ -482,7 +484,7 @@ export function InvoiceUploader({ products, setProducts }: Props) {
                         <div className="space-y-3">
                             <button onClick={executeMerge} disabled={loading} className="w-full bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-blue-500/30 active:scale-95 flex items-center justify-center gap-2">
                                 {loading ? <Loader2 className="animate-spin w-4 h-4" /> : <CheckCircle2 className="w-5 h-5" />}
-                                Confirmar y Unificar
+                                Confirmar y unificar
                             </button>
                             <button onClick={() => setPendingMerge(null)} disabled={loading} className="w-full bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-500 dark:text-white font-bold py-3 rounded-xl transition-colors border border-gray-200 dark:border-gray-600">
                                 Cancelar

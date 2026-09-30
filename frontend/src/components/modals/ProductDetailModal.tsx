@@ -299,7 +299,7 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
 
                         {/* PANEL DE PRECIO */}
                         <div style={{ containerType: 'inline-size' }} className="w-1/2 min-w-0 bg-blue-600 dark:bg-blue-700 text-white px-3 py-4 flex flex-col justify-center text-center">
-                            <p className="text-blue-200 text-[10px] font-bold uppercase tracking-widest mb-1">Precio de Venta</p>
+                            <p className="text-blue-200 text-[10px] font-bold uppercase tracking-widest mb-1">Precio de venta</p>
                             {isAdmin ? (
                                 <div className="relative w-full">
                                     <div className="flex items-center justify-center">
@@ -337,7 +337,7 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
                             onClick={() => setActiveTab(tab)}
                             className={`flex-1 py-2 rounded-lg text-[11px] font-bold uppercase transition-all ${activeTab === tab ? 'bg-white dark:bg-gray-800 shadow-sm text-blue-700 dark:text-blue-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
                         >
-                            {tab === 'general' ? 'Datos Generales' : tab === 'history' ? 'Historial' : 'Compras'}
+                            {tab === 'general' ? 'Datos generales' : tab === 'history' ? 'Historial' : 'Compras'}
                         </button>
                     ))}
                 </div>
@@ -388,7 +388,7 @@ export function ProductDetailModal({ product, isAdmin, onClose, onDelete, onUpda
                             />
 
                             <EditField
-                                label="ID Interno" icon={<Hash className="w-4 h-4 text-gray-500" />}
+                                label="SKU" icon={<Hash className="w-4 h-4 text-gray-500" />}
                                 value={editSku} original={product.sku}
                                 onChange={setEditSku} onSave={() => handleSaveField('sku')}
                                 saving={saving}
@@ -615,6 +615,10 @@ const NotesField = ({ value, original, onChange, onSave, saving }: any) => {
 const ShoppingTab = ({ product, editSupplierId, suppliers, addQty, setAddQty, addToList, adding, showToast }: any) => {
     const supplierName = suppliers.find((s: any) => s.id === Number(editSupplierId || product.supplier_id))?.name;
     const hasSupplier = !!(product.supplier_id || editSupplierId);
+    // Los productos del almacén (stock != null) no pueden pasar de su existencia
+    const [available, setAvailable] = useState<number | null>(product.stock ?? null);
+    const inWarehouse = available !== null;
+    const canOrder = !inWarehouse || available > 0;
 
     return (
         <div className="space-y-4">
@@ -626,15 +630,20 @@ const ShoppingTab = ({ product, editSupplierId, suppliers, addQty, setAddQty, ad
                 {hasSupplier ? (
                     <p className="text-sm font-bold text-gray-800 dark:text-gray-100">{supplierName || 'Proveedor'}</p>
                 ) : (
-                    <p className="text-sm text-orange-600 dark:text-orange-400 font-medium">Sin proveedor asignado. Asigna uno en "Datos Generales".</p>
+                    <p className="text-sm text-orange-600 dark:text-orange-400 font-medium">Sin proveedor asignado. Asigna uno en "Datos generales".</p>
                 )}
             </div>
 
             {/* Agregar a lista */}
             <div className="bg-emerald-50 dark:bg-emerald-900/20 p-5 rounded-2xl">
                 <label className="flex items-center gap-2 text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase mb-4 tracking-wide">
-                    <ShoppingCart className="w-4 h-4" /> Agregar a Lista de Compras
+                    <ShoppingCart className="w-4 h-4" /> Agregar a lista de compras
                 </label>
+                {inWarehouse && (
+                    <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 -mt-2 mb-4">
+                        {canOrder ? `Disponibles en almacén: ${available}` : 'Sin existencia en el almacén.'}
+                    </p>
+                )}
 
                 <div className="flex items-center gap-3 mb-4">
                     <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Cantidad</span>
@@ -647,11 +656,16 @@ const ShoppingTab = ({ product, editSupplierId, suppliers, addQty, setAddQty, ad
                             type="number"
                             min={1}
                             value={addQty}
-                            onChange={(e) => setAddQty(Math.max(1, parseInt(e.target.value) || 1))}
+                            max={available ?? undefined}
+                            onChange={(e) => {
+                                const v = Math.max(1, parseInt(e.target.value) || 1);
+                                setAddQty(inWarehouse ? Math.min(v, available || 1) : v);
+                            }}
                             className="w-16 bg-white dark:bg-gray-900 border-none p-2 rounded-xl text-sm text-center outline-none ring-1 ring-transparent focus:ring-emerald-500 text-gray-900 dark:text-white shadow-inner font-bold"
                         />
                         <button
-                            onClick={() => setAddQty(addQty + 1)}
+                            onClick={() => setAddQty(inWarehouse ? Math.min(addQty + 1, available || 1) : addQty + 1)}
+                            disabled={inWarehouse && addQty >= (available || 0)}
                             className="w-10 h-10 rounded-xl bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 font-bold text-lg shadow-sm hover:bg-gray-100 dark:hover:bg-gray-800 transition-all active:scale-95"
                         >+</button>
                     </div>
@@ -666,12 +680,13 @@ const ShoppingTab = ({ product, editSupplierId, suppliers, addQty, setAddQty, ad
                         try {
                             const result = await addToList(product.id, addQty);
                             showToast(`Agregado a lista de ${result.supplier_name}`);
+                            if (inWarehouse) setAvailable(prev => (prev ?? 0) - addQty);
                             setAddQty(1);
                         } catch (err: any) {
                             showToast(err.response?.data?.detail || "Error al agregar", "error");
                         }
                     }}
-                    disabled={adding || !hasSupplier}
+                    disabled={adding || !hasSupplier || !canOrder}
                     className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
                 >
                     {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingCart className="w-4 h-4" />}
@@ -682,7 +697,7 @@ const ShoppingTab = ({ product, editSupplierId, suppliers, addQty, setAddQty, ad
             {/* Info contextual */}
             {hasSupplier && (
                 <p className="text-xs text-gray-400 dark:text-gray-500 text-center px-4">
-                    Se agregará a la lista activa de <span className="font-bold text-gray-500 dark:text-gray-400">{supplierName}</span>. Si no existe, se creará una nueva.
+                    Se agregará a la lista activa de <span className="font-bold text-gray-500 dark:text-gray-400">{supplierName}</span>{inWarehouse ? ' y las piezas se descuentan del almacén' : ''}. Si no existe, se creará una nueva.
                 </p>
             )}
         </div>
@@ -700,7 +715,7 @@ const HistoryList = ({ history }: { history: any[] }) => {
                     <div className="flex justify-between items-start">
                         <div>
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${item.type === 'COSTO' ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400' : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'}`}>
-                                {item.type === 'COSTO' ? 'Costo Compra' : 'Precio Venta'}
+                                {item.type === 'COSTO' ? 'Costo' : 'Precio de venta'}
                             </span>
                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{new Date(item.date).toLocaleDateString()}</p>
                         </div>

@@ -3,10 +3,11 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
     Tag, Plus, Edit3, Trash2, X, Loader2, CheckCircle2, AlertTriangle,
-    Search, Package, MapPin, ArrowLeft
-} from 'lucide-react';
+    Search, Package, MapPin} from 'lucide-react';
 import { API_URL } from '../../config/api';
 import { TOAST_DURATION } from '../../config/constants';
+import { BackLink, PageHeader } from '../../components/ui/PageHeader';
+import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 
 interface CategoryItem {
     id: number;
@@ -74,6 +75,18 @@ export function Categories() {
     const [showFormModal, setShowFormModal] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
     const [formData, setFormData] = useState({ name: '', description: '', color: 'blue' });
+    // Valores con los que se abrió el formulario, para saber si hay cambios sin guardar.
+    const [formBaseline, setFormBaseline] = useState(formData);
+    const isFormDirty = showFormModal && JSON.stringify(formData) !== JSON.stringify(formBaseline);
+    const { confirm: confirmDiscard, dialog: unsavedDialog } = useUnsavedChanges(isFormDirty);
+
+    const openForm = (id: number | null, data: typeof formData) => {
+        setEditingId(id);
+        setFormData(data);
+        setFormBaseline(data);
+        setShowFormModal(true);
+    };
+    const closeForm = () => { setShowFormModal(false); setEditingId(null); };
     const [processing, setProcessing] = useState(false);
     const [deleteId, setDeleteId] = useState<number | null>(null);
 
@@ -197,10 +210,9 @@ export function Categories() {
         return (
             <div className="w-full max-w-7xl mx-auto p-4 md:p-6 pb-24 animate-fade-in">
                 <Toast />
+                {unsavedDialog}
 
-                <button onClick={() => setDetail(null)} className="flex items-center gap-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 mb-4 text-sm font-bold transition-colors">
-                    <ArrowLeft className="w-4 h-4" /> Categorías
-                </button>
+                <BackLink label="Categorías" onClick={() => setDetail(null)} className="mb-2" />
 
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">
@@ -214,17 +226,13 @@ export function Categories() {
                     </div>
                     <div className="flex items-center gap-2">
                         <button
-                            onClick={() => {
-                                setEditingId(detail.id);
-                                setFormData({ name: detail.name, description: detail.description || '', color: detail.color });
-                                setShowFormModal(true);
-                            }}
+                            onClick={() => openForm(detail.id, { name: detail.name, description: detail.description || '', color: detail.color })}
                             className="p-2 rounded-xl text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20"
                         >
                             <Edit3 className="w-5 h-5" />
                         </button>
                         <button onClick={() => setShowAddProduct(true)} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition-colors">
-                            <Plus className="w-4 h-4" /> Agregar Producto
+                            <Plus className="w-4 h-4" /> Agregar producto
                         </button>
                     </div>
                 </div>
@@ -283,7 +291,7 @@ export function Categories() {
                         <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg max-h-[80vh] overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
                             <div className="p-4 border-b border-gray-100 dark:border-gray-700">
                                 <div className="flex items-center justify-between mb-3">
-                                    <h2 className="font-black text-gray-900 dark:text-white">Agregar Producto</h2>
+                                    <h2 className="font-black text-gray-900 dark:text-white">Agregar producto</h2>
                                     <button onClick={() => { setShowAddProduct(false); setProductSearch(''); setSearchResults([]); }} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
                                         <X className="w-5 h-5 text-gray-400" />
                                     </button>
@@ -338,9 +346,9 @@ export function Categories() {
 
                 {/* Modal Form */}
                 {showFormModal && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowFormModal(false)}>
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => confirmDiscard(closeForm)}>
                         <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-                            <h2 className="font-black text-lg text-gray-900 dark:text-white mb-4">{editingId ? 'Editar' : 'Nueva'} Categoría</h2>
+                            <h2 className="font-black text-lg text-gray-900 dark:text-white mb-4">{editingId ? 'Editar' : 'Nueva'} categoría</h2>
                             <div className="space-y-4">
                                 <div>
                                     <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Nombre</label>
@@ -364,7 +372,7 @@ export function Categories() {
                                 </div>
                             </div>
                             <div className="flex gap-3 mt-6">
-                                <button onClick={() => { setShowFormModal(false); setEditingId(null); }} className="flex-1 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-bold text-sm">Cancelar</button>
+                                <button onClick={() => confirmDiscard(closeForm)} className="flex-1 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-bold text-sm">Cancelar</button>
                                 <button onClick={handleSave} disabled={processing || !formData.name.trim()} className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm disabled:opacity-50 flex items-center justify-center gap-2">
                                     {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Guardar'}
                                 </button>
@@ -395,19 +403,16 @@ export function Categories() {
     return (
         <div className="w-full max-w-7xl mx-auto p-4 md:p-6 pb-24 animate-fade-in">
             <Toast />
+                {unsavedDialog}
 
-            <div className="flex items-center justify-between mb-6">
-                <div>
-                    <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight">Categorías</h1>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Agrupa productos para organizarlos.</p>
-                </div>
+            <PageHeader parent="products" title="Categorías" description="Agrupa productos por temporada o tipo." actions={
                 <button
-                    onClick={() => { setFormData({ name: '', description: '', color: 'blue' }); setEditingId(null); setShowFormModal(true); }}
+                    onClick={() => openForm(null, { name: '', description: '', color: 'blue' })}
                     className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition-colors shadow-lg shadow-indigo-500/20"
                 >
-                    <Plus className="w-4 h-4" /> Nueva
+                    <Plus className="w-4 h-4" /> Nueva categoría
                 </button>
-            </div>
+            } />
 
             {loading ? (
                 <div className="flex justify-center py-16"><Loader2 className="w-8 h-8 animate-spin text-indigo-500" /></div>
@@ -441,9 +446,7 @@ export function Categories() {
                                     <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                                         <button onClick={(e) => {
                                             e.stopPropagation();
-                                            setEditingId(cat.id);
-                                            setFormData({ name: cat.name, description: cat.description || '', color: cat.color });
-                                            setShowFormModal(true);
+                                            openForm(cat.id, { name: cat.name, description: cat.description || '', color: cat.color });
                                         }} className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20">
                                             <Edit3 className="w-3.5 h-3.5" />
                                         </button>
@@ -466,9 +469,9 @@ export function Categories() {
 
             {/* Modal Form */}
             {showFormModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowFormModal(false)}>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => confirmDiscard(closeForm)}>
                     <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-                        <h2 className="font-black text-lg text-gray-900 dark:text-white mb-4">{editingId ? 'Editar' : 'Nueva'} Categoría</h2>
+                        <h2 className="font-black text-lg text-gray-900 dark:text-white mb-4">{editingId ? 'Editar' : 'Nueva'} categoría</h2>
                         <div className="space-y-4">
                             <div>
                                 <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Nombre</label>
@@ -492,7 +495,7 @@ export function Categories() {
                             </div>
                         </div>
                         <div className="flex gap-3 mt-6">
-                            <button onClick={() => { setShowFormModal(false); setEditingId(null); }} className="flex-1 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-bold text-sm">Cancelar</button>
+                            <button onClick={() => confirmDiscard(closeForm)} className="flex-1 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-bold text-sm">Cancelar</button>
                             <button onClick={handleSave} disabled={processing || !formData.name.trim()} className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm disabled:opacity-50 flex items-center justify-center gap-2">
                                 {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Guardar'}
                             </button>

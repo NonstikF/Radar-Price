@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
-    ArrowLeft,
     Package,
     Search,
     ChevronLeft,
@@ -10,6 +8,7 @@ import {
     Activity,
 } from 'lucide-react';
 import { API_URL } from '../../config/api';
+import { PageHeader } from '../../components/ui/PageHeader';
 
 interface StockHistoryItem {
     id: number;
@@ -33,6 +32,10 @@ const CHANGE_TYPE_LABELS: Record<string, { label: string; color: string }> = {
     ENTRADA: { label: 'Entrada', color: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20' },
     AJUSTE: { label: 'Ajuste', color: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20' },
     MERGE: { label: 'Fusión', color: 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20' },
+    PEDIDO: { label: 'Pedido', color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' },
+    REGRESO: { label: 'Regreso', color: 'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20' },
+    SALIDA: { label: 'Salida', color: 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20' },
+    REVERSA: { label: 'Factura borrada', color: 'text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800' },
 };
 
 function formatDate(iso: string) {
@@ -42,7 +45,6 @@ function formatDate(iso: string) {
 }
 
 export function InventoryReports() {
-    const navigate = useNavigate();
 
     const [summary, setSummary] = useState<Summary | null>(null);
     const [items, setItems] = useState<StockHistoryItem[]>([]);
@@ -90,33 +92,12 @@ export function InventoryReports() {
 
     return (
         <div className="w-full max-w-7xl mx-auto p-4 md:p-6 pb-28 animate-fade-in">
-            {/* Header */}
-            <div className="flex items-center gap-3 mb-5">
-                <button
-                    onClick={() => navigate('/inventory')}
-                    className="p-2 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors shrink-0"
-                >
-                    <ArrowLeft className="w-4 h-4" />
-                </button>
-                <div className="flex-1">
-                    <h1 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">Reportes</h1>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Historial de movimientos de existencias.</p>
-                </div>
-                {summary && (
-                    <div className="hidden sm:flex items-center gap-3">
-                        <StatPill icon={<Package className="w-3.5 h-3.5" />} label="Productos" value={summary.total_products.toLocaleString()} color="blue" />
-                        <StatPill icon={<Activity className="w-3.5 h-3.5" />} label="Hoy" value={summary.movements_today.toLocaleString()} color="amber" />
-                    </div>
-                )}
-            </div>
-
-            {/* Stats en mobile */}
-            {summary && (
-                <div className="flex sm:hidden gap-3 mb-4">
+            <PageHeader parent="inventory" title="Reportes de inventario" description="Movimientos de existencias de los proveedores con gestión de inventario." actions={summary && (
+                <div className="flex items-center gap-3">
                     <StatPill icon={<Package className="w-3.5 h-3.5" />} label="Productos" value={summary.total_products.toLocaleString()} color="blue" />
                     <StatPill icon={<Activity className="w-3.5 h-3.5" />} label="Hoy" value={summary.movements_today.toLocaleString()} color="amber" />
                 </div>
-            )}
+            )} />
 
             {/* Tabla */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-transparent overflow-hidden">

@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 # --- IMPORTS ---
 # Asegúrate de que estos archivos existen y son correctos
-from app.api.endpoints import invoices, suppliers, shopping_lists, locations, categories, reports
+from app.api.endpoints import invoices, suppliers, shopping_lists, locations, categories, reports, stock
 from app.core.database import engine, Base
 from app.core.security import get_current_user, verify_admin
 
@@ -164,6 +164,34 @@ async def startup_event():
             await conn.execute(
                 text(
                     "ALTER TABLE products ADD COLUMN IF NOT EXISTS origin VARCHAR NOT NULL DEFAULT 'imported'"
+                )
+            )
+        except Exception:
+            pass
+        # Todos los proveedores empiezan sin gestión de inventario: se activan
+        # uno por uno desde Configuración.
+        try:
+            await conn.execute(
+                text(
+                    "ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS manages_inventory BOOLEAN NOT NULL DEFAULT FALSE"
+                )
+            )
+        except Exception:
+            pass
+        # Las líneas de facturas anteriores sí sumaron su cantidad al stock.
+        try:
+            await conn.execute(
+                text(
+                    "ALTER TABLE import_batch_items ADD COLUMN IF NOT EXISTS stock_applied BOOLEAN NOT NULL DEFAULT TRUE"
+                )
+            )
+        except Exception:
+            pass
+        # Los renglones de listas anteriores no descontaron nada del almacén.
+        try:
+            await conn.execute(
+                text(
+                    "ALTER TABLE shopping_list_items ADD COLUMN IF NOT EXISTS stock_deducted INTEGER NOT NULL DEFAULT 0"
                 )
             )
         except Exception:
@@ -400,3 +428,4 @@ app.include_router(shopping_lists.router, prefix="/shopping-lists", tags=["shopp
 app.include_router(locations.router, prefix="/locations", tags=["locations"], dependencies=_auth)
 app.include_router(categories.router, prefix="/categories", tags=["categories"], dependencies=_auth)
 app.include_router(reports.router, prefix="/inventory/reports", tags=["reports"], dependencies=_auth)
+app.include_router(stock.router, prefix="/inventory/stock", tags=["stock"], dependencies=_auth)

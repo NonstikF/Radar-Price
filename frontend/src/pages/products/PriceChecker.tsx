@@ -4,7 +4,7 @@ import * as XLSX from 'xlsx';
 import {
     Search, X, Camera, Filter, PackageOpen, Loader2, ArrowDownAZ, ArrowUpAZ,
     CheckCircle2, AlertTriangle, Tag, ShoppingCart, ChevronLeft, ChevronRight,
-    CheckSquare, Square, Clock, ListChecks, ShieldAlert, FileSpreadsheet
+    CheckSquare, Square, Clock, ListChecks, ShieldAlert, FileSpreadsheet, Warehouse, Plus
 } from 'lucide-react';
 import { BarcodeScanner } from '../../components/ui/BarcodeScanner';
 import { useProductSearch } from '../../hooks/useProductSearch';
@@ -12,6 +12,9 @@ import { useShoppingList } from '../../hooks/useShoppingList';
 import { ProductDetailModal } from '../../components/modals/ProductDetailModal';
 import { TOAST_DURATION } from '../../config/constants';
 import { API_URL } from '../../config/api';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { ManualEntry } from './ManualEntry';
+import { canAccess } from '../../lib/permissions';
 
 interface Props {
     initialFilter?: boolean;
@@ -22,7 +25,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
     // 1. Usamos el Hook de Búsqueda (Lógica extraída)
     const {
         products, loading, searchTerm, setSearchTerm, filters, setFilters,
-        clearFilters, setProducts, page, totalPages, total, goToPage
+        clearFilters, setProducts, page, totalPages, total, goToPage, refreshProducts
     } = useProductSearch(initialFilter);
 
     const { addToList, adding } = useShoppingList();
@@ -47,11 +50,29 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
 
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     const isAdmin = user.role === 'admin';
+    const canCreate = canAccess(user, 'manual');
+
+    // Alta rápida sin salir del buscador. Lo buscado se usa como código de
+    // barras si son solo dígitos, o como nombre si es texto.
+    const [showCreate, setShowCreate] = useState(false);
+    const typed = searchTerm.trim();
+    const typedIsBarcode = /^\d{6,}$/.test(typed);
+
+    const handleProductCreated = (product: { id: number; name: string }) => {
+        setShowCreate(false);
+        showToast(`Producto "${product.name}" creado`);
+        refreshProducts();
+    };
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => {
         setToast({ show: true, message, type });
         setTimeout(() => setToast(prev => ({ ...prev, show: false })), TOAST_DURATION);
     };
+
+    // Filtros del panel que están aplicados (el orden no cuenta como filtro).
+    const activeFilterCount = [
+        filters.missingPrice, filters.onlyDelicate, filters.supplierId, filters.minPrice, filters.maxPrice,
+    ].filter(Boolean).length;
 
     const handleClearAllFilters = () => {
         clearFilters();
@@ -98,6 +119,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                 q: searchTerm,
                 missing_price: filters.missingPrice,
                 only_delicate: filters.onlyDelicate || undefined,
+                in_stock: filters.inStock || undefined,
                 sort_by: filters.sortBy,
                 sort_order: filters.sortOrder,
                 limit: 9999,
@@ -149,10 +171,19 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
         }
     };
 
+    // Cualquier producto con proveedor se puede pedir. Los del almacén
+    // (stock != null) no pueden pasar de su existencia.
+    const inWarehouse = (product: any) => product.stock != null;
+    const canOrder = (product: any) => !!product.supplier_id && (!inWarehouse(product) || product.stock > 0);
+
     const handleOpenCartModal = (e: React.MouseEvent, product: any) => {
         e.stopPropagation();
         if (!product.supplier_id) {
             showToast("Asigna un proveedor primero", "error");
+            return;
+        }
+        if (inWarehouse(product) && product.stock <= 0) {
+            showToast("Sin existencia en el almacén", "error");
             return;
         }
         setCartModal({ product, quantity: 1 });
@@ -160,9 +191,14 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
 
     const handleConfirmAddToCart = async () => {
         if (!cartModal) return;
+        const { product, quantity } = cartModal;
         try {
-            const result = await addToList(cartModal.product.id, cartModal.quantity);
+            const result = await addToList(product.id, quantity);
             showToast(`Agregado a lista de ${result.supplier_name}`);
+            // Las piezas pedidas del almacén ya se descontaron
+            if (inWarehouse(product)) {
+                setProducts(prev => prev.map(p => p.id === product.id ? { ...p, stock: p.stock - quantity } : p));
+            }
             setCartModal(null);
         } catch (err: any) {
             showToast(err.response?.data?.detail || "Error al agregar", "error");
@@ -179,10 +215,11 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                 </div>
             </div>
 
-            {/* HEADER */}
-            <div className="mb-2 md:mb-6">
-                <h1 className="text-xl md:text-3xl font-black text-gray-900 dark:text-white px-2">Buscador</h1>
-            </div>
+            <PageHeader parent="products" title="Consultar precios" className="mb-2 px-2 md:mb-4" actions={canCreate && (
+                <button onClick={() => setShowCreate(true)} className="w-full md:w-auto bg-blue-600 text-white px-5 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition-all shadow-lg active:scale-95">
+                    <Plus className="w-5 h-5" /> Nuevo producto
+                </button>
+            )} />
 
             {/* BARRA DE BÚSQUEDA */}
             <div className="sticky top-0 z-40 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur pt-2 pb-2 md:pb-4 px-2 md:px-0">
@@ -206,11 +243,28 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                         </div>
 
                         <div className="flex gap-2 w-full md:w-auto">
+                            {/* ALMACÉN: solo productos con existencia de proveedores con inventario */}
+                            <button
+                                onClick={() => setFilters({ ...filters, inStock: !filters.inStock })}
+                                aria-pressed={filters.inStock}
+                                title="Ver solo productos con existencia"
+                                className={`flex-1 md:flex-none px-4 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-sm ${filters.inStock ? 'bg-amber-600 text-white hover:bg-amber-700' : 'bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40'}`}
+                            >
+                                <Warehouse className="w-4 h-4" /> Almacén
+                            </button>
                             <button
                                 onClick={() => setShowFilters(!showFilters)}
-                                className={`flex-1 md:flex-none px-4 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-sm ${showFilters || filters.minPrice || filters.missingPrice || filters.supplierId ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' : 'bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                                aria-expanded={showFilters}
+                                aria-label={activeFilterCount ? `Filtros (${activeFilterCount} activos)` : 'Filtros'}
+                                className={`flex-1 md:flex-none px-4 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-sm ${activeFilterCount
+                                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/40 ring-2 ring-blue-300 dark:ring-blue-500 hover:bg-blue-700'
+                                    : showFilters ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
+                                    : 'bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
                             >
                                 <Filter className="w-4 h-4" /> Filtros
+                                {activeFilterCount > 0 && (
+                                    <span className="min-w-5 h-5 px-1.5 rounded-full bg-white text-blue-700 text-xs font-black flex items-center justify-center">{activeFilterCount}</span>
+                                )}
                             </button>
                             <button
                                 onClick={handleExportExcel}
@@ -227,7 +281,7 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                             >
                                 <ListChecks className="w-4 h-4" />
                             </button>
-                            {(searchTerm || filters.minPrice || filters.missingPrice || filters.supplierId) && (
+                            {(searchTerm || activeFilterCount > 0 || filters.inStock) && (
                                 <button onClick={handleClearAllFilters} className="px-4 py-3 rounded-xl font-bold text-red-500 dark:text-red-400 bg-white dark:bg-gray-900 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">
                                     <X className="w-5 h-5" />
                                 </button>
@@ -289,6 +343,16 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                         <div className="text-center py-20 opacity-50 flex flex-col items-center">
                             <PackageOpen className="w-16 h-16 mb-4 text-gray-300" />
                             <p className="text-xl font-medium text-gray-400">No se encontraron productos</p>
+                            {filters.inStock && (
+                                <p className="text-sm text-gray-400 mt-2 max-w-sm">El almacén solo muestra productos con existencia de proveedores con gestión de inventario (se activan en Configuración).</p>
+                            )}
+                        </div>
+                    )}
+                    {products.length === 0 && canCreate && typed && !filters.inStock && (
+                        <div className="-mt-12 pb-10 flex justify-center">
+                            <button onClick={() => setShowCreate(true)} className="px-5 py-3 rounded-xl font-bold text-sm flex items-center gap-2 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all">
+                                <Plus className="w-4 h-4" /> Agregar "{typed}" como producto nuevo
+                            </button>
                         </div>
                     )}
 
@@ -332,6 +396,11 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                                     {product.upc && <span className="bg-gray-100 dark:bg-gray-900 px-2 rounded font-mono">UPC: {product.upc}</span>}
                                     {product.alias && <span className="bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 px-2 rounded font-bold flex items-center gap-1"><Tag className="w-3 h-3" /> {product.alias}</span>}
                                     {isDelicate && <span className="bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-2 rounded font-bold flex items-center gap-1"><ShieldAlert className="w-3 h-3" /> Delicado</span>}
+                                    {/* Existencia: solo llega para proveedores con gestión de inventario (si no, stock es null) */}
+                                    {product.stock != null && (product.stock > 0
+                                        ? <span className="bg-emerald-100 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 px-2 rounded font-bold flex items-center gap-1"><Warehouse className="w-3 h-3" /> Existencia: {product.stock}</span>
+                                        : <span className="bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 px-2 rounded font-bold flex items-center gap-1"><Warehouse className="w-3 h-3" /> Sin existencia</span>
+                                    )}
                                     {(!product.selling_price) && <span className="bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 px-2 rounded flex items-center gap-1 font-bold"><AlertTriangle className="w-3 h-3" /> Sin precio</span>}
                                 </div>
                             </div>
@@ -340,14 +409,15 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                                     <button
                                         onClick={(e) => handleOpenCartModal(e, product)}
                                         disabled={adding}
-                                        title={product.supplier_id ? "Agregar a lista de compras" : "Sin proveedor asignado"}
-                                        className={`p-2 rounded-xl transition-all active:scale-90 ${product.supplier_id ? 'text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20' : 'text-gray-300 dark:text-gray-600 cursor-not-allowed'}`}
+                                        title={canOrder(product) ? "Agregar a lista de compras" : !product.supplier_id ? "Sin proveedor asignado" : "Sin existencia en el almacén"}
+                                        aria-label={canOrder(product) ? `Agregar ${product.name} a la lista de compras` : `${product.name}: no se puede pedir`}
+                                        className={`p-2 rounded-xl transition-all active:scale-90 ${canOrder(product) ? 'text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20' : 'text-gray-300 dark:text-gray-600 cursor-not-allowed'}`}
                                     >
                                         <ShoppingCart className="w-5 h-5" />
                                     </button>
                                     <div className="text-right">
                                         {(!product.selling_price) ?
-                                            <span className="bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 px-2 py-1 rounded-lg text-xs font-bold">Sin Precio</span> :
+                                            <span className="bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 px-2 py-1 rounded-lg text-xs font-bold">Sin precio</span> :
                                             <div className="text-2xl font-black text-blue-600 dark:text-blue-400 tracking-tight">${product.selling_price?.toFixed(2)}</div>
                                         }
                                     </div>
@@ -446,6 +516,22 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
             )}
 
             {/* MODAL CANTIDAD CARRITO */}
+            {/* MODAL NUEVO PRODUCTO - reutiliza ManualEntry */}
+            {showCreate && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowCreate(false)}>
+                    <div role="dialog" aria-modal="true" aria-label="Nuevo producto" className="bg-gray-50 dark:bg-gray-900 rounded-3xl w-full max-w-2xl shadow-2xl relative animate-scale-in max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => setShowCreate(false)} className="absolute top-4 right-4 z-10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                            <span className="text-sm font-bold">Cancelar</span>
+                        </button>
+                        <ManualEntry
+                            initialName={typed && !typedIsBarcode ? typed : undefined}
+                            initialUpc={typedIsBarcode ? typed : undefined}
+                            onCreated={handleProductCreated}
+                        />
+                    </div>
+                </div>
+            )}
+
             {cartModal && (
                 <div
                     className="fixed inset-0 z-[60] flex items-center justify-center p-4"
@@ -463,6 +549,9 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                             <div className="flex-1 min-w-0">
                                 <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Agregar a lista</p>
                                 <p className="font-bold text-gray-800 dark:text-gray-100 text-sm leading-tight">{cartModal.product.name}</p>
+                                {inWarehouse(cartModal.product) && (
+                                    <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 mt-0.5">Disponibles en almacén: {cartModal.product.stock}</p>
+                                )}
                             </div>
                         </div>
 
@@ -479,14 +568,17 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                                     type="text"
                                     inputMode="numeric"
                                     value={cartModal.quantity}
+                                    aria-label="Cantidad"
                                     onChange={(e) => {
                                         const v = parseInt(e.target.value);
-                                        if (!isNaN(v) && v >= 1) setCartModal(m => m ? { ...m, quantity: v } : m);
+                                        if (!isNaN(v) && v >= 1) setCartModal(m => m ? { ...m, quantity: inWarehouse(m.product) ? Math.min(v, m.product.stock) : v } : m);
                                     }}
                                     className="flex-1 min-w-0 text-center text-2xl font-black text-gray-900 dark:text-white bg-white dark:bg-gray-800 outline-none"
                                 />
                                 <button
-                                    onClick={() => setCartModal(m => m ? { ...m, quantity: m.quantity + 1 } : m)}
+                                    onClick={() => setCartModal(m => m && (!inWarehouse(m.product) || m.quantity < m.product.stock) ? { ...m, quantity: m.quantity + 1 } : m)}
+                                    disabled={inWarehouse(cartModal.product) && cartModal.quantity >= cartModal.product.stock}
+                                    aria-label="Sumar una pieza"
                                     className="w-12 shrink-0 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-black text-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all active:scale-95 flex items-center justify-center border-l border-gray-200 dark:border-gray-700"
                                 >
                                     +

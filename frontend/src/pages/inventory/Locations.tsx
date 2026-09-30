@@ -3,12 +3,13 @@ import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import {
     MapPin, Plus, Edit3, Trash2, X, Loader2, CheckCircle2, AlertTriangle,
-    Search, Package, ChevronLeft, QrCode, ChevronDown, ChevronRight,
+    Search, Package, QrCode, ChevronDown, ChevronRight,
     Filter, Camera, ImagePlus, ZoomIn, Save
 } from 'lucide-react';
 import { BarcodeScanner } from '../../components/ui/BarcodeScanner';
 import { API_URL } from '../../config/api';
 import { TOAST_DURATION } from '../../config/constants';
+import { BackLink, PageHeader } from '../../components/ui/PageHeader';
 
 interface LocationItem {
     id: number;
@@ -503,9 +504,7 @@ export function Locations() {
 
                 {/* HEADER */}
                 <div className="mb-6 px-2">
-                    <button onClick={() => { setDetail(null); setShowAll(false); fetchLocations(); }} className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 mb-4 transition-colors">
-                        <ChevronLeft className="w-4 h-4" /> Volver a ubicaciones
-                    </button>
+                    <BackLink label="Ubicaciones" onClick={() => { setDetail(null); setShowAll(false); fetchLocations(); }} className="mb-2" />
                     <div className="flex items-start justify-between flex-wrap gap-3">
                         <div>
                             <div className="flex items-center gap-3">
@@ -867,21 +866,14 @@ export function Locations() {
         <div className="w-full max-w-7xl mx-auto p-4 md:p-6 pb-24 animate-fade-in">
             <Toast />
 
-            {/* HEADER */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-4">
-                <div>
-                    <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight">Ubicaciones</h1>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Gestiona ubicaciones de inventario.</p>
-                </div>
-                <div className="flex gap-2 w-full md:w-auto">
-                    <button onClick={() => setShowScanner(true)} className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-4 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all active:scale-95">
-                        <QrCode className="w-5 h-5" /> Escanear QR
-                    </button>
-                    <button onClick={openCreateModal} className="flex-1 md:flex-none bg-indigo-600 text-white px-5 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all shadow-lg active:scale-95">
-                        <Plus className="w-5 h-5" /> Nueva Ubicación
-                    </button>
-                </div>
-            </div>
+            <PageHeader parent="inventory" title="Ubicaciones" description="Administra estantes, racks y ubicaciones del almacén." actions={<>
+                <button onClick={() => setShowScanner(true)} className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-4 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all active:scale-95">
+                    <QrCode className="w-5 h-5" /> Escanear QR
+                </button>
+                <button onClick={openCreateModal} className="flex-1 md:flex-none bg-indigo-600 text-white px-5 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all shadow-lg active:scale-95">
+                    <Plus className="w-5 h-5" /> Nueva ubicación
+                </button>
+            </>} />
 
             {/* TABS: Ubicación / Producto */}
             <div className="flex gap-1 mb-4 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl w-fit">
@@ -895,7 +887,7 @@ export function Locations() {
                     onClick={() => { setProductSearchMode(true); setSearchTerm(''); }}
                     className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${productSearchMode ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}
                 >
-                    <Package className="w-4 h-4 inline mr-1.5 -mt-0.5" />Buscar Producto
+                    <Package className="w-4 h-4 inline mr-1.5 -mt-0.5" />Buscar producto
                 </button>
             </div>
 
@@ -1010,7 +1002,7 @@ export function Locations() {
                             <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center mx-auto mb-3">
                                 {editingId ? <Edit3 className="w-6 h-6" /> : <MapPin className="w-6 h-6" />}
                             </div>
-                            <h2 className="text-xl font-black text-gray-900 dark:text-white">{editingId ? 'Editar Ubicación' : 'Nueva Ubicación'}</h2>
+                            <h2 className="text-xl font-black text-gray-900 dark:text-white">{editingId ? 'Editar ubicación' : 'Nueva ubicación'}</h2>
                         </div>
 
                         <form onSubmit={handleSubmit} className="space-y-4">

@@ -35,9 +35,8 @@ def has_dependency(dependency, target):
     )
 
 
-async def request(method, path, token=None, upload=False):
+async def request(method, path, token=None, upload=False, body=b"{}"):
     content_type = "application/json"
-    body = b"{}"
     if upload:
         content_type = "multipart/form-data; boundary=TEST"
         body = (b'--TEST\r\nContent-Disposition: form-data; name="file"; '
@@ -65,7 +64,7 @@ async def request(method, path, token=None, upload=False):
 class SecurityTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         prefixes = ("/invoices", "/suppliers", "/shopping-lists", "/locations",
-                    "/categories", "/inventory/reports")
+                    "/categories", "/inventory/reports", "/inventory/stock")
         self.routes = [r for r in app.routes if isinstance(r, APIRoute)
                        and r.path.startswith(prefixes)]
         self.originals = [(r, r.dependant.call) for r in self.routes]
@@ -84,7 +83,7 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
         app.dependency_overrides.update(self.overrides)
 
     def test_all_business_routes_require_authentication(self):
-        self.assertEqual(len(self.routes), 53)
+        self.assertEqual(len(self.routes), 56)
         for route in self.routes:
             with self.subTest(path=route.path):
                 self.assertTrue(has_dependency(route.dependant, get_current_user))
@@ -93,7 +92,7 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
         expired = create_access_token({"sub": "expired", "role": "admin"},
                                       timedelta(seconds=-30))
         paths = ("/invoices/products", "/suppliers", "/shopping-lists",
-                 "/locations", "/categories", "/inventory/reports/summary")
+                 "/locations", "/categories", "/inventory/reports/summary", "/inventory/stock")
         for path in paths:
             for token, expected in [(None, 401), ("invalid", 401), (expired, 401),
                                     (self.uploader, 200), (self.admin, 200)]:
@@ -113,11 +112,15 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_deletions_and_merge_remain_admin_only(self):
         routes = [r for r in self.routes if has_dependency(r.dependant, verify_admin)]
-        self.assertEqual(len(routes), 7)
+        self.assertEqual(len(routes), 9)
         for route in routes:
             path = route.path
             for param in route.param_convertors:
                 path = path.replace("{" + param + "}", "999999")
             for token, expected in [(None, 401), (self.uploader, 403), (self.admin, 200)]:
                 with self.subTest(path=path, expected=expected):
-                    self.assertEqual(await request(next(iter(route.methods)), path, token), expected)
+                    # Body válido para el interruptor de inventario y el ajuste de
+                    # existencias; las demás rutas lo ignoran.
+                    body = b'{"enabled": true, "mode": "set", "quantity": 0}'
+                    self.assertEqual(await request(next(iter(route.methods)), path, token,
+                                                   body=body), expected)

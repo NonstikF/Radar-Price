@@ -1,14 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import {
-    Search, QrCode, Package, MapPin, ChevronLeft, Loader2,
+    Search, QrCode, Package, MapPin, Loader2,
     CheckCircle2, AlertTriangle, Camera, ArrowRight, Plus
 } from 'lucide-react';
 import { BarcodeScanner } from '../../components/ui/BarcodeScanner';
 import { ManualEntry } from '../products/ManualEntry';
 import { API_URL } from '../../config/api';
 import { TOAST_DURATION } from '../../config/constants';
-import { useNavigate } from 'react-router-dom';
+import { PageHeader } from '../../components/ui/PageHeader';
 
 interface ProductResult {
     id: number;
@@ -37,7 +37,6 @@ interface ProductLocation {
 type ScanMode = 'product' | 'location';
 
 export function AssignProduct() {
-    const navigate = useNavigate();
 
     // Producto seleccionado
     const [selectedProduct, setSelectedProduct] = useState<ProductResult | null>(null);
@@ -239,16 +238,7 @@ export function AssignProduct() {
         <div className="w-full max-w-2xl mx-auto p-4 md:p-6 pb-24 animate-fade-in">
             <Toast />
 
-            {/* Header */}
-            <div className="flex items-center gap-3 mb-6">
-                <button onClick={() => navigate('/inventory')} className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                    <ChevronLeft className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-                </button>
-                <div>
-                    <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight">Asignar Productos</h1>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Escanea o busca un producto y asígnalo a una ubicación.</p>
-                </div>
-            </div>
+            <PageHeader parent="inventory" title="Asignar productos" description="Escanea o busca un producto y asígnalo a una ubicación." />
 
             {/* PASO 1: Seleccionar producto */}
             {!selectedProduct ? (
@@ -509,6 +499,7 @@ export function AssignProduct() {
                         <ManualEntry
                             initialUpc={scannedBarcode}
                             onCreated={handleProductCreated}
+                            requireInventorySupplier
                         />
                     </div>
                 </div>

@@ -4,13 +4,14 @@ import axios from 'axios';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import {
-    ShoppingCart, ChevronLeft, Package, Trash2, CheckCircle2, XCircle,
+    ShoppingCart, Package, Trash2, CheckCircle2, XCircle,
     Loader2, Plus, Minus, AlertTriangle, RotateCcw, FileText, Search, Camera, X,
     Download, Building2
 } from 'lucide-react';
 import { BarcodeScanner } from '../../components/ui/BarcodeScanner';
 import { API_URL } from '../../config/api';
 import { TOAST_DURATION } from '../../config/constants';
+import { BackLink, PageHeader } from '../../components/ui/PageHeader';
 
 interface ShoppingListSummary {
     id: number;
@@ -33,6 +34,8 @@ interface ShoppingListItem {
     price: number;
     selling_price: number;
     quantity: number;
+    // Tope del renglón en pedidos del almacén (null: sin gestión de inventario)
+    max_quantity: number | null;
     subtotal: number;
     added_at: string;
 }
@@ -41,6 +44,7 @@ interface ShoppingListDetail {
     id: number;
     supplier_name: string;
     supplier_rfc: string;
+    manages_inventory: boolean;
     status: string;
     notes: string | null;
     items: ShoppingListItem[];
@@ -48,6 +52,10 @@ interface ShoppingListDetail {
     created_at: string;
     updated_at: string;
 }
+
+// Mensaje del servidor (p. ej. "el máximo para este pedido es 4") o uno genérico.
+const errorDetail = (err: unknown, fallback: string) =>
+    (axios.isAxiosError(err) && err.response?.data?.detail) || fallback;
 
 export function ShoppingLists() {
     const { isAdmin } = useOutletContext<{ isAdmin: boolean }>();
@@ -269,7 +277,7 @@ export function ShoppingLists() {
         try {
             await axios.put(`${API_URL}/shopping-lists/${listId}/items/${itemId}`, { quantity: newQty });
         } catch (err) {
-            showToast("Error al actualizar", "error");
+            showToast(errorDetail(err, "Error al actualizar"), "error");
             fetchDetail(listId);
         }
     };
@@ -284,19 +292,24 @@ export function ShoppingLists() {
             await axios.delete(`${API_URL}/shopping-lists/${listId}/items/${itemId}`);
             showToast("Item eliminado");
         } catch (err) {
-            showToast("Error al eliminar", "error");
+            showToast(errorDetail(err, "Error al eliminar"), "error");
             fetchDetail(listId);
         }
     };
 
     const handleUpdateStatus = async (listId: number, status: string) => {
+        const warehouse = selectedList?.manages_inventory;
         try {
             await axios.put(`${API_URL}/shopping-lists/${listId}/status`, { status });
-            showToast(status === 'completed' ? 'Lista completada' : status === 'active' ? 'Lista reactivada' : 'Lista cancelada');
+            showToast(
+                status === 'completed' ? (warehouse ? 'Pedido surtido' : 'Lista completada')
+                : status === 'active' ? 'Lista reactivada'
+                : warehouse ? 'Pedido cancelado: las piezas regresaron al almacén' : 'Lista cancelada'
+            );
             setSelectedList(null);
             fetchLists();
         } catch (err) {
-            showToast("Error", "error");
+            showToast(errorDetail(err, "Error"), "error");
         }
     };
 
@@ -327,7 +340,9 @@ export function ShoppingLists() {
 
     // --- VISTA DETALLE ---
     if (selectedList) {
-        const filteredItems = selectedList.items.filter(item => {
+        // Las listas del almacén solo se editan activas; las demás, como siempre.
+        const isEditable = !selectedList.manages_inventory || selectedList.status === 'active';
+        const filteredItems =selectedList.items.filter(item => {
             const q = itemSearch.toLowerCase();
             return !q || item.product_name.toLowerCase().includes(q) || (item.product_alias || '').toLowerCase().includes(q) || (item.product_sku || '').toLowerCase().includes(q);
         });
@@ -344,19 +359,20 @@ export function ShoppingLists() {
 
                 {/* HEADER COMPACTO */}
                 <div className="mb-3">
-                    <button onClick={() => { setSelectedList(null); fetchLists(); }} className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 mb-2 transition-colors">
-                        <ChevronLeft className="w-4 h-4" /> Volver
-                    </button>
+                    <BackLink label="Listas de compras" onClick={() => { setSelectedList(null); fetchLists(); }} className="mb-1" />
                     <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0">
                             <h1 className="text-lg md:text-2xl font-black text-gray-900 dark:text-white leading-tight truncate">{selectedList.supplier_name}</h1>
                             <p className="text-xs text-gray-400">{selectedList.supplier_rfc} · {selectedList.items.length} artículos</p>
+                            {selectedList.manages_inventory && (
+                                <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 mt-0.5">Pedido del almacén: las piezas ya se descontaron. Cancelarlo las regresa.</p>
+                            )}
                         </div>
                         {/* ACCIONES como iconos */}
                         <div className="flex items-center gap-1 shrink-0">
                             {statusBadge(selectedList.status)}
                             {selectedList.status === 'active' && (
-                                <button onClick={() => handleUpdateStatus(selectedList.id, 'completed')} title="Completar" className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-200 transition-all">
+                                <button onClick={() => handleUpdateStatus(selectedList.id, 'completed')} title={selectedList.manages_inventory ? "Marcar como surtido" : "Completar"} aria-label={selectedList.manages_inventory ? "Marcar como surtido" : "Completar"} className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-200 transition-all">
                                     <CheckCircle2 className="w-4 h-4" />
                                 </button>
                             )}
@@ -419,23 +435,41 @@ export function ShoppingLists() {
                                     </div>
                                 </div>
 
-                                {/* CANTIDAD */}
-                                <div className="flex items-center gap-1 shrink-0">
-                                    <button onClick={() => handleUpdateQty(selectedList.id, item.id, item.quantity - 1)} className="w-7 h-7 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center justify-center">
-                                        <Minus className="w-3 h-3 text-gray-600 dark:text-gray-300" />
-                                    </button>
-                                    <input
-                                        type="text"
-                                        inputMode="numeric"
-                                        value={item.quantity}
-                                        onChange={(e) => { const v = parseInt(e.target.value); if (!isNaN(v) && v >= 1) handleUpdateQty(selectedList.id, item.id, v); }}
-                                        onFocus={(e) => e.target.select()}
-                                        className="w-9 text-center font-bold text-gray-900 dark:text-white text-sm bg-gray-100 dark:bg-gray-700 rounded-lg py-1 outline-none focus:ring-2 focus:ring-blue-500"
-                                    />
-                                    <button onClick={() => handleUpdateQty(selectedList.id, item.id, item.quantity + 1)} className="w-7 h-7 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center justify-center">
-                                        <Plus className="w-3 h-3 text-gray-600 dark:text-gray-300" />
-                                    </button>
-                                </div>
+                                {/* CANTIDAD: editable solo en pedidos activos y sin pasar del almacén */}
+                                {isEditable ? (
+                                    <div className="flex flex-col items-center shrink-0">
+                                        <div className="flex items-center gap-1">
+                                            <button onClick={() => handleUpdateQty(selectedList.id, item.id, item.quantity - 1)} aria-label="Quitar una pieza" className="w-7 h-7 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center justify-center">
+                                                <Minus className="w-3 h-3 text-gray-600 dark:text-gray-300" />
+                                            </button>
+                                            <input
+                                                type="text"
+                                                inputMode="numeric"
+                                                aria-label="Cantidad"
+                                                value={item.quantity}
+                                                onChange={(e) => {
+                                                    const v = parseInt(e.target.value);
+                                                    if (!isNaN(v) && v >= 1) handleUpdateQty(selectedList.id, item.id, item.max_quantity != null ? Math.min(v, item.max_quantity) : v);
+                                                }}
+                                                onFocus={(e) => e.target.select()}
+                                                className="w-9 text-center font-bold text-gray-900 dark:text-white text-sm bg-gray-100 dark:bg-gray-700 rounded-lg py-1 outline-none focus:ring-2 focus:ring-blue-500"
+                                            />
+                                            <button
+                                                onClick={() => handleUpdateQty(selectedList.id, item.id, item.quantity + 1)}
+                                                disabled={item.max_quantity != null && item.quantity >= item.max_quantity}
+                                                aria-label="Sumar una pieza"
+                                                className="w-7 h-7 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                                            >
+                                                <Plus className="w-3 h-3 text-gray-600 dark:text-gray-300" />
+                                            </button>
+                                        </div>
+                                        {item.max_quantity != null && (
+                                            <span className="text-[10px] text-gray-400 mt-0.5">máx. {item.max_quantity}</span>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <span className="shrink-0 font-bold text-gray-900 dark:text-white text-sm px-2">{item.quantity} pz</span>
+                                )}
 
                                 {/* SUBTOTAL */}
                                 <div className="text-right min-w-[60px] shrink-0">
@@ -443,9 +477,11 @@ export function ShoppingLists() {
                                 </div>
 
                                 {/* ELIMINAR */}
-                                <button onClick={() => handleDeleteItem(selectedList.id, item.id)} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-300 dark:text-gray-600 hover:text-red-500 transition-colors shrink-0">
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                </button>
+                                {isEditable && (
+                                    <button onClick={() => handleDeleteItem(selectedList.id, item.id)} aria-label="Quitar del pedido" className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-300 dark:text-gray-600 hover:text-red-500 transition-colors shrink-0">
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -498,10 +534,7 @@ export function ShoppingLists() {
                 </div>
             </div>
 
-            {/* HEADER */}
-            <div className="mb-2 md:mb-6 px-2">
-                <h1 className="text-xl md:text-3xl font-black text-gray-900 dark:text-white">Listas de Compras</h1>
-            </div>
+            <PageHeader parent="purchases" title="Listas de compras" description="Arma y da seguimiento a pedidos por proveedor." className="px-2" />
 
             {/* FILTROS DE ESTADO */}
             <div className="flex gap-2 mb-6 px-2 overflow-x-auto">

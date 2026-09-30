@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from app.core.database import get_db
 from app.core.security import verify_admin, verify_upload_permission
 from app.services.xml_service import XmlInvoiceParser
+from app.services.inventory import get_managed_supplier_ids, supplier_manages_inventory
 from app.domain.models import (
     Product,
     PriceHistory,
@@ -171,6 +172,8 @@ async def upload_invoice(
     # 4. Cargar Inventario Actual
     stmt = select(Product)
     all_db_products = (await db.execute(stmt)).scalars().all()
+    # Solo suman stock los productos de proveedores con gestión de inventario
+    managed_ids = await get_managed_supplier_ids(db)
 
     sku_map = {clean_code(p.sku): p for p in all_db_products if p.sku}
     upc_map = {clean_code(p.upc): p for p in all_db_products if p.upc}
@@ -279,17 +282,19 @@ async def upload_invoice(
             if supplier_id and not existing_product.supplier_id:
                 existing_product.supplier_id = supplier_id
 
-            old_stock = existing_product.stock_quantity
-            existing_product.stock_quantity += data["qty"]  # Sumar Stock Global
-            stock_history_buffer.append(
-                StockHistory(
-                    product_id=existing_product.id,
-                    change_type="ENTRADA",
-                    old_value=int(old_stock),
-                    new_value=int(existing_product.stock_quantity),
-                    source=file.filename,
+            stock_applied = existing_product.supplier_id in managed_ids
+            if stock_applied:
+                old_stock = existing_product.stock_quantity
+                existing_product.stock_quantity += data["qty"]  # Sumar Stock Global
+                stock_history_buffer.append(
+                    StockHistory(
+                        product_id=existing_product.id,
+                        change_type="ENTRADA",
+                        old_value=int(old_stock),
+                        new_value=int(existing_product.stock_quantity),
+                        source=file.filename,
+                    )
                 )
-            )
 
             if abs(existing_product.price - data["cost"]) > 0.1:
                 status = "price_changed"
@@ -314,7 +319,10 @@ async def upload_invoice(
             # Guardar cantidad específica en el lote
             batch_items_buffer.append(
                 ImportBatchItem(
-                    batch_id=current_batch_id, product_id=p_id, quantity=data["qty"]
+                    batch_id=current_batch_id,
+                    product_id=p_id,
+                    quantity=data["qty"],
+                    stock_applied=stock_applied,
                 )
             )
 
@@ -373,12 +381,13 @@ async def upload_invoice(
             if final_sku:
                 used_skus.add(clean_code(final_sku))
 
+            stock_applied = supplier_id in managed_ids
             new_p = Product(
                 sku=final_sku,
                 upc=data.get("upc"),
                 name=data["name"],
                 price=data["cost"],
-                stock_quantity=data["qty"],
+                stock_quantity=data["qty"] if stock_applied else 0,
                 selling_price=0.0,
                 supplier_id=supplier_id,
                 origin="imported",
@@ -391,6 +400,7 @@ async def upload_invoice(
                     "product_obj": new_p,
                     "cost": data["cost"],
                     "qty": data["qty"],
+                    "stock_applied": stock_applied,
                     "response_idx": len(final_response_data),
                     "saved_sku": final_sku,  # Guardamos el SKU aquí
                     "saved_upc": data.get("upc"),  # Guardamos el UPC aquí
@@ -440,18 +450,22 @@ async def upload_invoice(
         )
         batch_items_buffer.append(
             ImportBatchItem(
-                batch_id=current_batch_id, product_id=new_p.id, quantity=item["qty"]
-            )
-        )
-        stock_history_buffer.append(
-            StockHistory(
+                batch_id=current_batch_id,
                 product_id=new_p.id,
-                change_type="ENTRADA",
-                old_value=0,
-                new_value=int(item["qty"]),
-                source=file.filename,
+                quantity=item["qty"],
+                stock_applied=item["stock_applied"],
             )
         )
+        if item["stock_applied"]:
+            stock_history_buffer.append(
+                StockHistory(
+                    product_id=new_p.id,
+                    change_type="ENTRADA",
+                    old_value=0,
+                    new_value=int(item["qty"]),
+                    source=file.filename,
+                )
+            )
 
         # Actualizamos la respuesta con los datos de memoria
         final_response_data[idx]["id"] = new_p.id
@@ -539,6 +553,7 @@ async def get_products(
     min_price: float = None,
     max_price: float = None,
     min_stock: int = None,
+    in_stock: bool = False,  # Almacén: con existencia y proveedor con inventario
     supplier_id: Optional[int] = None,  # 0 = sin proveedor
     sort_by: str = "updated_at",
     sort_order: str = "desc",
@@ -546,9 +561,11 @@ async def get_products(
     offset: int = 0,
     db: AsyncSession = Depends(get_db),
 ):
-    stmt = select(Product, Supplier.name.label("supplier_name")).outerjoin(
-        Supplier, Product.supplier_id == Supplier.id
-    )
+    stmt = select(
+        Product,
+        Supplier.name.label("supplier_name"),
+        Supplier.manages_inventory.label("manages_inventory"),
+    ).outerjoin(Supplier, Product.supplier_id == Supplier.id)
 
     # --- 2. LÓGICA DE BÚSQUEDA SIN ACENTOS ---
     if q:
@@ -574,7 +591,13 @@ async def get_products(
     if max_price is not None:
         stmt = stmt.where(Product.selling_price <= max_price)
     if min_stock is not None:
-        stmt = stmt.where(Product.stock_quantity <= min_stock)
+        stmt = stmt.where(
+            Product.stock_quantity <= min_stock, Supplier.manages_inventory.is_(True)
+        )
+    if in_stock:
+        stmt = stmt.where(
+            Product.stock_quantity > 0, Supplier.manages_inventory.is_(True)
+        )
     if supplier_id == 0:
         stmt = stmt.where(or_(Product.supplier_id == None, Product.supplier_id == 0))
     elif supplier_id is not None:
@@ -613,7 +636,8 @@ async def get_products(
             "alias": p.alias or "",
             "price": p.price,
             "selling_price": p.selling_price,
-            "stock": p.stock_quantity,
+            # Sin gestión de inventario el stock no se lleva: no se muestra.
+            "stock": p.stock_quantity if manages_inventory else None,
             "supplier_id": p.supplier_id,
             "supplier_name": supplier_name or "",
             "image_url": p.image_url or "",
@@ -621,7 +645,7 @@ async def get_products(
             "notes": p.notes or "",
             "origin": p.origin or "imported",
         }
-        for p, supplier_name in result.all()
+        for p, supplier_name, manages_inventory in result.all()
     ]
 
     return {"items": items, "total": total}
@@ -778,24 +802,25 @@ async def create_manual(item: ManualProductSchema, db: AsyncSession = Depends(ge
     )
     if res.scalar_one_or_none():
         raise HTTPException(400, "Nombre duplicado")
+    stock = item.stock if await supplier_manages_inventory(db, item.supplier_id) else 0
     new_p = Product(
         name=item.name,
         sku=item.sku,
         upc=item.upc,
         price=item.price,
         selling_price=item.selling_price,
-        stock_quantity=item.stock,
+        stock_quantity=stock,
         supplier_id=item.supplier_id,
         origin="manual",
     )
     db.add(new_p)
     await db.flush()
-    if item.stock > 0:
+    if stock > 0:
         db.add(StockHistory(
             product_id=new_p.id,
             change_type="ENTRADA",
             old_value=0,
-            new_value=item.stock,
+            new_value=stock,
             source="manual",
         ))
     await db.commit()
@@ -885,6 +910,7 @@ async def upload_catalog(
         new_batch.supplier_id = supplier_id
 
         all_p = (await db.execute(select(Product))).scalars().all()
+        managed_ids = await get_managed_supplier_ids(db)
         sku_map = {clean_code(p.sku): p for p in all_p if p.sku}
         name_map = {normalize_name(p.name): p for p in all_p}
         fuzzy_keys = list(name_map.keys())
@@ -926,10 +952,11 @@ async def upload_catalog(
                 if not match.sku and sku_to_save:
                     match.sku = sku_to_save
                     sku_map[clean_code(sku_to_save)] = match
-                match.stock_quantity += int(qty)
                 match.price = price
                 if supplier_id and not match.supplier_id:
                     match.supplier_id = supplier_id
+                if match.supplier_id in managed_ids:
+                    match.stock_quantity += int(qty)
                 count_upd += 1
                 final_id = match.id
             else:
@@ -940,7 +967,7 @@ async def upload_catalog(
                     sku=final_sku,
                     name=desc,
                     price=price,
-                    stock_quantity=int(qty),
+                    stock_quantity=int(qty) if supplier_id in managed_ids else 0,
                     selling_price=0.0,
                     supplier_id=supplier_id,
                     origin="imported",
@@ -1001,7 +1028,7 @@ async def delete_batch(
     # 2. Revertir stock por producto
     reverted = 0
     for it in items:
-        if not it.product_id or not it.quantity:
+        if not it.product_id or not it.quantity or not it.stock_applied:
             continue
         product = await db.get(Product, it.product_id)
         if not product:
@@ -1144,6 +1171,7 @@ async def get_batch_items(batch_id: int, db: AsyncSession = Depends(get_db)):
                 "batch_qty"
             ),  # <--- Aquí recuperamos el dato guardado
             Supplier.name.label("supplier_name"),
+            Supplier.manages_inventory.label("manages_inventory"),
         )
         .join(ImportBatchItem, ImportBatchItem.product_id == Product.id)
         .outerjoin(Supplier, Product.supplier_id == Supplier.id)
@@ -1162,7 +1190,8 @@ async def get_batch_items(batch_id: int, db: AsyncSession = Depends(get_db)):
             "alias": p.alias or "",
             "price": p.price,
             "selling_price": p.selling_price,
-            "stock": p.stock_quantity,  # Stock total global
+            # Stock total global; sin gestión de inventario no se muestra
+            "stock": p.stock_quantity if manages_inventory else None,
             "quantity": (
                 batch_qty if batch_qty is not None else 0
             ),  # <--- Enviamos la cantidad al Frontend
@@ -1172,5 +1201,5 @@ async def get_batch_items(batch_id: int, db: AsyncSession = Depends(get_db)):
             "supplier_id": p.supplier_id,
             "supplier_name": supplier_name or "",
         }
-        for p, batch_qty, supplier_name in rows
+        for p, batch_qty, supplier_name, manages_inventory in rows
     ]

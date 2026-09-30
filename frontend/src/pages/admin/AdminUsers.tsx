@@ -4,12 +4,15 @@ import {
     UserPlus, Trash2, User, Loader2, X, AlertTriangle, Shield, Square, Edit3, Key, CheckCircle2
 } from 'lucide-react';
 import { API_URL } from '../../config/api';
+import { PageHeader } from '../../components/ui/PageHeader';
 
 const AVAILABLE_PERMISSIONS = [
-    { id: 'dashboard', label: 'Ver Panel Financiero' },
-    { id: 'upload', label: 'Cargar XML/Facturas' },
-    { id: 'search', label: 'Buscador de Precios' },
-    { id: 'manual', label: 'Entrada Manual' },
+    { id: 'dashboard', label: 'Inicio e historial' },
+    { id: 'upload', label: 'Importar factura XML' },
+    { id: 'search', label: 'Consultar precios' },
+    { id: 'manual', label: 'Agregar producto' },
+    { id: 'shopping', label: 'Pedidos (listas de compras)' },
+    { id: 'inventory', label: 'Inventario (ubicaciones y reportes)' },
 ];
 
 export function AdminUsers() {
@@ -143,19 +146,14 @@ export function AdminUsers() {
     return (
         <div className="w-full max-w-7xl mx-auto p-4 md:p-6 pb-24 animate-fade-in">
 
-            {/* HEADER COMPACTO */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-4">
-                <div>
-                    <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight">Gestión de Usuarios</h1>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Administra el acceso al sistema.</p>
-                </div>
+            <PageHeader parent="dashboard" title="Usuarios y permisos" description="Administra el acceso de tu equipo." actions={
                 <button
                     onClick={openCreateModal}
                     className="w-full md:w-auto bg-blue-600 dark:bg-blue-600 text-white px-5 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition-all shadow-lg active:scale-95"
                 >
-                    <UserPlus className="w-5 h-5" /> Nuevo Usuario
+                    <UserPlus className="w-5 h-5" /> Nuevo usuario
                 </button>
-            </div>
+            } />
 
             {errorMsg && (
                 <div className="mb-6 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-xl flex items-center gap-3 border border-red-100 dark:border-red-800 text-sm">
@@ -276,7 +274,7 @@ export function AdminUsers() {
                             <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mx-auto mb-3">
                                 {editingId ? <Edit3 className="w-6 h-6" /> : <UserPlus className="w-6 h-6" />}
                             </div>
-                            <h2 className="text-xl font-black text-gray-900 dark:text-white">{editingId ? 'Editar Usuario' : 'Nuevo Usuario'}</h2>
+                            <h2 className="text-xl font-black text-gray-900 dark:text-white">{editingId ? 'Editar usuario' : 'Nuevo usuario'}</h2>
                         </div>
 
                         <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto px-1">
@@ -331,7 +329,7 @@ export function AdminUsers() {
             {deleteId && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
                     <div className="bg-white dark:bg-[#1a1b1e] rounded-2xl w-full max-w-xs p-6 shadow-2xl text-center">
-                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">¿Eliminar Usuario?</h3>
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">¿Eliminar usuario?</h3>
                         <div className="flex gap-3">
                             <button onClick={() => setDeleteId(null)} className="flex-1 bg-gray-100 dark:bg-gray-800 text-gray-700 font-bold py-3 rounded-xl">Cancelar</button>
                             <button onClick={confirmDelete} disabled={processing} className="flex-1 bg-red-600 text-white font-bold py-3 rounded-xl">Eliminar</button>

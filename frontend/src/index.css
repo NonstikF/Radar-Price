@@ -1,3 +1,27 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+@layer base {
+  html { color-scheme: light; }
+  html.dark { color-scheme: dark; }
+  body { @apply bg-gray-50 antialiased; }
+  :is(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 3px solid #2563eb;
+    outline-offset: 3px;
+  }
+  .dark :is(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline-color: #60a5fa;
+  }
+}
+
+.mobile-navigation { padding-bottom: max(0.5rem, env(safe-area-inset-bottom)); }
+.app-content { padding-bottom: calc(5.5rem + env(safe-area-inset-bottom)); }
+@media (min-width: 1024px) { .app-content { padding-bottom: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

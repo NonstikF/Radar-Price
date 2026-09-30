@@ -1,14 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import axios from 'axios';
-import { Calendar, FileText, ArrowRight, CheckCircle2, AlertTriangle, ChevronLeft, Loader2, Package, Pencil, X, Check, Trash2 } from 'lucide-react';
+import { Calendar, FileText, ArrowRight, CheckCircle2, AlertTriangle, Loader2, Package, Pencil, X, Check, Trash2 } from 'lucide-react';
 import { API_URL } from '../../config/api';
+import { PageHeader } from '../../components/ui/PageHeader';
 
-interface Props {
-    onBack: () => void;
-}
-
-export function History({ onBack }: Props) {
+export function History() {
     const { isAdmin } = useOutletContext<{ isAdmin: boolean }>();
     const navigate = useNavigate();
     const [batches, setBatches] = useState<any[]>([]);
@@ -107,23 +104,7 @@ export function History({ onBack }: Props) {
     return (
         <div className="w-full max-w-7xl mx-auto p-4 md:p-6 pb-24 animate-fade-in">
 
-            {/* HEADER */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
-                <div>
-                    <button
-                        onClick={onBack}
-                        className="flex items-center gap-2 text-gray-500 mb-3 hover:text-blue-600 transition-colors font-bold text-sm"
-                    >
-                        <ChevronLeft className="w-4 h-4" /> Volver al Inicio
-                    </button>
-                    <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white mb-1">
-                        Historial de Importaciones
-                    </h1>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Gestiona tus cargas anteriores.
-                    </p>
-                </div>
-            </div>
+            <PageHeader parent="purchases" title="Historial de facturas" description="Revisa las facturas importadas y sus productos." />
 
             {/* LISTA */}
             <div className="grid gap-4 w-full">
@@ -135,7 +116,7 @@ export function History({ onBack }: Props) {
                 ) : batches.length === 0 ? (
                     <div className="text-center py-20 bg-gray-50 dark:bg-gray-800 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-700">
                         <FileText className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-                        <p className="text-gray-500 dark:text-gray-400 font-bold text-lg">No hay historial aún.</p>
+                        <p className="text-gray-500 dark:text-gray-400 font-bold text-lg">Aún no hay facturas importadas.</p>
                     </div>
                 ) : (
                     batches.map((batch) => {

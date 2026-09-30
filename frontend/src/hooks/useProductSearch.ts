@@ -16,6 +16,7 @@ export function useProductSearch(initialFilter = false) {
         maxPrice: "",
         missingPrice: initialFilter,
         onlyDelicate: false,
+        inStock: false, // Almacén: solo productos con existencia
         supplierId: "", // "" = todos, "0" = sin proveedor
         sortBy: "updated_at",
         sortOrder: "desc"
@@ -44,6 +45,7 @@ export function useProductSearch(initialFilter = false) {
                 q: searchTerm,
                 missing_price: filters.missingPrice,
                 only_delicate: filters.onlyDelicate || undefined,
+                in_stock: filters.inStock || undefined,
                 sort_by: filters.sortBy,
                 sort_order: filters.sortOrder,
                 limit: PRODUCTS_LIMIT,
@@ -77,6 +79,7 @@ export function useProductSearch(initialFilter = false) {
             maxPrice: "",
             missingPrice: false,
             onlyDelicate: false,
+            inStock: false,
             supplierId: "",
             sortBy: "updated_at",
             sortOrder: "desc"

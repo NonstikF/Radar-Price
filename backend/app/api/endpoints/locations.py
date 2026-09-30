@@ -8,6 +8,11 @@ from pydantic import BaseModel, Field
 from app.core.database import get_db
 from app.core.security import verify_admin
 from app.domain.models import Location, ProductLocation, Product
+from app.services.inventory import (
+    INVENTORY_DISABLED_MESSAGE,
+    product_in_inventory,
+    supplier_manages_inventory,
+)
 
 router = APIRouter()
 
@@ -20,6 +25,16 @@ def sanitize_code(raw: str) -> str:
 def escape_like(value: str) -> str:
     """Escapa caracteres especiales de LIKE para evitar inyección en patrones."""
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def visible_product_locations():
+    """Asignaciones de productos cuyo proveedor gestiona inventario."""
+    return (
+        select(ProductLocation.id, ProductLocation.location_id)
+        .join(Product, ProductLocation.product_id == Product.id)
+        .where(product_in_inventory())
+        .subquery()
+    )
 
 
 class LocationCreate(BaseModel):
@@ -41,9 +56,10 @@ class AddProductToLocation(BaseModel):
 
 @router.get("")
 async def get_locations(db: AsyncSession = Depends(get_db)):
+    visible = visible_product_locations()
     stmt = (
-        select(Location, func.count(ProductLocation.id).label("product_count"))
-        .outerjoin(ProductLocation, Location.id == ProductLocation.location_id)
+        select(Location, func.count(visible.c.id).label("product_count"))
+        .outerjoin(visible, Location.id == visible.c.location_id)
         .group_by(Location.id)
         .order_by(Location.code.asc())
     )
@@ -84,9 +100,10 @@ async def create_location(data: LocationCreate, db: AsyncSession = Depends(get_d
 
 @router.get("/search")
 async def search_locations(q: str = "", db: AsyncSession = Depends(get_db)):
+    visible = visible_product_locations()
     stmt = (
-        select(Location, func.count(ProductLocation.id).label("product_count"))
-        .outerjoin(ProductLocation, Location.id == ProductLocation.location_id)
+        select(Location, func.count(visible.c.id).label("product_count"))
+        .outerjoin(visible, Location.id == visible.c.location_id)
     )
     if q:
         q_safe = escape_like(q[:100])
@@ -128,7 +145,7 @@ async def search_products_for_location(
     with_locations: bool = False,
     db: AsyncSession = Depends(get_db),
 ):
-    stmt = select(Product)
+    stmt = select(Product).where(product_in_inventory())
     if q:
         q_safe = escape_like(q[:200])
         stmt = stmt.where(
@@ -186,7 +203,8 @@ async def get_product_locations(product_id: int, db: AsyncSession = Depends(get_
     stmt = (
         select(ProductLocation, Location)
         .join(Location, ProductLocation.location_id == Location.id)
-        .where(ProductLocation.product_id == product_id)
+        .join(Product, ProductLocation.product_id == Product.id)
+        .where(ProductLocation.product_id == product_id, product_in_inventory())
         .order_by(Location.code.asc())
     )
     result = await db.execute(stmt)
@@ -212,7 +230,7 @@ async def get_location_detail(location_id: int, db: AsyncSession = Depends(get_d
     stmt = (
         select(ProductLocation, Product)
         .join(Product, ProductLocation.product_id == Product.id)
-        .where(ProductLocation.location_id == location_id)
+        .where(ProductLocation.location_id == location_id, product_in_inventory())
         .order_by(Product.name.asc())
     )
     result = await db.execute(stmt)
@@ -283,6 +301,16 @@ async def delete_location(
         )
     )
     if count.scalar() > 0:
+        visible = await db.execute(
+            select(func.count(ProductLocation.id))
+            .join(Product, ProductLocation.product_id == Product.id)
+            .where(ProductLocation.location_id == location_id, product_in_inventory())
+        )
+        if visible.scalar() == 0:
+            raise HTTPException(
+                400,
+                "No se puede eliminar: tiene productos de proveedores sin gestión de inventario",
+            )
         raise HTTPException(400, "No se puede eliminar: tiene productos asignados")
 
     await db.delete(location)
@@ -301,6 +329,8 @@ async def add_product_to_location(
     product = await db.get(Product, data.product_id)
     if not product:
         raise HTTPException(404, "Producto no encontrado")
+    if not await supplier_manages_inventory(db, product.supplier_id):
+        raise HTTPException(400, INVENTORY_DISABLED_MESSAGE)
 
     existing = await db.execute(
         select(ProductLocation).where(
@@ -344,6 +374,10 @@ async def update_product_quantity(
     item = result.scalar_one_or_none()
     if not item:
         raise HTTPException(404, "Producto no encontrado en esta ubicación")
+
+    product = await db.get(Product, product_id)
+    if not product or not await supplier_manages_inventory(db, product.supplier_id):
+        raise HTTPException(400, INVENTORY_DISABLED_MESSAGE)
 
     item.quantity = data.quantity
     await db.commit()

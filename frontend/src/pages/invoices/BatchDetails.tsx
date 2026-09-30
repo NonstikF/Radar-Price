@@ -1,8 +1,7 @@
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useBlocker } from 'react-router-dom';
 import axios from 'axios';
-import {
-    ArrowLeft, FileText, Save, Loader2, AlertTriangle, CheckCircle2,
+import { FileText, Save, Loader2, AlertTriangle, CheckCircle2,
     Barcode, Box, Search, X, Camera, Filter, Tag, LogOut, Ruler, Truck
 } from 'lucide-react';
 import { BatchPrintButton } from '../../components/labels/BatchPrintButton';
@@ -10,6 +9,7 @@ import { ItemPrintButton } from '../../components/labels/ItemPrintButton';
 import { LabelSettingsModal } from '../../components/labels/LabelSettingsModal';
 import { BarcodeScanner } from '../../components/ui/BarcodeScanner';
 import { API_URL } from '../../config/api';
+import { BackLink } from '../../components/ui/PageHeader';
 
 // ==========================================
 // 1. SUB-COMPONENTE: Tarjeta Móvil
@@ -90,12 +90,12 @@ const BatchItemCard = React.memo(({ p, onPriceUpdate, onUpcUpdate, onAliasUpdate
 
             <div className="grid grid-cols-2 gap-3 items-end bg-white/50 dark:bg-gray-800/50 p-2 rounded-lg mt-3">
                 <div>
-                    <p className="text-[10px] text-gray-500 uppercase font-bold">Costo Unit.</p>
+                    <p className="text-[10px] text-gray-500 uppercase font-bold">Costo unitario</p>
                     <p className="text-gray-700 dark:text-gray-300 font-medium">${costo.toFixed(2)}</p>
                     <p className="text-[10px] text-gray-400 mt-1">Total: ${(costo * cantidad).toFixed(2)}</p>
                 </div>
                 <div>
-                    <p className={`text-[10px] uppercase font-bold mb-1 ${tienePrecio ? 'text-green-600' : 'text-red-500'}`}>Precio Venta</p>
+                    <p className={`text-[10px] uppercase font-bold mb-1 ${tienePrecio ? 'text-green-600' : 'text-red-500'}`}>Precio de venta</p>
                     <div className="relative">
                         <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
                         <input
@@ -312,7 +312,7 @@ export function BatchDetails() {
                 setBatchSupplierId(supplierId ? String(supplierId) : "");
             } catch (err) {
                 console.error(err);
-                setError("No se pudo cargar la información del lote.");
+                setError("No se pudo cargar la factura.");
             } finally {
                 setLoading(false);
             }
@@ -348,11 +348,6 @@ export function BatchDetails() {
         } finally {
             setAssigningSupplier(false);
         }
-    };
-
-    // Botón manual "Volver" (ahora solo navega, el blocker lo interceptará si es necesario)
-    const handleBack = () => {
-        navigate('/history');
     };
 
     // --- ACCIONES DEL MODAL ---
@@ -473,15 +468,13 @@ export function BatchDetails() {
             {/* HEADER */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <button onClick={handleBack} className="flex items-center gap-2 text-gray-500 hover:text-blue-600 transition-colors font-medium mb-2 text-sm">
-                        <ArrowLeft className="w-4 h-4" /> Volver al Historial
-                    </button>
+                    <BackLink parent="history" className="mb-2" />
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400 shrink-0">
                             <FileText className="w-8 h-8 md:w-6 md:h-6" />
                         </div>
                         <div className="flex-1 min-w-0">
-                            <h1 className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white truncate">Importación #{id}</h1>
+                            <h1 className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white truncate">Factura #{id}</h1>
                             <div className="flex items-center gap-2 mt-1 w-full max-w-[200px]">
                                 <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                                     <div className="h-full bg-green-500 transition-all duration-500" style={{ width: `${stats.progress}%` }}></div>
@@ -511,7 +504,7 @@ export function BatchDetails() {
 
                     <button onClick={() => handleSave()} disabled={saving} className={`flex-1 md:flex-none hover:bg-green-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg shadow-green-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 text-sm md:text-base ${hasChanges ? 'bg-green-600 ring-2 ring-green-400 ring-offset-2 dark:ring-offset-gray-900' : 'bg-green-600'}`}>
                         {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                        {saving ? 'Guardando...' : 'Guardar Cambios'}
+                        {saving ? 'Guardando...' : 'Guardar cambios'}
                     </button>
                 </div>
             </div>
@@ -566,9 +559,9 @@ export function BatchDetails() {
                     </div>
                     <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
                         <button onClick={() => setFilter('all')} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 whitespace-nowrap ${filter === 'all' ? 'bg-gray-800 text-white border-gray-800 dark:bg-white dark:text-gray-900' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 shadow-sm'}`}>Todos <span className="opacity-60">({stats.totalItems})</span></button>
-                        <button onClick={() => setFilter('missing')} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 whitespace-nowrap ${filter === 'missing' ? 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-800' : 'bg-white text-gray-500 border-gray-300 hover:bg-orange-50 hover:text-orange-600 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 shadow-sm'}`}><AlertTriangle className="w-3 h-3" /> Faltan Precio <span className="opacity-80">({stats.itemsMissing})</span></button>
+                        <button onClick={() => setFilter('missing')} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 whitespace-nowrap ${filter === 'missing' ? 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-800' : 'bg-white text-gray-500 border-gray-300 hover:bg-orange-50 hover:text-orange-600 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 shadow-sm'}`}><AlertTriangle className="w-3 h-3" /> Sin precio <span className="opacity-80">({stats.itemsMissing})</span></button>
                         <button onClick={() => setFilter('ready')} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 whitespace-nowrap ${filter === 'ready' ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800' : 'bg-white text-gray-500 border-gray-300 hover:bg-green-50 hover:text-green-600 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 shadow-sm'}`}><CheckCircle2 className="w-3 h-3" /> Listos <span className="opacity-80">({stats.itemsReady})</span></button>
-                        <div className="ml-auto px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-xs font-bold rounded-xl whitespace-nowrap border border-blue-100 dark:border-blue-800/50 hidden md:block">Total Piezas: {stats.totalPiezas}</div>
+                        <div className="ml-auto px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-xs font-bold rounded-xl whitespace-nowrap border border-blue-100 dark:border-blue-800/50 hidden md:block">Total de piezas: {stats.totalPiezas}</div>
                     </div>
                 </div>
             </div>
@@ -592,7 +585,7 @@ export function BatchDetails() {
                                     <th className="px-4 py-3">Producto / Alias</th>
                                     <th className="px-4 py-3 text-center w-20">Cant.</th>
                                     <th className="px-4 py-3 text-right">Costo</th>
-                                    <th className="px-4 py-3 text-center w-40">Precio Venta</th>
+                                    <th className="px-4 py-3 text-center w-40">Precio de venta</th>
                                     <th className="px-4 py-3 text-center w-20">Margen</th>
                                     <th className="px-4 py-3 text-center w-16">Estado</th>
                                     <th className="px-4 py-3 text-center w-16">Etiqueta</th>

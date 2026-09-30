@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
     Truck, Plus, Edit3, Trash2, X, Loader2, CheckCircle2, AlertTriangle,
-    Search, Package, Square, CheckSquare, ChevronLeft, Tag, Barcode, UserMinus
+    Search, Package, Square, CheckSquare, Tag, Barcode, UserMinus
 } from 'lucide-react';
 import { API_URL } from '../../config/api';
 import { TOAST_DURATION } from '../../config/constants';
+import { BackLink, PageHeader } from '../../components/ui/PageHeader';
+import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 
 interface Supplier {
     id: number;
@@ -23,7 +25,8 @@ interface SupplierProduct {
     upc: string;
     price: number;
     selling_price: number;
-    stock: number;
+    // null: el proveedor no tiene gestión de inventario
+    stock: number | null;
 }
 
 interface SupplierDetail {
@@ -56,6 +59,10 @@ export function Suppliers() {
     const [showFormModal, setShowFormModal] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
     const [formData, setFormData] = useState({ rfc: '', name: '' });
+    // Valores con los que se abrió el formulario, para saber si hay cambios sin guardar.
+    const [formBaseline, setFormBaseline] = useState(formData);
+    const isFormDirty = showFormModal && JSON.stringify(formData) !== JSON.stringify(formBaseline);
+    const { confirm: confirmDiscard, dialog: unsavedDialog } = useUnsavedChanges(isFormDirty);
     const [processing, setProcessing] = useState(false);
     const [deleteId, setDeleteId] = useState<number | null>(null);
 
@@ -115,12 +122,14 @@ export function Suppliers() {
     const openCreateModal = () => {
         setEditingId(null);
         setFormData({ rfc: '', name: '' });
+        setFormBaseline({ rfc: '', name: '' });
         setShowFormModal(true);
     };
 
     const openEditModal = (s: Supplier) => {
         setEditingId(s.id);
         setFormData({ rfc: s.rfc || '', name: s.name });
+        setFormBaseline({ rfc: s.rfc || '', name: s.name });
         setShowFormModal(true);
     };
 
@@ -337,9 +346,7 @@ export function Suppliers() {
 
                 {/* HEADER */}
                 <div className="mb-6 px-2">
-                    <button onClick={() => { setDetail(null); fetchSuppliers(); }} className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 mb-4 transition-colors">
-                        <ChevronLeft className="w-4 h-4" /> Volver a proveedores
-                    </button>
+                    <BackLink label="Proveedores" onClick={() => { setDetail(null); fetchSuppliers(); }} className="mb-2" />
                     <div className="flex items-start justify-between flex-wrap gap-3">
                         <div>
                             <div className="flex items-center gap-3">
@@ -407,7 +414,7 @@ export function Suppliers() {
                                             </span>
                                         )}
                                         <span>Costo: ${p.price.toFixed(2)}</span>
-                                        <span>Stock: {p.stock}</span>
+                                        {p.stock !== null && <span>Stock: {p.stock}</span>}
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2 shrink-0">
@@ -422,7 +429,7 @@ export function Suppliers() {
                                         {p.selling_price > 0 ? (
                                             <span className="text-lg font-black text-blue-600 dark:text-blue-400">${p.selling_price.toFixed(2)}</span>
                                         ) : (
-                                            <span className="bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 px-2 py-1 rounded-lg text-xs font-bold">Sin Precio</span>
+                                            <span className="bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 px-2 py-1 rounded-lg text-xs font-bold">Sin precio</span>
                                         )}
                                     </div>
                                 </div>
@@ -442,16 +449,11 @@ export function Suppliers() {
         <div className="w-full max-w-7xl mx-auto p-4 md:p-6 pb-24 animate-fade-in">
             <Toast />
 
-            {/* HEADER */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-4">
-                <div>
-                    <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight">Proveedores</h1>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Gestiona proveedores y asigna productos.</p>
-                </div>
+            <PageHeader parent="purchases" title="Proveedores" description="Administra proveedores y los productos que surten." actions={
                 <button onClick={openCreateModal} className="w-full md:w-auto bg-blue-600 text-white px-5 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition-all shadow-lg active:scale-95">
-                    <Plus className="w-5 h-5" /> Nuevo Proveedor
+                    <Plus className="w-5 h-5" /> Nuevo proveedor
                 </button>
-            </div>
+            } />
 
             {/* LISTA */}
             {loading ? (
@@ -503,11 +505,13 @@ export function Suppliers() {
                 </div>
             )}
 
+            {unsavedDialog}
+
             {/* MODAL CREAR/EDITAR PROVEEDOR */}
             {showFormModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
                     <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-sm p-6 shadow-2xl relative animate-scale-in">
-                        <button onClick={() => setShowFormModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 bg-gray-100 dark:bg-gray-700 p-2 rounded-full">
+                        <button onClick={() => confirmDiscard(() => setShowFormModal(false))} aria-label="Cerrar" className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 bg-gray-100 dark:bg-gray-700 p-2 rounded-full">
                             <X className="w-5 h-5" />
                         </button>
 
@@ -515,7 +519,7 @@ export function Suppliers() {
                             <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center mx-auto mb-3">
                                 {editingId ? <Edit3 className="w-6 h-6" /> : <Truck className="w-6 h-6" />}
                             </div>
-                            <h2 className="text-xl font-black text-gray-900 dark:text-white">{editingId ? 'Editar Proveedor' : 'Nuevo Proveedor'}</h2>
+                            <h2 className="text-xl font-black text-gray-900 dark:text-white">{editingId ? 'Editar proveedor' : 'Nuevo proveedor'}</h2>
                         </div>
 
                         <form onSubmit={handleSubmit} className="space-y-4">

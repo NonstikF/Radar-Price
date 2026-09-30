@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from app.core.database import get_db
 from app.core.security import verify_admin
 from app.domain.models import Category, ProductCategory, Product, ProductLocation, Location
+from app.services.inventory import get_managed_supplier_ids
 
 router = APIRouter()
 
@@ -137,20 +138,23 @@ async def get_category_detail(category_id: int, db: AsyncSession = Depends(get_d
     )
     result = await db.execute(stmt)
 
+    managed_ids = await get_managed_supplier_ids(db)
     products = []
     for pc, p in result.all():
-        # Get locations for each product
-        loc_stmt = (
-            select(ProductLocation, Location)
-            .join(Location, ProductLocation.location_id == Location.id)
-            .where(ProductLocation.product_id == p.id)
-            .order_by(Location.code.asc())
-        )
-        loc_result = await db.execute(loc_stmt)
-        locs = [
-            {"code": loc.code, "quantity": pl.quantity}
-            for pl, loc in loc_result.all()
-        ]
+        # Ubicaciones solo de productos con gestión de inventario
+        locs = []
+        if p.supplier_id in managed_ids:
+            loc_stmt = (
+                select(ProductLocation, Location)
+                .join(Location, ProductLocation.location_id == Location.id)
+                .where(ProductLocation.product_id == p.id)
+                .order_by(Location.code.asc())
+            )
+            loc_result = await db.execute(loc_stmt)
+            locs = [
+                {"code": loc.code, "quantity": pl.quantity}
+                for pl, loc in loc_result.all()
+            ]
 
         products.append({
             "id": pc.id,

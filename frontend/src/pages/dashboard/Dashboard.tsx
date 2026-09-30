@@ -1,111 +1,61 @@
-import { Package, ShoppingCart, Warehouse, Users, ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Users, ArrowUpRight, ChevronRight } from 'lucide-react';
+import { getVisibleModules, type WorkspaceModule } from '../../config/workspace';
+import { getSessionUser } from '../../lib/permissions';
 
-interface Props {
-    onNavigate: (view: string) => void;
-}
+const desktopColumns: Record<number, string> = { 1: 'lg:grid-cols-1', 2: 'lg:grid-cols-2', 3: 'lg:grid-cols-3' };
 
-export function Dashboard({ onNavigate }: Props) {
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
+const ModuleRow = ({ module }: { module: WorkspaceModule }) => {
+    const Icon = module.icon;
+    const colors = module.colors;
+    return (
+        <section aria-label={module.title} className={`flex flex-col gap-5 border-b border-l-4 border-b-gray-200 px-4 py-6 last:border-b-0 dark:border-b-gray-700 sm:px-6 lg:gap-6 lg:border-b-0 lg:border-l-0 lg:border-r lg:border-r-gray-200 lg:p-6 lg:last:border-r-0 dark:lg:border-r-gray-700 ${colors.row}`}>
+            <div className="flex items-start gap-3">
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${colors.icon}`}><Icon aria-hidden="true" className="h-5 w-5" /></div>
+                <div>
+                    <h2 className={`text-base font-bold ${colors.title}`}>{module.title}</h2>
+                    <p className="mt-1 max-w-xs text-xs leading-relaxed text-gray-500 dark:text-gray-400">{module.description}</p>
+                </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
+                {module.actions.map(({ title, path, icon: ActionIcon }, index) => <Link key={path} to={path} className={`group flex min-h-16 items-center gap-2 rounded-lg border px-3 py-3 lg:min-h-12 lg:gap-3 lg:px-4 text-left text-sm font-medium transition-colors ${index === 0 ? colors.primary : colors.secondary}`}>
+                    <ActionIcon aria-hidden="true" className="hidden h-4 w-4 shrink-0 opacity-70 sm:block" />
+                    <span className="flex-1">{title}</span>
+                    {index === 0 && <ChevronRight aria-hidden="true" className="h-3.5 w-3.5 shrink-0 opacity-60" />}
+                </Link>)}
+            </div>
+        </section>
+    );
+};
+
+export function Dashboard() {
+    const user = getSessionUser();
     const isAdmin = user.role === 'admin';
-    const perms = user.permissions || [];
-
-    const can = (module: string) => isAdmin || perms.includes(module);
-
-    const modules = [
-        {
-            key: 'products',
-            title: 'Productos',
-            description: 'Buscador, registro manual y etiquetas',
-            icon: Package,
-            color: 'purple' as const,
-            path: 'products',
-            show: can('search') || can('manual'),
-        },
-        {
-            key: 'purchases',
-            title: 'Compras',
-            description: 'XML, historial, listas y proveedores',
-            icon: ShoppingCart,
-            color: 'blue' as const,
-            path: 'purchases',
-            show: can('upload') || can('shopping'),
-        },
-        {
-            key: 'inventory',
-            title: 'Inventario',
-            description: 'Ubicaciones, asignación y stock',
-            icon: Warehouse,
-            color: 'indigo' as const,
-            path: 'inventory',
-            show: can('inventory'),
-        },
-        {
-            key: 'admin',
-            title: 'Administración',
-            description: 'Gestión de usuarios y permisos',
-            icon: Users,
-            color: 'gray' as const,
-            path: 'admin',
-            show: isAdmin,
-        },
-    ];
-
-    const colorMap = {
-        purple: {
-            bg: 'bg-purple-50 dark:bg-purple-900/20',
-            icon: 'text-purple-600 dark:text-purple-400',
-            border: 'border-purple-100 dark:border-purple-900/30',
-            hover: 'hover:border-purple-300 dark:hover:border-purple-700',
-        },
-        blue: {
-            bg: 'bg-blue-50 dark:bg-blue-900/20',
-            icon: 'text-blue-600 dark:text-blue-400',
-            border: 'border-blue-100 dark:border-blue-900/30',
-            hover: 'hover:border-blue-300 dark:hover:border-blue-700',
-        },
-        indigo: {
-            bg: 'bg-indigo-50 dark:bg-indigo-900/20',
-            icon: 'text-indigo-600 dark:text-indigo-400',
-            border: 'border-indigo-100 dark:border-indigo-900/30',
-            hover: 'hover:border-indigo-300 dark:hover:border-indigo-700',
-        },
-        gray: {
-            bg: 'bg-gray-100 dark:bg-gray-700',
-            icon: 'text-gray-700 dark:text-gray-300',
-            border: 'border-gray-200 dark:border-gray-600',
-            hover: 'hover:border-gray-400 dark:hover:border-gray-500',
-        },
-    };
+    const modules = getVisibleModules(user);
 
     return (
-        <div className="w-full max-w-7xl mx-auto p-4 animate-fade-in">
-            <div className="mb-6">
-                <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight">Panel Principal</h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Selecciona un módulo para comenzar.</p>
+        <div className="mx-auto max-w-7xl px-4 py-7 md:px-6 md:py-10">
+            <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+                <div>
+                    <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-500 dark:text-gray-400">Inicio</p>
+                    <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white md:text-3xl">Centro de trabajo</h1>
+                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">De la consulta a la compra. Todas tus tareas a mano.</p>
+                </div>
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {modules.filter(m => m.show).map((mod) => {
-                    const colors = colorMap[mod.color];
-                    const Icon = mod.icon;
-                    return (
-                        <button
-                            key={mod.key}
-                            onClick={() => onNavigate(mod.path)}
-                            className={`bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border ${colors.border} ${colors.hover} active:scale-[0.98] transition-all text-left flex items-center gap-5 group`}
-                        >
-                            <div className={`w-16 h-16 rounded-2xl ${colors.bg} flex items-center justify-center ${colors.icon} shrink-0`}>
-                                <Icon className="w-8 h-8" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <h3 className="font-black text-gray-900 dark:text-white text-lg">{mod.title}</h3>
-                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{mod.description}</p>
-                            </div>
-                            <ArrowRight className="w-6 h-6 text-gray-300 dark:text-gray-600 group-hover:text-gray-500 dark:group-hover:text-gray-400 group-hover:translate-x-1 transition-all shrink-0" />
-                        </button>
-                    );
-                })}
-            </div>
+            {modules.length > 0 && <div className="overflow-hidden rounded-2xl border border-gray-300/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.05),0_8px_24px_-12px_rgba(15,23,42,0.18)] dark:border-gray-700 dark:bg-gray-800 dark:shadow-none">
+                <div className={`lg:grid ${desktopColumns[modules.length] ?? 'lg:grid-cols-3'}`}>
+                    {modules.map(module => <ModuleRow key={module.key} module={module} />)}
+                </div>
+            </div>}
+            {modules.length === 0 && <p className="rounded-xl border border-dashed border-gray-300 p-6 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-400">Pide al administrador que habilite los accesos de tu cuenta para comenzar.</p>}
+            {isAdmin && <div className="mt-4 flex flex-wrap items-center justify-between gap-2 lg:justify-end lg:gap-4">
+                <p className="px-3 text-xs text-gray-500 dark:text-gray-400">Configuración del equipo</p>
+                <Link to="/admin" className="group flex min-h-14 w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 sm:w-auto sm:min-w-80">
+                    <Users aria-hidden="true" className="h-5 w-5 shrink-0 text-gray-500 dark:text-gray-400" />
+                    <span className="flex-1"><span className="block text-sm font-semibold text-gray-700 dark:text-gray-200">Usuarios y permisos</span><span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">Administra el acceso de tu equipo</span></span>
+                    <ArrowUpRight aria-hidden="true" className="h-4 w-4 text-gray-400 group-hover:text-blue-600" />
+                </Link>
+            </div>}
         </div>
     );
 }

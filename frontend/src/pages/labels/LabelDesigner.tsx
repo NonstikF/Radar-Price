@@ -1,11 +1,12 @@
 import { useState, useRef } from 'react';
 import {
-    Settings, RotateCcw, Layout, Eye, Tag,
+    Settings, RotateCcw, Layout, Eye,
     Printer, PenTool, Box, Building2
 } from 'lucide-react';
 import { ProductLabel } from '../../components/labels/ProductLabel';
 import { useLabelSettings, type LabelSize } from '../../hooks/useLabelSettings';
 import { usePrintLabel } from '../../hooks/usePrintLabel';
+import { PageHeader } from '../../components/ui/PageHeader';
 
 export default function LabelDesigner() {
     const { settings, updateSettings } = useLabelSettings();
@@ -55,33 +56,23 @@ export default function LabelDesigner() {
                     <ProductLabel product={productToRender} settings={printSettings} />
                 </div>
             </div>
-            {/* ENCABEZADO */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-                <div>
-                    <h1 className="text-3xl font-black text-gray-900 dark:text-white flex items-center gap-3">
-                        <Tag className="text-blue-600" /> Diseñador de Etiquetas
-                    </h1>
-                    <p className="text-gray-500 mt-1">
-                        {mode === 'preview' ? 'Configura el diseño global de tus etiquetas.' : 'Crea etiquetas rápidas manualmente.'}
-                    </p>
-                </div>
-
+            <PageHeader parent="products" title="Diseñar etiquetas" description={mode === 'preview' ? 'Configura el diseño global de tus etiquetas.' : 'Crea etiquetas rápidas manualmente.'} className="mb-8" actions={<>
                 {/* SELECTOR DE MODO */}
-                <div className="bg-gray-100 dark:bg-gray-800 p-1 rounded-xl flex items-center gap-1">
-                    <button
-                        onClick={() => setMode('preview')}
-                        className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${mode === 'preview' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                        <Box className="w-4 h-4" /> Diseño Global
-                    </button>
-                    <button
-                        onClick={() => setMode('free')}
-                        className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${mode === 'free' ? 'bg-white text-purple-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                        <PenTool className="w-4 h-4" /> Modo Libre
-                    </button>
-                </div>
+            <div className="bg-gray-100 dark:bg-gray-800 p-1 rounded-xl flex items-center gap-1">
+                <button
+                    onClick={() => setMode('preview')}
+                    className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${mode === 'preview' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                    <Box className="w-4 h-4" /> Diseño global
+                </button>
+                <button
+                    onClick={() => setMode('free')}
+                    className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${mode === 'free' ? 'bg-white text-purple-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                    <PenTool className="w-4 h-4" /> Modo libre
+                </button>
             </div>
+            </>} />
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
@@ -90,7 +81,7 @@ export default function LabelDesigner() {
                     <div className="bg-gray-100 dark:bg-gray-800/50 rounded-3xl p-8 flex flex-col items-center justify-center min-h-[400px] border-2 border-dashed border-gray-300 dark:border-gray-700 relative group">
 
                         <span className="absolute top-4 left-4 text-xs font-bold text-gray-400 uppercase tracking-widest">
-                            {mode === 'preview' ? 'Vista Previa' : 'Listo para Imprimir'}
+                            {mode === 'preview' ? 'Vista previa' : 'Listo para imprimir'}
                         </span>
 
                         <div className="shadow-xl transition-all duration-300 hover:scale-105">
@@ -112,7 +103,7 @@ export default function LabelDesigner() {
                             onClick={handlePrintFree}
                             className="w-full py-4 bg-purple-600 hover:bg-purple-700 text-white rounded-2xl font-bold shadow-lg shadow-purple-500/30 text-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
                         >
-                            <Printer className="w-6 h-6" /> Imprimir Etiqueta Libre
+                            <Printer className="w-6 h-6" /> Imprimir etiqueta
                         </button>
                     )}
                 </div>
@@ -125,12 +116,12 @@ export default function LabelDesigner() {
                         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-purple-100 dark:border-gray-700 p-6 animate-fade-in">
                             <div className="flex items-center gap-2 mb-6 border-b border-gray-100 dark:border-gray-700 pb-4">
                                 <PenTool className="w-5 h-5 text-purple-600" />
-                                <h2 className="font-bold text-lg text-gray-900 dark:text-white">Datos Manuales</h2>
+                                <h2 className="font-bold text-lg text-gray-900 dark:text-white">Datos de la etiqueta</h2>
                             </div>
 
                             <div className="space-y-4">
                                 <div>
-                                    <label className="text-xs font-bold text-gray-400 uppercase block mb-1">Título Superior</label>
+                                    <label className="text-xs font-bold text-gray-400 uppercase block mb-1">Título superior</label>
                                     <input
                                         type="text"
                                         value={customData.topText}
@@ -148,7 +139,7 @@ export default function LabelDesigner() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-xs font-bold text-gray-400 uppercase block mb-1">Texto Inferior</label>
+                                    <label className="text-xs font-bold text-gray-400 uppercase block mb-1">Texto inferior</label>
                                     <textarea
                                         rows={2}
                                         value={customData.bottomText}
@@ -163,7 +154,7 @@ export default function LabelDesigner() {
                         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 animate-fade-in">
                             <div className="flex items-center gap-2 mb-6 border-b border-gray-100 dark:border-gray-700 pb-4">
                                 <Settings className="w-5 h-5 text-blue-600" />
-                                <h2 className="font-bold text-lg text-gray-900 dark:text-white">Configuración Global</h2>
+                                <h2 className="font-bold text-lg text-gray-900 dark:text-white">Configuración global</h2>
                             </div>
 
                             <div className="space-y-6">
@@ -171,14 +162,14 @@ export default function LabelDesigner() {
                                 {/* 1. TÍTULO EMPRESA (NUEVO AQUÍ) */}
                                 <div>
                                     <label className="text-xs font-bold text-gray-400 uppercase flex items-center gap-2 mb-2">
-                                        <Building2 className="w-3 h-3" /> Título de la Etiqueta
+                                        <Building2 className="w-3 h-3" /> Título de la etiqueta
                                     </label>
                                     <input
                                         type="text"
                                         value={settings.companyName || ''}
                                         onChange={(e) => updateSettings({ companyName: e.target.value })}
                                         className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-3 font-bold text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
-                                        placeholder="Nombre de tu Empresa"
+                                        placeholder="Nombre de tu empresa"
                                     />
                                 </div>
 
@@ -228,16 +219,16 @@ export default function LabelDesigner() {
                                 {/* 3. VISIBILIDAD (SIN SKU/UPC) */}
                                 <div className="space-y-3">
                                     <label className="text-xs font-bold text-gray-400 uppercase flex items-center gap-2">
-                                        <Eye className="w-3 h-3" /> Elementos Visibles
+                                        <Eye className="w-3 h-3" /> Elementos visibles
                                     </label>
 
                                     <ToggleOption
-                                        label="Mostrar Nombre del Producto"
+                                        label="Mostrar nombre del producto"
                                         checked={settings.showName}
                                         onChange={(v) => updateSettings({ showName: v })}
                                     />
                                     <ToggleOption
-                                        label="Mostrar Precio"
+                                        label="Mostrar precio"
                                         checked={settings.showPrice}
                                         onChange={(v) => updateSettings({ showPrice: v })}
                                     />
