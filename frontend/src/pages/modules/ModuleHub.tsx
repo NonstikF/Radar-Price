@@ -19,14 +19,15 @@ export function ModuleHub({ moduleKey }: { moduleKey: ModuleKey }) {
             <PageHeader parent="dashboard" title={module.title} description={module.description} />
             <div className={`grid gap-3 sm:grid-cols-2 ${gridColumns[actions.length] ?? 'lg:grid-cols-4'}`}>
                 {actions.map(({ title, description, path, icon: Icon }) => (
-                    <Link key={path} to={path} className={`group flex items-start gap-4 rounded-xl border border-gray-200 bg-white p-5 transition-colors dark:border-gray-700 dark:bg-gray-800 lg:flex-col lg:gap-5 ${colors.card}`}>
-                        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${colors.tile}`}><Icon aria-hidden="true" className="h-5 w-5" /></span>
+                    <Link key={path} to={path} className={`group flex items-start gap-4 rounded-xl border border-gray-300 bg-white p-5 shadow-sm transition-all hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 lg:flex-col lg:gap-5 ${colors.card}`}>
+                        {/* Ícono con el color sólido del módulo para que cada tarjeta se distinga */}
+                        <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg shadow-sm ${colors.icon}`}><Icon aria-hidden="true" className="h-5 w-5" /></span>
                         <span className="min-w-0 flex-1">
-                            <span className="flex items-center justify-between gap-2 text-base font-semibold text-gray-900 dark:text-white">
+                            <span className={`flex items-center justify-between gap-2 text-base font-bold ${colors.title}`}>
                                 {title}
-                                <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-gray-400 transition-transform group-hover:translate-x-0.5" />
+                                <ChevronRight aria-hidden="true" className="h-5 w-5 shrink-0 text-gray-500 transition-transform group-hover:translate-x-0.5 dark:text-gray-400" />
                             </span>
-                            <span className="mt-1 block text-sm leading-relaxed text-gray-500 dark:text-gray-400">{description}</span>
+                            <span className="mt-1 block text-sm leading-relaxed text-gray-600 dark:text-gray-300">{description}</span>
                         </span>
                     </Link>
                 ))}

@@ -46,7 +46,7 @@ const moduleColors: Record<ModuleKey, ModuleColors> = {
         primary: 'border-blue-600 bg-blue-600 text-white hover:border-blue-700 hover:bg-blue-700 dark:border-blue-500 dark:bg-blue-600 dark:hover:bg-blue-700',
         secondary: 'border-blue-200 bg-white text-blue-800 hover:border-blue-400 hover:bg-blue-100/60 dark:border-blue-900 dark:bg-gray-800 dark:text-blue-200 dark:hover:border-blue-600 dark:hover:bg-blue-900/40',
         tile: 'bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
-        card: 'hover:border-blue-300 focus-visible:border-blue-400 dark:hover:border-blue-700',
+        card: 'hover:border-blue-500 focus-visible:border-blue-500 dark:hover:border-blue-500',
     },
     purchases: {
         row: 'border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950/30',
@@ -55,7 +55,7 @@ const moduleColors: Record<ModuleKey, ModuleColors> = {
         primary: 'border-emerald-700 bg-emerald-700 text-white hover:border-emerald-800 hover:bg-emerald-800 dark:border-emerald-600 dark:bg-emerald-700 dark:hover:bg-emerald-800',
         secondary: 'border-emerald-200 bg-white text-emerald-800 hover:border-emerald-400 hover:bg-emerald-100/60 dark:border-emerald-900 dark:bg-gray-800 dark:text-emerald-200 dark:hover:border-emerald-600 dark:hover:bg-emerald-900/40',
         tile: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
-        card: 'hover:border-emerald-300 focus-visible:border-emerald-400 dark:hover:border-emerald-700',
+        card: 'hover:border-emerald-600 focus-visible:border-emerald-600 dark:hover:border-emerald-500',
     },
     inventory: {
         row: 'border-l-amber-500 bg-amber-50 dark:bg-amber-950/30',
@@ -64,7 +64,7 @@ const moduleColors: Record<ModuleKey, ModuleColors> = {
         primary: 'border-amber-700 bg-amber-700 text-white hover:border-amber-800 hover:bg-amber-800 dark:border-amber-600 dark:bg-amber-700 dark:hover:bg-amber-800',
         secondary: 'border-amber-200 bg-white text-amber-900 hover:border-amber-400 hover:bg-amber-100/60 dark:border-amber-900 dark:bg-gray-800 dark:text-amber-200 dark:hover:border-amber-600 dark:hover:bg-amber-900/40',
         tile: 'bg-amber-50 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
-        card: 'hover:border-amber-300 focus-visible:border-amber-400 dark:hover:border-amber-700',
+        card: 'hover:border-amber-500 focus-visible:border-amber-500 dark:hover:border-amber-500',
     },
 };
 
