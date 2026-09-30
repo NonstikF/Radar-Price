@@ -49,6 +49,24 @@ async def lock_product(db: AsyncSession, product_id: int):
     return result.scalar_one_or_none()
 
 
+def move_stock(db: AsyncSession, product: Product, delta: int, change_type: str, source: str):
+    """Suma (o resta) piezas a la existencia sin bajar de cero y lo registra."""
+    old_stock = product.stock_quantity or 0
+    new_stock = max(old_stock + int(delta), 0)
+    if new_stock == old_stock:
+        return
+    product.stock_quantity = new_stock
+    db.add(
+        StockHistory(
+            product_id=product.id,
+            change_type=change_type,
+            old_value=old_stock,
+            new_value=new_stock,
+            source=source,
+        )
+    )
+
+
 def set_deducted(db: AsyncSession, product: Product, item, target: int, source: str):
     """Deja `target` piezas del renglón descontadas del almacén: descuenta o
     regresa solo la diferencia con lo que ya tenía descontado."""

@@ -191,15 +191,27 @@ export function StockAdjust() {
                                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
                                         {item.sku && <span className="font-mono">{item.sku} · </span>}{item.supplier_name}
                                     </p>
-                                    {item.locations.length > 0 && (
-                                        <div className="flex flex-wrap gap-1 mt-1.5" aria-label="Ubicaciones">
-                                            {item.locations.map(loc => (
-                                                <span key={loc.code} className="inline-flex items-center gap-1 rounded-md bg-amber-50 dark:bg-amber-900/20 px-1.5 py-0.5 text-[11px] font-semibold text-amber-800 dark:text-amber-300">
-                                                    <MapPin className="w-3 h-3" aria-hidden="true" />{loc.code} <span className="font-mono">({loc.quantity})</span>
-                                                </span>
-                                            ))}
-                                        </div>
-                                    )}
+                                    {(() => {
+                                        // Diferencia entre la existencia y lo que está en ubicaciones
+                                        const located = item.locations.reduce((sum, loc) => sum + loc.quantity, 0);
+                                        const unlocated = item.stock - located;
+                                        if (item.locations.length === 0 && unlocated <= 0) return null;
+                                        return (
+                                            <div className="flex flex-wrap gap-1 mt-1.5" aria-label="Ubicaciones">
+                                                {item.locations.map(loc => (
+                                                    <span key={loc.code} className="inline-flex items-center gap-1 rounded-md bg-amber-50 dark:bg-amber-900/20 px-1.5 py-0.5 text-[11px] font-semibold text-amber-800 dark:text-amber-300">
+                                                        <MapPin className="w-3 h-3" aria-hidden="true" />{loc.code} <span className="font-mono">({loc.quantity})</span>
+                                                    </span>
+                                                ))}
+                                                {unlocated > 0 && (
+                                                    <span className="rounded-md bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 text-[11px] font-semibold text-gray-600 dark:text-gray-300">Sin ubicar: {unlocated}</span>
+                                                )}
+                                                {unlocated < 0 && (
+                                                    <span title="Hay más piezas en ubicaciones que en existencia; revisa el conteo" className="rounded-md bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 text-[11px] font-semibold text-red-700 dark:text-red-400">{-unlocated} de más en ubicaciones</span>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                                 <div className="text-right shrink-0">
                                     <p className={`text-xl font-black tabular-nums ${item.stock > 0 ? 'text-gray-900 dark:text-white' : 'text-red-600 dark:text-red-400'}`}>{item.stock}</p>

@@ -10,9 +10,19 @@ from app.core.security import verify_admin
 from app.domain.models import Location, ProductLocation, Product
 from app.services.inventory import (
     INVENTORY_DISABLED_MESSAGE,
+    lock_product,
+    move_stock,
     product_in_inventory,
     supplier_manages_inventory,
 )
+
+# Las cantidades por ubicación mueven la existencia del producto: agregar a
+# una ubicación suma, cambiar la cantidad suma o resta la diferencia y quitar
+# el producto resta sus piezas (mover entre ubicaciones queda en cero).
+
+
+def location_source(code: str) -> str:
+    return f"ubicación {code}"
 
 router = APIRouter()
 
@@ -326,7 +336,7 @@ async def add_product_to_location(
     if not location:
         raise HTTPException(404, "Ubicación no encontrada")
 
-    product = await db.get(Product, data.product_id)
+    product = await lock_product(db, data.product_id)
     if not product:
         raise HTTPException(404, "Producto no encontrado")
     if not await supplier_manages_inventory(db, product.supplier_id):
@@ -349,6 +359,8 @@ async def add_product_to_location(
             quantity=data.quantity,
         )
         db.add(item)
+
+    move_stock(db, product, data.quantity, "ENTRADA", location_source(location.code))
 
     product_name = product.name
     location_code = location.code
@@ -375,10 +387,15 @@ async def update_product_quantity(
     if not item:
         raise HTTPException(404, "Producto no encontrado en esta ubicación")
 
-    product = await db.get(Product, product_id)
+    product = await lock_product(db, product_id)
     if not product or not await supplier_manages_inventory(db, product.supplier_id):
         raise HTTPException(400, INVENTORY_DISABLED_MESSAGE)
 
+    location = await db.get(Location, location_id)
+    move_stock(
+        db, product, data.quantity - (item.quantity or 0), "AJUSTE",
+        location_source(location.code if location else str(location_id)),
+    )
     item.quantity = data.quantity
     await db.commit()
     return {"message": "Cantidad actualizada"}
@@ -397,6 +414,14 @@ async def remove_product_from_location(
     item = result.scalar_one_or_none()
     if not item:
         raise HTTPException(404, "Producto no encontrado en esta ubicación")
+
+    product = await lock_product(db, product_id)
+    if product and await supplier_manages_inventory(db, product.supplier_id):
+        location = await db.get(Location, location_id)
+        move_stock(
+            db, product, -(item.quantity or 0), "SALIDA",
+            location_source(location.code if location else str(location_id)),
+        )
 
     await db.delete(item)
     await db.commit()

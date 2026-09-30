@@ -715,6 +715,11 @@ export function Locations() {
                                     {savingStock ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                                     Guardar stock
                                 </button>
+                                {stockQty !== stockProduct.quantity && (
+                                    <p className="mt-2 text-xs text-center text-gray-500 dark:text-gray-400">
+                                        La existencia del producto {stockQty > stockProduct.quantity ? 'sube' : 'baja'} {Math.abs(stockQty - stockProduct.quantity)} {Math.abs(stockQty - stockProduct.quantity) === 1 ? 'pieza' : 'piezas'}.
+                                    </p>
+                                )}
                             </div>
 
                             {/* Vaciar inventario */}

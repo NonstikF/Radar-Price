@@ -19,6 +19,10 @@ from app.api.endpoints.shopping_lists import (
     AddItemRequest, UpdateItemRequest, UpdateStatusRequest, add_item_to_list, delete_item,
     delete_shopping_list, get_shopping_list, update_item, update_status,
 )
+from app.api.endpoints.locations import (
+    AddProductToLocation, UpdateQuantity, add_product_to_location, remove_product_from_location,
+    update_product_quantity,
+)
 from app.api.endpoints.stock import StockAdjust, adjust_stock, get_stock
 from app.domain.models import (
     Base, Location, Product, ProductLocation, ShoppingList, ShoppingListItem, StockHistory, Supplier,
@@ -194,6 +198,25 @@ class WarehouseOrderTests(unittest.IsolatedAsyncioTestCase):
         with Session(self.engine) as session:
             moves = [(h.change_type, h.source) for h in session.query(StockHistory).all()]
         self.assertEqual(moves, [("AJUSTE", "Conteo"), ("ENTRADA", "manual"), ("SALIDA", "Merma")])
+
+    async def test_location_quantities_move_product_stock(self):
+        with Session(self.engine) as session:
+            session.add_all([Location(id=1, code="R1B1"), Location(id=2, code="R2B1")])
+            session.commit()
+        await self.call(add_product_to_location, 1, AddProductToLocation(product_id=OTHER, quantity=6))
+        self.assertEqual(self.stock(OTHER), 10)
+        await self.call(update_product_quantity, 1, OTHER, UpdateQuantity(quantity=2))
+        self.assertEqual(self.stock(OTHER), 6)
+        # Mover entre ubicaciones: quitar de una y agregar en otra queda en cero
+        await self.call(remove_product_from_location, 1, OTHER)
+        await self.call(add_product_to_location, 2, AddProductToLocation(product_id=OTHER, quantity=2))
+        self.assertEqual(self.stock(OTHER), 6)
+        with Session(self.engine) as session:
+            moves = [(h.change_type, h.source) for h in session.query(StockHistory).all()]
+        self.assertEqual(moves, [
+            ("ENTRADA", "ubicación R1B1"), ("AJUSTE", "ubicación R1B1"),
+            ("SALIDA", "ubicación R1B1"), ("ENTRADA", "ubicación R2B1"),
+        ])
 
     async def test_stock_list_only_shows_warehouse_products(self):
         with Session(self.engine) as session:
