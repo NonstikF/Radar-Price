@@ -420,7 +420,7 @@ export function Locations() {
                         <X className="w-5 h-5" />
                     </button>
                     <h2 className="text-lg font-black text-gray-900 dark:text-white">Agregar producto a</h2>
-                    <p className="text-sm text-indigo-600 dark:text-indigo-400 font-mono font-bold">{detail.code}</p>
+                    <p className="text-sm text-amber-700 dark:text-amber-400 font-mono font-bold">{detail.code}</p>
 
                     <div className="relative mt-4">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -464,7 +464,7 @@ export function Locations() {
                                     <button
                                         onClick={() => handleAddProduct(p.id)}
                                         disabled={addingProductId === p.id}
-                                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 disabled:opacity-50"
+                                        className="bg-amber-700 hover:bg-amber-800 text-white px-3 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 disabled:opacity-50"
                                     >
                                         {addingProductId === p.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                                     </button>
@@ -508,18 +508,23 @@ export function Locations() {
                     <div className="flex items-start justify-between flex-wrap gap-3">
                         <div>
                             <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+                                <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center text-amber-700 dark:text-amber-400 shrink-0">
                                     <MapPin className="w-6 h-6" />
                                 </div>
                                 <div>
                                     <h1 className="text-xl md:text-3xl font-black text-gray-900 dark:text-white font-mono">{detail.code}</h1>
                                     {detail.description && <p className="text-sm text-gray-500 dark:text-gray-400">{detail.description}</p>}
+                                    <p className="mt-1 text-xs font-semibold text-gray-500 dark:text-gray-400 tabular-nums">
+                                        {detail.products.length} {detail.products.length === 1 ? 'producto' : 'productos'}
+                                        {' · '}{detail.products.reduce((sum, p) => sum + Math.max(p.quantity, 0), 0)} piezas
+                                        {outOfStockCount > 0 && <span className="text-red-600 dark:text-red-400"> · {outOfStockCount} {outOfStockCount === 1 ? 'agotado' : 'agotados'}</span>}
+                                    </p>
                                 </div>
                             </div>
                         </div>
                         <button
                             onClick={() => { setShowAddProduct(true); setProductSearch(''); }}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 transition-all active:scale-95"
+                            className="bg-amber-700 hover:bg-amber-800 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 transition-all active:scale-95"
                         >
                             <Plus className="w-4 h-4" /> Agregar productos
                         </button>
@@ -545,7 +550,7 @@ export function Locations() {
                             </div>
                             <button
                                 onClick={() => setShowAll(!showAll)}
-                                className={`px-4 py-3 rounded-xl font-bold text-sm flex items-center gap-2 transition-all ${showAll ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400' : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-transparent'}`}
+                                className={`px-4 py-3 rounded-xl font-bold text-sm flex items-center gap-2 transition-all ${showAll ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-transparent'}`}
                             >
                                 <Filter className="w-4 h-4" />
                                 <span className="hidden md:inline">{showAll ? 'Todos' : 'En existencia'}</span>
@@ -556,7 +561,7 @@ export function Locations() {
                                 {filtered.length} producto{filtered.length !== 1 ? 's' : ''}
                             </p>
                             {!showAll && outOfStockCount > 0 && (
-                                <button onClick={() => setShowAll(true)} className="text-xs text-indigo-500 hover:text-indigo-700 font-medium">
+                                <button onClick={() => setShowAll(true)} className="text-xs text-amber-600 hover:text-amber-700 font-medium">
                                     + {outOfStockCount} agotado{outOfStockCount !== 1 ? 's' : ''} oculto{outOfStockCount !== 1 ? 's' : ''}
                                 </button>
                             )}
@@ -568,16 +573,16 @@ export function Locations() {
                 {loadingDetail ? (
                     <div className="text-center py-20"><Loader2 className="animate-spin h-8 w-8 text-blue-600 mx-auto" /></div>
                 ) : detail.products.length === 0 ? (
-                    <div className="text-center py-20 opacity-50 flex flex-col items-center">
-                        <Package className="w-16 h-16 mb-4 text-gray-300" />
-                        <p className="text-xl font-medium text-gray-400">Sin productos</p>
-                        <p className="text-sm text-gray-400 mt-2">Agrega productos a esta ubicación</p>
+                    <div className="text-center py-20 flex flex-col items-center">
+                        <Package className="w-14 h-14 mb-4 text-gray-300 dark:text-gray-600" />
+                        <p className="text-lg font-semibold text-gray-600 dark:text-gray-300">Sin productos</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Agrega productos a esta ubicación</p>
                     </div>
                 ) : filtered.length === 0 ? (
-                    <div className="text-center py-16 opacity-50 flex flex-col items-center">
-                        <Package className="w-12 h-12 mb-3 text-gray-300" />
-                        <p className="text-sm text-gray-400">{showAll ? 'Sin resultados' : 'Todos los productos están agotados'}</p>
-                        {!showAll && <button onClick={() => setShowAll(true)} className="text-sm text-indigo-500 font-bold mt-2">Mostrar todos</button>}
+                    <div className="text-center py-16 flex flex-col items-center">
+                        <Package className="w-12 h-12 mb-3 text-gray-300 dark:text-gray-600" />
+                        <p className="text-sm text-gray-600 dark:text-gray-300">{showAll ? 'Sin resultados' : 'Todos los productos están agotados'}</p>
+                        {!showAll && <button onClick={() => setShowAll(true)} className="text-sm text-amber-600 font-bold mt-2">Mostrar todos</button>}
                     </div>
                 ) : (
                     <div className="px-2 md:px-0">
@@ -598,7 +603,7 @@ export function Locations() {
                                     {/* IMAGEN */}
                                     <button
                                         onClick={() => p.image_url ? setPreviewProduct(p) : triggerImageUpload(p.product_id)}
-                                        className="w-12 h-12 md:w-14 md:h-14 rounded-xl bg-gray-100 dark:bg-gray-900 flex items-center justify-center overflow-hidden shrink-0 relative group/img cursor-pointer hover:ring-2 hover:ring-indigo-400 transition-all"
+                                        className="w-12 h-12 md:w-14 md:h-14 rounded-xl bg-gray-100 dark:bg-gray-900 flex items-center justify-center overflow-hidden shrink-0 relative group/img cursor-pointer hover:ring-2 hover:ring-amber-400 transition-all"
                                         title={p.image_url ? "Ver imagen" : "Agregar foto"}
                                     >
                                         {p.image_url ? (
@@ -610,15 +615,15 @@ export function Locations() {
                                             </>
                                         ) : (
                                             <div className="flex flex-col items-center gap-0.5">
-                                                <Camera className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover/img:text-indigo-400 transition-colors" />
-                                                {imageTargetId === p.product_id && <Loader2 className="w-3 h-3 animate-spin text-indigo-500 absolute" />}
+                                                <Camera className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover/img:text-amber-400 transition-colors" />
+                                                {imageTargetId === p.product_id && <Loader2 className="w-3 h-3 animate-spin text-amber-600 absolute" />}
                                             </div>
                                         )}
                                     </button>
 
                                     {/* INFO (clickeable para modal de stock) */}
                                     <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openStockModal(p)}>
-                                        <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm leading-tight line-clamp-2 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{p.name}</h3>
+                                        <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm leading-tight line-clamp-2 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">{p.name}</h3>
                                         <div className="flex flex-wrap gap-1.5 mt-1 text-xs text-gray-500 dark:text-gray-400">
                                             {p.sku && (
                                                 <span className="bg-gray-100 dark:bg-gray-900 px-1.5 rounded font-mono">{p.sku}</span>
@@ -646,7 +651,8 @@ export function Locations() {
                                     <button
                                         onClick={() => handleRemoveProduct(p.product_id)}
                                         title="Quitar de esta ubicación"
-                                        className="p-2 rounded-lg text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors md:opacity-0 md:group-hover:opacity-100 shrink-0"
+                                        aria-label={`Quitar ${p.name} de esta ubicación`}
+                                        className="p-2.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors md:opacity-0 md:group-hover:opacity-100 md:focus:opacity-100 shrink-0"
                                     >
                                         <Trash2 className="w-4 h-4" />
                                     </button>
@@ -684,25 +690,25 @@ export function Locations() {
                             </div>
 
                             {/* Stock control - card estilo referencia */}
-                            <div className="mx-5 mb-4 bg-indigo-50 dark:bg-indigo-900/15 rounded-2xl p-5">
-                                <label className="text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
+                            <div className="mx-5 mb-4 bg-amber-50 dark:bg-amber-900/15 rounded-2xl p-5">
+                                <label className="text-xs font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
                                     <Package className="w-3.5 h-3.5" /> Stock en {detail?.code}
                                 </label>
                                 <div className="flex items-center justify-center gap-4 mt-4">
                                     <button
                                         onClick={() => setStockQty(Math.max(0, stockQty - 1))}
-                                        className="w-12 h-12 rounded-xl bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 font-bold text-xl shadow-sm hover:shadow-md transition-all active:scale-90 flex items-center justify-center select-none border border-gray-100 dark:border-gray-700"
+                                        className="w-12 h-12 rounded-xl bg-white dark:bg-gray-800 text-amber-700 dark:text-amber-400 font-bold text-xl shadow-sm hover:shadow-md transition-all active:scale-90 flex items-center justify-center select-none border border-gray-100 dark:border-gray-700"
                                     >−</button>
                                     <input
                                         type="number"
                                         min={0}
                                         value={stockQty}
                                         onChange={(e) => setStockQty(Math.max(0, parseInt(e.target.value) || 0))}
-                                        className="w-20 h-12 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl text-center text-2xl font-black outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 dark:text-white shadow-sm"
+                                        className="w-20 h-12 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl text-center text-2xl font-black outline-none focus:ring-2 focus:ring-amber-500 text-gray-900 dark:text-white shadow-sm"
                                     />
                                     <button
                                         onClick={() => setStockQty(stockQty + 1)}
-                                        className="w-12 h-12 rounded-xl bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 font-bold text-xl shadow-sm hover:shadow-md transition-all active:scale-90 flex items-center justify-center select-none border border-gray-100 dark:border-gray-700"
+                                        className="w-12 h-12 rounded-xl bg-white dark:bg-gray-800 text-amber-700 dark:text-amber-400 font-bold text-xl shadow-sm hover:shadow-md transition-all active:scale-90 flex items-center justify-center select-none border border-gray-100 dark:border-gray-700"
                                     >+</button>
                                 </div>
 
@@ -710,7 +716,7 @@ export function Locations() {
                                 <button
                                     onClick={handleSaveStock}
                                     disabled={savingStock || stockQty === stockProduct.quantity}
-                                    className="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg shadow-indigo-600/25"
+                                    className="w-full mt-4 bg-amber-700 hover:bg-amber-800 disabled:opacity-40 disabled:cursor-not-allowed text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg shadow-amber-700/25"
                                 >
                                     {savingStock ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                                     Guardar stock
@@ -760,10 +766,10 @@ export function Locations() {
                                             <div
                                                 key={loc.location_id}
                                                 onClick={() => { setStockProduct(null); setConfirmEmpty(false); fetchDetail(loc.location_id); }}
-                                                className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/10 cursor-pointer transition-colors"
+                                                className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 hover:bg-amber-50 dark:hover:bg-amber-900/10 cursor-pointer transition-colors"
                                             >
                                                 <div className="flex items-center gap-2.5">
-                                                    <MapPin className="w-4 h-4 text-indigo-500" />
+                                                    <MapPin className="w-4 h-4 text-amber-600" />
                                                     <span className="font-mono font-bold text-sm text-gray-800 dark:text-gray-100">{loc.code}</span>
                                                     {loc.description && <span className="text-xs text-gray-400 truncate max-w-[120px]">{loc.description}</span>}
                                                 </div>
@@ -798,7 +804,7 @@ export function Locations() {
                                     <div className="flex gap-2 mt-3">
                                         <button
                                             onClick={() => { triggerImageUpload(previewProduct.product_id); }}
-                                            className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-95"
+                                            className="flex-1 bg-amber-700 hover:bg-amber-800 text-white py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-95"
                                         >
                                             <ImagePlus className="w-4 h-4" /> {previewProduct.image_url ? 'Cambiar foto' : 'Subir foto'}
                                         </button>
@@ -875,22 +881,42 @@ export function Locations() {
                 <button onClick={() => setShowScanner(true)} className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-4 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all active:scale-95">
                     <QrCode className="w-5 h-5" /> Escanear QR
                 </button>
-                <button onClick={openCreateModal} className="flex-1 md:flex-none bg-indigo-600 text-white px-5 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all shadow-lg active:scale-95">
+                <button onClick={openCreateModal} className="flex-1 md:flex-none bg-amber-700 text-white px-5 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-amber-800 transition-all shadow-lg active:scale-95">
                     <Plus className="w-5 h-5" /> Nueva ubicación
                 </button>
             </>} />
 
+            {/* RESUMEN */}
+            {!loading && locations.length > 0 && (() => {
+                const withProducts = locations.filter(l => l.product_count > 0).length;
+                const stats = [
+                    { label: 'Ubicaciones', value: locations.length },
+                    { label: 'Con productos', value: withProducts },
+                    { label: 'Vacías', value: locations.length - withProducts },
+                ];
+                return (
+                    <dl className="grid grid-cols-3 gap-2 mb-4">
+                        {stats.map(stat => (
+                            <div key={stat.label} className="rounded-xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/50 px-3 py-2.5">
+                                <dt className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{stat.label}</dt>
+                                <dd className="text-xl font-black tabular-nums text-gray-900 dark:text-white">{stat.value}</dd>
+                            </div>
+                        ))}
+                    </dl>
+                );
+            })()}
+
             {/* TABS: Ubicación / Producto */}
-            <div className="flex gap-1 mb-4 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl w-fit">
+            <div className="flex gap-1 mb-4 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl w-full sm:w-fit">
                 <button
                     onClick={() => { setProductSearchMode(false); setProductSearchTerm(''); setProductSearchResults([]); }}
-                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${!productSearchMode ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}
+                    className={`flex-1 sm:flex-none min-h-10 px-4 py-2 rounded-lg text-sm font-bold transition-all ${!productSearchMode ? 'bg-white dark:bg-gray-700 text-amber-700 dark:text-amber-400 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}
                 >
                     <MapPin className="w-4 h-4 inline mr-1.5 -mt-0.5" />Ubicaciones
                 </button>
                 <button
                     onClick={() => { setProductSearchMode(true); setSearchTerm(''); }}
-                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${productSearchMode ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}
+                    className={`flex-1 sm:flex-none min-h-10 px-4 py-2 rounded-lg text-sm font-bold transition-all ${productSearchMode ? 'bg-white dark:bg-gray-700 text-amber-700 dark:text-amber-400 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}
                 >
                     <Package className="w-4 h-4 inline mr-1.5 -mt-0.5" />Buscar producto
                 </button>
@@ -907,10 +933,10 @@ export function Locations() {
                             placeholder="Buscar producto por nombre, SKU o código..."
                             value={productSearchTerm}
                             onChange={(e) => setProductSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-10 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-transparent rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-medium text-gray-900 dark:text-white shadow-sm"
+                            className="w-full pl-10 pr-10 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-transparent rounded-xl outline-none focus:ring-2 focus:ring-amber-500 text-sm font-medium text-gray-900 dark:text-white shadow-sm"
                             autoFocus
                         />
-                        <button onClick={() => setScannerTarget('productSearch')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-gray-700 transition-all">
+                        <button onClick={() => setScannerTarget('productSearch')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-gray-700 transition-all">
                             <Camera className="w-5 h-5" />
                         </button>
                         </>
@@ -920,7 +946,7 @@ export function Locations() {
                             placeholder="Buscar ubicación (ej: R1B2)..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-transparent rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-medium text-gray-900 dark:text-white shadow-sm"
+                            className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-transparent rounded-xl outline-none focus:ring-2 focus:ring-amber-500 text-sm font-medium text-gray-900 dark:text-white shadow-sm"
                         />
                     )}
                 </div>
@@ -930,17 +956,17 @@ export function Locations() {
             {productSearchMode ? (
                 /* RESULTADOS BÚSQUEDA PRODUCTO */
                 loadingProductSearch ? (
-                    <div className="text-center py-20"><Loader2 className="animate-spin h-8 w-8 text-indigo-600 mx-auto" /></div>
+                    <div className="text-center py-20"><Loader2 className="animate-spin h-8 w-8 text-amber-700 mx-auto" /></div>
                 ) : !productSearchTerm.trim() ? (
-                    <div className="text-center py-20 opacity-50 flex flex-col items-center">
-                        <Search className="w-16 h-16 mb-4 text-gray-300" />
-                        <p className="text-xl font-medium text-gray-400">Busca un producto</p>
-                        <p className="text-sm text-gray-400 mt-2">Escribe el nombre, SKU o código de barras</p>
+                    <div className="text-center py-20 flex flex-col items-center">
+                        <Search className="w-14 h-14 mb-4 text-gray-300 dark:text-gray-600" />
+                        <p className="text-lg font-semibold text-gray-600 dark:text-gray-300">Busca un producto</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Escribe el nombre, SKU o código de barras</p>
                     </div>
                 ) : productSearchResults.length === 0 ? (
-                    <div className="text-center py-20 opacity-50 flex flex-col items-center">
-                        <Package className="w-16 h-16 mb-4 text-gray-300" />
-                        <p className="text-xl font-medium text-gray-400">Sin resultados</p>
+                    <div className="text-center py-20 flex flex-col items-center">
+                        <Package className="w-14 h-14 mb-4 text-gray-300 dark:text-gray-600" />
+                        <p className="text-lg font-semibold text-gray-600 dark:text-gray-300">Sin resultados</p>
                     </div>
                 ) : (
                     <div className="space-y-2">
@@ -962,8 +988,8 @@ export function Locations() {
                                 {p.locations && p.locations.length > 0 ? (
                                     <div className="flex flex-wrap gap-2 mt-3">
                                         {p.locations.map((loc) => (
-                                            <span key={loc.code} className="inline-flex items-center gap-1.5 text-xs font-bold bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 px-3 py-1.5 rounded-lg">
-                                                <MapPin className="w-3.5 h-3.5" />{loc.code} <span className="text-indigo-400 dark:text-indigo-500">({loc.quantity})</span>
+                                            <span key={loc.code} className="inline-flex items-center gap-1.5 text-xs font-bold bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 px-3 py-1.5 rounded-lg">
+                                                <MapPin className="w-3.5 h-3.5" />{loc.code} <span className="text-amber-600 dark:text-amber-500">({loc.quantity})</span>
                                             </span>
                                         ))}
                                     </div>
@@ -977,12 +1003,12 @@ export function Locations() {
             ) : (
                 /* LISTA AGRUPADA POR LUGAR */
                 loading ? (
-                    <div className="text-center py-20"><Loader2 className="animate-spin h-8 w-8 text-indigo-600 mx-auto" /></div>
+                    <div className="text-center py-20"><Loader2 className="animate-spin h-8 w-8 text-amber-700 mx-auto" /></div>
                 ) : locations.length === 0 ? (
-                    <div className="text-center py-20 opacity-50 flex flex-col items-center">
-                        <MapPin className="w-16 h-16 mb-4 text-gray-300" />
-                        <p className="text-xl font-medium text-gray-400">No hay ubicaciones</p>
-                        <p className="text-sm text-gray-400 mt-2">Crea una nueva o escanea un QR</p>
+                    <div className="text-center py-20 flex flex-col items-center">
+                        <MapPin className="w-14 h-14 mb-4 text-gray-300 dark:text-gray-600" />
+                        <p className="text-lg font-semibold text-gray-600 dark:text-gray-300">No hay ubicaciones</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Crea una nueva o escanea un QR</p>
                     </div>
                 ) : (
                     <GroupedLocations
@@ -1004,7 +1030,7 @@ export function Locations() {
                         </button>
 
                         <div className="text-center mb-6">
-                            <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                            <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-2xl flex items-center justify-center mx-auto mb-3">
                                 {editingId ? <Edit3 className="w-6 h-6" /> : <MapPin className="w-6 h-6" />}
                             </div>
                             <h2 className="text-xl font-black text-gray-900 dark:text-white">{editingId ? 'Editar ubicación' : 'Nueva ubicación'}</h2>
@@ -1018,7 +1044,7 @@ export function Locations() {
                                     value={formData.code}
                                     onChange={(e) => setFormData({ ...formData, code: e.target.value })}
                                     placeholder="R1B2"
-                                    className="w-full mt-1 p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-transparent rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-mono font-bold text-sm text-gray-900 dark:text-white uppercase"
+                                    className="w-full mt-1 p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-transparent rounded-xl outline-none focus:ring-2 focus:ring-amber-500 font-mono font-bold text-sm text-gray-900 dark:text-white uppercase"
                                     required
                                 />
                             </div>
@@ -1029,10 +1055,10 @@ export function Locations() {
                                     value={formData.description}
                                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                                     placeholder="Rack 1, Balda 2"
-                                    className="w-full mt-1 p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-transparent rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-gray-900 dark:text-white"
+                                    className="w-full mt-1 p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-transparent rounded-xl outline-none focus:ring-2 focus:ring-amber-500 text-sm text-gray-900 dark:text-white"
                                 />
                             </div>
-                            <button type="submit" disabled={processing} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl flex justify-center gap-2 hover:bg-indigo-700 transition-all">
+                            <button type="submit" disabled={processing} className="w-full bg-amber-700 text-white font-bold py-3 rounded-xl flex justify-center gap-2 hover:bg-amber-800 transition-all">
                                 {processing ? <Loader2 className="animate-spin w-5 h-5" /> : (editingId ? "Guardar" : "Crear")}
                             </button>
                         </form>
@@ -1138,25 +1164,25 @@ function GroupedLocations({
 
     const LocationRow = ({ loc }: { loc: LocationItem }) => (
         <div
-            className="flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/50 hover:border-indigo-200 dark:hover:border-indigo-800 group cursor-pointer transition-all"
+            className="flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/50 hover:border-amber-200 dark:hover:border-amber-800 group cursor-pointer transition-all"
             onClick={() => onSelect(loc.id)}
         >
-            <div className="w-9 h-9 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-500 dark:text-indigo-400 shrink-0">
+            <div className="w-9 h-9 rounded-lg bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
                 <MapPin className="w-4 h-4" />
             </div>
             <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm font-mono group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{loc.code}</h3>
+                <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm font-mono group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">{loc.code}</h3>
                 {loc.description && <p className="text-xs text-gray-400 truncate">{loc.description}</p>}
             </div>
-            <span className={`text-xs font-bold px-2 py-1 rounded-lg shrink-0 ${loc.product_count > 0 ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-400'}`}>
-                {loc.product_count} prod.
+            <span className={`text-xs font-bold px-2 py-1 rounded-lg shrink-0 tabular-nums ${loc.product_count > 0 ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>
+                {loc.product_count > 0 ? `${loc.product_count} prod.` : 'Vacía'}
             </span>
-            <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={(e) => { e.stopPropagation(); onEdit(loc); }} className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
-                    <Edit3 className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-0.5 shrink-0 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100 transition-opacity">
+                <button onClick={(e) => { e.stopPropagation(); onEdit(loc); }} aria-label={`Editar ${loc.code}`} className="p-2.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
+                    <Edit3 className="w-4 h-4" />
                 </button>
-                {isAdmin && (<button onClick={(e) => { e.stopPropagation(); onDelete(loc.id); }} className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                    <Trash2 className="w-3.5 h-3.5" />
+                {isAdmin && (<button onClick={(e) => { e.stopPropagation(); onDelete(loc.id); }} aria-label={`Eliminar ${loc.code}`} className="p-2.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                    <Trash2 className="w-4 h-4" />
                 </button>)}
             </div>
         </div>
@@ -1175,13 +1201,15 @@ function GroupedLocations({
                     <div key={letter} className="bg-white dark:bg-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-700/50 overflow-hidden">
                         <button
                             onClick={() => toggle(letterKey)}
+                            aria-expanded={letterOpen}
                             className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                         >
-                            <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
-                                <span className="font-black text-indigo-600 dark:text-indigo-400 font-mono text-lg">{letter}</span>
+                            <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+                                <span className="font-black text-amber-700 dark:text-amber-400 font-mono text-lg">{letter}</span>
                             </div>
                             <div className="flex-1 text-left">
-                                <p className="text-xs text-gray-400">{total} ubicaciones · {products} productos</p>
+                                <p className="font-bold text-gray-900 dark:text-white text-sm">Grupo {letter}</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">{total} {total === 1 ? 'ubicación' : 'ubicaciones'} · {products} productos</p>
                             </div>
                             {letterOpen
                                 ? <ChevronDown className="w-5 h-5 text-gray-400 shrink-0" />
@@ -1203,6 +1231,7 @@ function GroupedLocations({
                                         <div key={sub} className="rounded-xl overflow-hidden">
                                             <button
                                                 onClick={() => toggle(subKey)}
+                                                aria-expanded={subOpen}
                                                 className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                                             >
                                                 {subOpen
@@ -1211,11 +1240,11 @@ function GroupedLocations({
                                                 }
                                                 <span className="font-bold text-gray-700 dark:text-gray-200 font-mono text-sm">{sub}</span>
                                                 <div className="flex-1" />
-                                                <span className="text-[11px] text-gray-400 font-medium">{subItems.length} ubic. · {subProducts} prod.</span>
+                                                <span className="text-[11px] text-gray-500 dark:text-gray-400 font-medium tabular-nums">{subItems.length} ubic. · {subProducts} prod.</span>
                                             </button>
 
                                             {subOpen && (
-                                                <div className="ml-5 pl-3 border-l-2 border-indigo-100 dark:border-indigo-900/30 space-y-1 py-1 mb-1">
+                                                <div className="ml-5 pl-3 border-l-2 border-amber-100 dark:border-amber-900/30 space-y-1 py-1 mb-1">
                                                     {subItems.map(loc => <LocationRow key={loc.id} loc={loc} />)}
                                                 </div>
                                             )}
