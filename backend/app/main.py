@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.api.endpoints import invoices, suppliers, shopping_lists, locations, categories, reports, stock
 from app.core.database import engine, Base
 from app.core.security import get_current_user, verify_admin
+from app.services.inventory import reconcile_stock
 
 # --- 1. SECURITY CONFIGURATION ---
 import os
@@ -196,6 +197,17 @@ async def startup_event():
             )
         except Exception:
             pass
+
+    # La existencia del almacén sale de las ubicaciones. Las piezas que tenían
+    # existencia sin estante quedan en la ubicación SINUBICAR para acomodarlas.
+    try:
+        async with AsyncSessionLocal() as session:
+            changed = await reconcile_stock(session)
+            await session.commit()
+        if changed:
+            print(f"--- Existencias conciliadas con ubicaciones: {changed} productos ---")
+    except Exception as e:
+        print(f"--- No se pudieron conciliar las existencias: {e} ---")
 
 
 app = FastAPI(on_startup=[startup_event])

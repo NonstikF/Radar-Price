@@ -1,39 +1,22 @@
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends
 from sqlalchemy import func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.core.database import get_db
-from app.core.security import verify_admin
-from app.domain.models import Location, Product, ProductLocation, StockHistory, Supplier
-from app.services.inventory import (
-    INVENTORY_DISABLED_MESSAGE,
-    lock_product,
-    product_in_inventory,
-    supplier_manages_inventory,
-)
+from app.domain.models import Location, Product, ProductLocation, Supplier
+from app.services.inventory import product_in_inventory, reserved_totals
 
 router = APIRouter()
 
-# Existencias del almacén: consulta y ajuste manual (conteo físico, entradas
-# sin factura y mermas). Cada ajuste queda en el historial de stock.
-
-ADJUST_TYPES = {"set": "AJUSTE", "add": "ENTRADA", "subtract": "SALIDA"}
+# Existencias del almacén. Las piezas se cuentan en sus ubicaciones: para
+# corregir una existencia se cambia la cantidad de la ubicación, no el total.
 
 
 def escape_like(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-
-
-class StockAdjust(BaseModel):
-    # set: la existencia queda en `quantity` (conteo físico)
-    # add / subtract: suma o resta `quantity` piezas
-    mode: Literal["set", "add", "subtract"]
-    quantity: int = Field(..., ge=0, le=999999)
-    note: Optional[str] = Field(None, max_length=200)
 
 
 @router.get("")
@@ -71,18 +54,22 @@ async def get_stock(
     stmt = stmt.order_by(Product.name.asc()).limit(min(limit, 200)).offset(max(offset, 0))
     rows = (await db.execute(stmt)).all()
 
-    # Ubicaciones de la página en una sola consulta
+    # Ubicaciones y piezas apartadas de la página en una consulta cada una
     locations = {}
+    reserved = {}
     product_ids = [p.id for p, _ in rows]
     if product_ids:
         loc_rows = await db.execute(
-            select(ProductLocation.product_id, Location.code, ProductLocation.quantity)
+            select(ProductLocation.product_id, Location.id, Location.code, ProductLocation.quantity)
             .join(Location, ProductLocation.location_id == Location.id)
             .where(ProductLocation.product_id.in_(product_ids))
             .order_by(Location.code.asc())
         )
-        for product_id, code, quantity in loc_rows.all():
-            locations.setdefault(product_id, []).append({"code": code, "quantity": quantity})
+        for product_id, location_id, code, quantity in loc_rows.all():
+            locations.setdefault(product_id, []).append(
+                {"location_id": location_id, "code": code, "quantity": quantity or 0}
+            )
+        reserved = await reserved_totals(db, product_ids)
 
     return {
         "total": total,
@@ -94,46 +81,9 @@ async def get_stock(
                 "alias": p.alias or "",
                 "supplier_name": supplier_name,
                 "stock": p.stock_quantity or 0,
+                "reserved": reserved.get(p.id, 0),
                 "locations": locations.get(p.id, []),
             }
             for p, supplier_name in rows
         ],
     }
-
-
-@router.post("/{product_id}/adjust")
-async def adjust_stock(
-    product_id: int,
-    data: StockAdjust,
-    db: AsyncSession = Depends(get_db),
-    _admin: dict = Depends(verify_admin),
-):
-    product = await lock_product(db, product_id)
-    if not product:
-        raise HTTPException(404, "Producto no encontrado")
-    if not await supplier_manages_inventory(db, product.supplier_id):
-        raise HTTPException(400, INVENTORY_DISABLED_MESSAGE)
-
-    old_stock = product.stock_quantity or 0
-    if data.mode == "set":
-        new_stock = data.quantity
-    elif data.mode == "add":
-        new_stock = old_stock + data.quantity
-    else:
-        if data.quantity > old_stock:
-            raise HTTPException(400, f"Solo hay {old_stock} piezas; no se pueden restar {data.quantity}")
-        new_stock = old_stock - data.quantity
-
-    if new_stock != old_stock:
-        product.stock_quantity = new_stock
-        db.add(
-            StockHistory(
-                product_id=product.id,
-                change_type=ADJUST_TYPES[data.mode],
-                old_value=old_stock,
-                new_value=new_stock,
-                source=(data.note or "").strip() or "manual",
-            )
-        )
-        await db.commit()
-    return {"id": product_id, "stock": new_stock}

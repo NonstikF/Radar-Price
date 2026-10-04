@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from app.core.database import get_db
 from app.core.security import verify_admin, verify_upload_permission
 from app.services.xml_service import XmlInvoiceParser
-from app.services.inventory import get_managed_supplier_ids, supplier_manages_inventory
+from app.services.inventory import set_location_quantity, supplier_manages_inventory, sync_stock
 from app.domain.models import (
     Product,
     PriceHistory,
@@ -25,6 +25,7 @@ from app.domain.models import (
     ShoppingListItem,
     ProductCategory,
     ProductLocation,
+    Location,
 )
 
 logger = logging.getLogger(__name__)
@@ -46,6 +47,8 @@ class ManualProductSchema(BaseModel):
     price: float = 0.0
     selling_price: float = 0.0
     stock: int = 0
+    # Ubicación donde quedan las piezas iniciales (productos del almacén)
+    location_id: Optional[int] = None
     supplier_id: Optional[int] = None
 
 
@@ -172,8 +175,8 @@ async def upload_invoice(
     # 4. Cargar Inventario Actual
     stmt = select(Product)
     all_db_products = (await db.execute(stmt)).scalars().all()
-    # Solo suman stock los productos de proveedores con gestión de inventario
-    managed_ids = await get_managed_supplier_ids(db)
+    # Las facturas no suman existencia: las piezas del almacén se dan de alta
+    # en sus ubicaciones.
 
     sku_map = {clean_code(p.sku): p for p in all_db_products if p.sku}
     upc_map = {clean_code(p.upc): p for p in all_db_products if p.upc}
@@ -229,7 +232,6 @@ async def upload_invoice(
     new_products_buffer = []
     price_history_buffer = []
     batch_items_buffer = []
-    stock_history_buffer = []
     temp_new_products_map = []  # Memoria temporal para evitar error Greenlet
 
     for key, data in grouped_items.items():
@@ -282,20 +284,6 @@ async def upload_invoice(
             if supplier_id and not existing_product.supplier_id:
                 existing_product.supplier_id = supplier_id
 
-            stock_applied = existing_product.supplier_id in managed_ids
-            if stock_applied:
-                old_stock = existing_product.stock_quantity
-                existing_product.stock_quantity += data["qty"]  # Sumar Stock Global
-                stock_history_buffer.append(
-                    StockHistory(
-                        product_id=existing_product.id,
-                        change_type="ENTRADA",
-                        old_value=int(old_stock),
-                        new_value=int(existing_product.stock_quantity),
-                        source=file.filename,
-                    )
-                )
-
             if abs(existing_product.price - data["cost"]) > 0.1:
                 status = "price_changed"
                 price_history_buffer.append(
@@ -322,7 +310,7 @@ async def upload_invoice(
                     batch_id=current_batch_id,
                     product_id=p_id,
                     quantity=data["qty"],
-                    stock_applied=stock_applied,
+                    stock_applied=False,
                 )
             )
 
@@ -381,13 +369,12 @@ async def upload_invoice(
             if final_sku:
                 used_skus.add(clean_code(final_sku))
 
-            stock_applied = supplier_id in managed_ids
             new_p = Product(
                 sku=final_sku,
                 upc=data.get("upc"),
                 name=data["name"],
                 price=data["cost"],
-                stock_quantity=data["qty"] if stock_applied else 0,
+                stock_quantity=0,
                 selling_price=0.0,
                 supplier_id=supplier_id,
                 origin="imported",
@@ -400,7 +387,6 @@ async def upload_invoice(
                     "product_obj": new_p,
                     "cost": data["cost"],
                     "qty": data["qty"],
-                    "stock_applied": stock_applied,
                     "response_idx": len(final_response_data),
                     "saved_sku": final_sku,  # Guardamos el SKU aquí
                     "saved_upc": data.get("upc"),  # Guardamos el UPC aquí
@@ -453,19 +439,9 @@ async def upload_invoice(
                 batch_id=current_batch_id,
                 product_id=new_p.id,
                 quantity=item["qty"],
-                stock_applied=item["stock_applied"],
+                stock_applied=False,
             )
         )
-        if item["stock_applied"]:
-            stock_history_buffer.append(
-                StockHistory(
-                    product_id=new_p.id,
-                    change_type="ENTRADA",
-                    old_value=0,
-                    new_value=int(item["qty"]),
-                    source=file.filename,
-                )
-            )
 
         # Actualizamos la respuesta con los datos de memoria
         final_response_data[idx]["id"] = new_p.id
@@ -478,7 +454,6 @@ async def upload_invoice(
 
     db.add_all(price_history_buffer)
     db.add_all(batch_items_buffer)
-    db.add_all(stock_history_buffer)
 
     try:
         await db.commit()
@@ -625,7 +600,20 @@ async def get_products(
     stmt = stmt.limit(min(limit, 500)).offset(max(offset, 0))
 
     # --- Ejecución ---
-    result = await db.execute(stmt)
+    rows = (await db.execute(stmt)).all()
+
+    # Piezas por ubicación de los productos del almacén de esta página
+    locations = {}
+    managed_ids = [p.id for p, _, manages_inventory in rows if manages_inventory]
+    if managed_ids:
+        loc_rows = await db.execute(
+            select(ProductLocation.product_id, Location.code, ProductLocation.quantity)
+            .join(Location, ProductLocation.location_id == Location.id)
+            .where(ProductLocation.product_id.in_(managed_ids))
+            .order_by(Location.code.asc())
+        )
+        for product_id, code, quantity in loc_rows.all():
+            locations.setdefault(product_id, []).append({"code": code, "quantity": quantity or 0})
 
     items = [
         {
@@ -638,6 +626,7 @@ async def get_products(
             "selling_price": p.selling_price,
             # Sin gestión de inventario el stock no se lleva: no se muestra.
             "stock": p.stock_quantity if manages_inventory else None,
+            "locations": locations.get(p.id, []),
             "supplier_id": p.supplier_id,
             "supplier_name": supplier_name or "",
             "image_url": p.image_url or "",
@@ -645,7 +634,7 @@ async def get_products(
             "notes": p.notes or "",
             "origin": p.origin or "imported",
         }
-        for p, supplier_name, manages_inventory in result.all()
+        for p, supplier_name, manages_inventory in rows
     ]
 
     return {"items": items, "total": total}
@@ -742,7 +731,6 @@ async def merge_products(
     if not k or not d:
         raise HTTPException(404, "Producto no encontrado")
 
-    qty_to_add = d.stock_quantity
     price_discard = d.price
     price_keep = k.price
     new_price = price_keep
@@ -762,18 +750,28 @@ async def merge_products(
     await db.execute(
         update(Product)
         .where(Product.id == keep_id)
-        .values(stock_quantity=Product.stock_quantity + qty_to_add, price=new_price, updated_at=datetime.now())
+        .values(price=new_price, updated_at=datetime.now())
     )
-    await db.execute(delete(Product).where(Product.id == discard_id))
 
-    if qty_to_add > 0:
-        db.add(StockHistory(
-            product_id=keep_id,
-            change_type="MERGE",
-            old_value=k.stock_quantity,
-            new_value=k.stock_quantity + qty_to_add,
-            source=f"merge:{discard_id}",
-        ))
+    # Las piezas en ubicaciones pasan al producto que se queda
+    kept_locations = {
+        pl.location_id: pl
+        for pl in (
+            await db.execute(select(ProductLocation).where(ProductLocation.product_id == keep_id))
+        ).scalars().all()
+    }
+    for pl in (
+        await db.execute(select(ProductLocation).where(ProductLocation.product_id == discard_id))
+    ).scalars().all():
+        if pl.location_id in kept_locations:
+            kept_locations[pl.location_id].quantity = (kept_locations[pl.location_id].quantity or 0) + (pl.quantity or 0)
+            await db.delete(pl)
+        else:
+            pl.product_id = keep_id
+    await db.flush()
+    await db.execute(delete(Product).where(Product.id == discard_id))
+    if await supplier_manages_inventory(db, k.supplier_id):
+        await sync_stock(db, k, "MERGE", f"merge:{discard_id}")
 
     await db.commit()
     return {"message": "Fusionado correctamente"}
@@ -802,27 +800,27 @@ async def create_manual(item: ManualProductSchema, db: AsyncSession = Depends(ge
     )
     if res.scalar_one_or_none():
         raise HTTPException(400, "Nombre duplicado")
+    # La existencia inicial de un producto del almacén se guarda en su ubicación
     stock = item.stock if await supplier_manages_inventory(db, item.supplier_id) else 0
+    location = None
+    if stock > 0:
+        location = await db.get(Location, item.location_id) if item.location_id else None
+        if not location:
+            raise HTTPException(400, "Elige la ubicación donde quedan las piezas")
     new_p = Product(
         name=item.name,
         sku=item.sku,
         upc=item.upc,
         price=item.price,
         selling_price=item.selling_price,
-        stock_quantity=stock,
+        stock_quantity=0,
         supplier_id=item.supplier_id,
         origin="manual",
     )
     db.add(new_p)
     await db.flush()
-    if stock > 0:
-        db.add(StockHistory(
-            product_id=new_p.id,
-            change_type="ENTRADA",
-            old_value=0,
-            new_value=stock,
-            source="manual",
-        ))
+    if location:
+        await set_location_quantity(db, new_p, location, stock)
     await db.commit()
     await db.refresh(new_p)
     return {"message": "Creado", "id": new_p.id, "name": new_p.name, "sku": new_p.sku or ""}
@@ -910,7 +908,6 @@ async def upload_catalog(
         new_batch.supplier_id = supplier_id
 
         all_p = (await db.execute(select(Product))).scalars().all()
-        managed_ids = await get_managed_supplier_ids(db)
         sku_map = {clean_code(p.sku): p for p in all_p if p.sku}
         name_map = {normalize_name(p.name): p for p in all_p}
         fuzzy_keys = list(name_map.keys())
@@ -921,10 +918,8 @@ async def upload_catalog(
             desc = item.get("Descripcion", "").strip()
             try:
                 price = float(item.get("ValorUnitario", 0))
-                qty = float(item.get("Cantidad", 0))
             except:
                 price = 0
-                qty = 0
 
             clean_xml_sku = clean_code(sku)
             extracted = extract_sku_from_text(desc)
@@ -955,8 +950,6 @@ async def upload_catalog(
                 match.price = price
                 if supplier_id and not match.supplier_id:
                     match.supplier_id = supplier_id
-                if match.supplier_id in managed_ids:
-                    match.stock_quantity += int(qty)
                 count_upd += 1
                 final_id = match.id
             else:
@@ -967,7 +960,7 @@ async def upload_catalog(
                     sku=final_sku,
                     name=desc,
                     price=price,
-                    stock_quantity=int(qty) if supplier_id in managed_ids else 0,
+                    stock_quantity=0,
                     selling_price=0.0,
                     supplier_id=supplier_id,
                     origin="imported",
@@ -1011,43 +1004,15 @@ async def delete_batch(
     _admin: dict = Depends(verify_admin),
 ):
     """
-    Borra una importación y revierte el stock que había sumado a cada producto.
-    Los productos permanecen en el catálogo (permite re-subir el XML limpio).
+    Borra una importación. Los productos permanecen en el catálogo (permite
+    re-subir el XML limpio) y su existencia no cambia.
     """
     batch = await db.get(ImportBatch, batch_id)
     if not batch:
         raise HTTPException(status_code=404, detail="Importación no encontrada")
 
-    # 1. Líneas de esta importación
-    items = (
-        await db.execute(
-            select(ImportBatchItem).where(ImportBatchItem.batch_id == batch_id)
-        )
-    ).scalars().all()
-
-    # 2. Revertir stock por producto
-    reverted = 0
-    for it in items:
-        if not it.product_id or not it.quantity or not it.stock_applied:
-            continue
-        product = await db.get(Product, it.product_id)
-        if not product:
-            continue
-        old_stock = product.stock_quantity or 0
-        new_stock = max(0, old_stock - int(it.quantity))
-        product.stock_quantity = new_stock
-        db.add(
-            StockHistory(
-                product_id=product.id,
-                change_type="REVERSA",
-                old_value=int(old_stock),
-                new_value=int(new_stock),
-                source=f"delete_batch:{batch.filename}",
-            )
-        )
-        reverted += 1
-
-    # 3. Borrar líneas y lote
+    # Las piezas del almacén viven en sus ubicaciones: borrar la factura no
+    # mueve la existencia (se corrige en la ubicación).
     await db.execute(
         delete(ImportBatchItem).where(ImportBatchItem.batch_id == batch_id)
     )
@@ -1059,7 +1024,7 @@ async def delete_batch(
         await db.rollback()
         raise HTTPException(500, f"Error DB: {str(e)}")
 
-    return {"message": "Importación eliminada", "stock_reverted": reverted}
+    return {"message": "Importación eliminada"}
 
 
 @router.get("/batches")

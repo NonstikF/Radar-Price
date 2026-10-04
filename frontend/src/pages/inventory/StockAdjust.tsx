@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Search, Loader2, CheckCircle2, AlertTriangle, X, PackageOpen, SlidersHorizontal, MapPin } from 'lucide-react';
+import { Search, Loader2, CheckCircle2, AlertTriangle, PackageOpen, MapPin, Clock } from 'lucide-react';
 import { API_URL } from '../../config/api';
 import { DEBOUNCE_DELAY, TOAST_DURATION } from '../../config/constants';
 import { PageHeader } from '../../components/ui/PageHeader';
-import { canAccess, getSessionUser } from '../../lib/permissions';
+import { ProductShelvesModal, type Shelf } from '../../components/modals/ProductShelvesModal';
 
 interface StockItem {
     id: number;
@@ -13,7 +13,8 @@ interface StockItem {
     alias: string;
     supplier_name: string;
     stock: number;
-    locations: { code: string; quantity: number }[];
+    reserved: number;
+    locations: Shelf[];
 }
 
 type Availability = 'all' | 'in' | 'out';
@@ -24,23 +25,12 @@ const AVAILABILITY: { id: Availability; label: string }[] = [
     { id: 'out', label: 'Sin existencia' },
 ];
 
-type Mode = 'set' | 'add' | 'subtract';
-
-const MODES: { id: Mode; label: string; hint: string }[] = [
-    { id: 'set', label: 'Conteo', hint: 'La existencia queda en la cantidad contada.' },
-    { id: 'add', label: 'Entrada', hint: 'Suma piezas que llegaron sin factura.' },
-    { id: 'subtract', label: 'Salida', hint: 'Resta mermas, daños o piezas que salieron.' },
-];
-
 const PAGE_SIZE = 50;
 
-const errorDetail = (err: unknown, fallback: string) =>
-    (axios.isAxiosError(err) && err.response?.data?.detail) || fallback;
-
-// Consulta del inventario del almacén: cualquiera con permiso de inventario ve
-// existencias y ubicaciones; solo el admin puede ajustar.
+// Consulta del inventario del almacén. Las piezas viven en las ubicaciones:
+// la existencia es lo que hay en estantes menos lo apartado en pedidos, y se
+// corrige desde las ubicaciones de cada producto.
 export function StockAdjust() {
-    const canAdjust = canAccess(getSessionUser(), 'admin');
     const [availability, setAvailability] = useState<Availability>('all');
     const [items, setItems] = useState<StockItem[]>([]);
     const [total, setTotal] = useState(0);
@@ -48,10 +38,6 @@ export function StockAdjust() {
     const [loadingMore, setLoadingMore] = useState(false);
     const [search, setSearch] = useState('');
     const [editing, setEditing] = useState<StockItem | null>(null);
-    const [mode, setMode] = useState<Mode>('set');
-    const [quantity, setQuantity] = useState('');
-    const [note, setNote] = useState('');
-    const [saving, setSaving] = useState(false);
     const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({ show: false, message: '', type: 'success' });
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -92,34 +78,8 @@ export function StockAdjust() {
         }
     };
 
-    const openAdjust = (item: StockItem) => {
-        setEditing(item);
-        setMode('set');
-        setQuantity(String(item.stock));
-        setNote('');
-    };
-
-    const qty = parseInt(quantity);
-    const validQty = !isNaN(qty) && qty >= 0;
-    const result = !editing || !validQty ? null
-        : mode === 'set' ? qty : mode === 'add' ? editing.stock + qty : editing.stock - qty;
-    const invalid = result === null || result < 0 || (mode !== 'set' && qty === 0);
-
-    const handleSave = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!editing || invalid) return;
-        setSaving(true);
-        try {
-            const res = await axios.post(`${API_URL}/inventory/stock/${editing.id}/adjust`, { mode, quantity: qty, note: note.trim() || null });
-            setItems(prev => prev.map(i => i.id === editing.id ? { ...i, stock: res.data.stock } : i));
-            showToast(`${editing.name}: existencia en ${res.data.stock}`);
-            setEditing(null);
-        } catch (err) {
-            showToast(errorDetail(err, 'No se pudo guardar el ajuste'), 'error');
-        } finally {
-            setSaving(false);
-        }
-    };
+    const updateItem = (id: number, locations: Shelf[], stock: number) =>
+        setItems(prev => prev.map(i => i.id === id ? { ...i, locations, stock } : i));
 
     return (
         <div className="w-full max-w-3xl mx-auto p-4 md:p-6 pb-24 animate-fade-in">
@@ -135,9 +95,7 @@ export function StockAdjust() {
             <PageHeader
                 parent="inventory"
                 title="Consultar inventario"
-                description={canAdjust
-                    ? 'Existencias y ubicaciones del almacén. Ajusta con conteos físicos, entradas sin factura y mermas.'
-                    : 'Existencias y ubicaciones de los productos del almacén.'}
+                description="Piezas de cada producto por ubicación. Toca Ubicaciones para acomodar, contar o mover piezas."
             />
 
             <div className="relative mb-3">
@@ -191,40 +149,34 @@ export function StockAdjust() {
                                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
                                         {item.sku && <span className="font-mono">{item.sku} · </span>}{item.supplier_name}
                                     </p>
-                                    {(() => {
-                                        // Diferencia entre la existencia y lo que está en ubicaciones
-                                        const located = item.locations.reduce((sum, loc) => sum + loc.quantity, 0);
-                                        const unlocated = item.stock - located;
-                                        if (item.locations.length === 0 && unlocated <= 0) return null;
-                                        return (
-                                            <div className="flex flex-wrap gap-1 mt-1.5" aria-label="Ubicaciones">
-                                                {item.locations.map(loc => (
-                                                    <span key={loc.code} className="inline-flex items-center gap-1 rounded-md bg-amber-50 dark:bg-amber-900/20 px-1.5 py-0.5 text-[11px] font-semibold text-amber-800 dark:text-amber-300">
-                                                        <MapPin className="w-3 h-3" aria-hidden="true" />{loc.code} <span className="font-mono">({loc.quantity})</span>
-                                                    </span>
-                                                ))}
-                                                {unlocated > 0 && (
-                                                    <span className="rounded-md bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 text-[11px] font-semibold text-gray-600 dark:text-gray-300">Sin ubicar: {unlocated}</span>
-                                                )}
-                                                {unlocated < 0 && (
-                                                    <span title="Hay más piezas en ubicaciones que en existencia; revisa el conteo" className="rounded-md bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 text-[11px] font-semibold text-red-700 dark:text-red-400">{-unlocated} de más en ubicaciones</span>
-                                                )}
-                                            </div>
-                                        );
-                                    })()}
+                                    <div className="flex flex-wrap gap-1 mt-1.5" aria-label="Piezas por ubicación">
+                                        {item.locations.length === 0 && (
+                                            <span className="rounded-md bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 text-[11px] font-semibold text-gray-600 dark:text-gray-300">Sin ubicación</span>
+                                        )}
+                                        {item.locations.map(loc => (
+                                            <span key={loc.location_id} className="inline-flex items-center gap-1 rounded-md bg-amber-50 dark:bg-amber-900/20 px-1.5 py-0.5 text-[11px] font-semibold text-amber-800 dark:text-amber-300">
+                                                <MapPin className="w-3 h-3" aria-hidden="true" />{loc.code} <span className="font-mono">({loc.quantity})</span>
+                                            </span>
+                                        ))}
+                                        {item.reserved > 0 && (
+                                            <span title="Piezas en pedidos activos: siguen en el estante hasta surtir" className="inline-flex items-center gap-1 rounded-md bg-blue-50 dark:bg-blue-900/20 px-1.5 py-0.5 text-[11px] font-semibold text-blue-700 dark:text-blue-300">
+                                                <Clock className="w-3 h-3" aria-hidden="true" />Apartadas: {item.reserved}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="text-right shrink-0">
                                     <p className={`text-xl font-black tabular-nums ${item.stock > 0 ? 'text-gray-900 dark:text-white' : 'text-red-600 dark:text-red-400'}`}>{item.stock}</p>
-                                    <p className="text-[10px] uppercase tracking-wide text-gray-400">piezas</p>
+                                    <p className="text-[10px] uppercase tracking-wide text-gray-400">disponibles</p>
                                 </div>
-                                {canAdjust && <button
+                                <button
                                     type="button"
-                                    onClick={() => openAdjust(item)}
-                                    aria-label={`Ajustar existencia de ${item.name}`}
+                                    onClick={() => setEditing(item)}
+                                    aria-label={`Ubicaciones de ${item.name}`}
                                     className="min-h-11 shrink-0 inline-flex items-center gap-1.5 rounded-xl border border-gray-200 dark:border-gray-600 px-3 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
                                 >
-                                    <SlidersHorizontal className="w-4 h-4" aria-hidden="true" /> Ajustar
-                                </button>}
+                                    <MapPin className="w-4 h-4" aria-hidden="true" /> <span className="hidden sm:inline">Ubicaciones</span>
+                                </button>
                             </li>
                         ))}
                     </ul>
@@ -237,73 +189,12 @@ export function StockAdjust() {
             )}
 
             {editing && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setEditing(null)}>
-                    <form
-                        onSubmit={handleSave}
-                        onClick={(e) => e.stopPropagation()}
-                        aria-labelledby="adjust-title"
-                        className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-sm p-6 shadow-2xl relative animate-scale-in space-y-4"
-                    >
-                        <button type="button" onClick={() => setEditing(null)} aria-label="Cerrar" className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 bg-gray-100 dark:bg-gray-700 p-2 rounded-full">
-                            <X className="w-5 h-5" />
-                        </button>
-                        <div className="pr-10">
-                            <h2 id="adjust-title" className="text-lg font-black text-gray-900 dark:text-white leading-tight">{editing.alias || editing.name}</h2>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">Existencia actual: <span className="font-bold tabular-nums">{editing.stock}</span></p>
-                        </div>
-
-                        <div role="radiogroup" aria-label="Tipo de ajuste" className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-gray-100 dark:bg-gray-900">
-                            {MODES.map(m => (
-                                <button
-                                    key={m.id}
-                                    type="button"
-                                    role="radio"
-                                    aria-checked={mode === m.id}
-                                    onClick={() => { setMode(m.id); setQuantity(m.id === 'set' ? String(editing.stock) : ''); }}
-                                    className={`min-h-10 rounded-lg text-sm font-bold transition-colors ${mode === m.id ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}
-                                >
-                                    {m.label}
-                                </button>
-                            ))}
-                        </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 -mt-2">{MODES.find(m => m.id === mode)?.hint}</p>
-
-                        <div>
-                            <label htmlFor="adjust-qty" className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">{mode === 'set' ? 'Piezas contadas' : 'Piezas'}</label>
-                            <input
-                                id="adjust-qty"
-                                type="number"
-                                inputMode="numeric"
-                                min={0}
-                                value={quantity}
-                                onChange={(e) => setQuantity(e.target.value)}
-                                autoFocus
-                                className="w-full mt-1 p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-2xl font-black text-center tabular-nums text-gray-900 dark:text-white"
-                            />
-                        </div>
-
-                        <div>
-                            <label htmlFor="adjust-note" className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Motivo <span className="font-normal normal-case">(opcional)</span></label>
-                            <input
-                                id="adjust-note"
-                                type="text"
-                                maxLength={200}
-                                value={note}
-                                onChange={(e) => setNote(e.target.value)}
-                                placeholder={mode === 'subtract' ? 'Ej. 2 macetas rotas' : mode === 'add' ? 'Ej. Devolución de cliente' : 'Ej. Conteo de fin de mes'}
-                                className="w-full mt-1 p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-900 dark:text-white"
-                            />
-                        </div>
-
-                        <p className={`text-sm font-semibold ${result !== null && result < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-200'}`}>
-                            {result === null ? 'Escribe una cantidad.' : result < 0 ? `Solo hay ${editing.stock} piezas para restar.` : `Quedará en ${result} piezas.`}
-                        </p>
-
-                        <button type="submit" disabled={saving || invalid} className="w-full min-h-12 bg-blue-600 text-white font-bold rounded-xl flex justify-center items-center gap-2 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 transition-colors">
-                            {saving ? <Loader2 className="animate-spin w-5 h-5" /> : 'Guardar ajuste'}
-                        </button>
-                    </form>
-                </div>
+                <ProductShelvesModal
+                    product={editing}
+                    onClose={() => setEditing(null)}
+                    onChange={(locations, stock) => updateItem(editing.id, locations, stock)}
+                    onMessage={showToast}
+                />
             )}
         </div>
     );

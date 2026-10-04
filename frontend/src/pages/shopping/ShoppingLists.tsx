@@ -6,9 +6,10 @@ import autoTable from 'jspdf-autotable';
 import {
     ShoppingCart, Package, Trash2, CheckCircle2, XCircle,
     Loader2, Plus, Minus, AlertTriangle, RotateCcw, FileText, Search, Camera, X,
-    Download, Building2
+    Download, Building2, MapPin
 } from 'lucide-react';
 import { BarcodeScanner } from '../../components/ui/BarcodeScanner';
+import { FulfillOrderModal } from '../../components/modals/FulfillOrderModal';
 import { API_URL } from '../../config/api';
 import { TOAST_DURATION } from '../../config/constants';
 import { BackLink, PageHeader } from '../../components/ui/PageHeader';
@@ -38,6 +39,11 @@ interface ShoppingListItem {
     max_quantity: number | null;
     subtotal: number;
     added_at: string;
+    // Pedido del almacén: piezas apartadas por sacar de un estante, dónde hay
+    // y, ya surtido, de dónde salieron
+    to_pick: number;
+    locations: { location_id: number; code: string; quantity: number }[];
+    picks: { code: string; quantity: number }[];
 }
 
 interface ShoppingListDetail {
@@ -67,6 +73,7 @@ export function ShoppingLists() {
     const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({ show: false, message: '', type: 'success' });
     const [itemSearch, setItemSearch] = useState('');
     const [showScanner, setShowScanner] = useState(false);
+    const [fulfilling, setFulfilling] = useState(false);
 
     const [generatingPDF, setGeneratingPDF] = useState<'supplier' | 'internal' | null>(null);
 
@@ -313,6 +320,13 @@ export function ShoppingLists() {
         }
     };
 
+    const handleFulfilled = () => {
+        setFulfilling(false);
+        showToast('Pedido surtido: las piezas salieron de sus ubicaciones');
+        setSelectedList(null);
+        fetchLists();
+    };
+
     const handleDeleteList = async (listId: number) => {
         try {
             await axios.delete(`${API_URL}/shopping-lists/${listId}`);
@@ -342,6 +356,9 @@ export function ShoppingLists() {
     if (selectedList) {
         // Las listas del almacén solo se editan activas; las demás, como siempre.
         const isEditable = !selectedList.manages_inventory || selectedList.status === 'active';
+        // Un pedido del almacén se surte indicando estantes y, surtido, ya no cambia
+        const warehouseActive = selectedList.manages_inventory && selectedList.status === 'active';
+        const warehouseDone = selectedList.manages_inventory && selectedList.status === 'completed';
         const filteredItems =selectedList.items.filter(item => {
             const q = itemSearch.toLowerCase();
             return !q || item.product_name.toLowerCase().includes(q) || (item.product_alias || '').toLowerCase().includes(q) || (item.product_sku || '').toLowerCase().includes(q);
@@ -364,24 +381,27 @@ export function ShoppingLists() {
                         <div className="min-w-0">
                             <h1 className="text-lg md:text-2xl font-black text-gray-900 dark:text-white leading-tight truncate">{selectedList.supplier_name}</h1>
                             <p className="text-xs text-gray-400">{selectedList.supplier_rfc} · {selectedList.items.length} artículos</p>
-                            {selectedList.manages_inventory && (
-                                <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 mt-0.5">Pedido del almacén: las piezas ya se descontaron. Cancelarlo las regresa.</p>
+                            {warehouseActive && (
+                                <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 mt-0.5">Pedido del almacén: las piezas están apartadas. Al surtir, indica de qué ubicación sale cada una. Cancelarlo las regresa.</p>
+                            )}
+                            {warehouseDone && (
+                                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mt-0.5">Pedido surtido: las piezas salieron de las ubicaciones indicadas.</p>
                             )}
                         </div>
                         {/* ACCIONES como iconos */}
                         <div className="flex items-center gap-1 shrink-0">
                             {statusBadge(selectedList.status)}
                             {selectedList.status === 'active' && (
-                                <button onClick={() => handleUpdateStatus(selectedList.id, 'completed')} title={selectedList.manages_inventory ? "Marcar como surtido" : "Completar"} aria-label={selectedList.manages_inventory ? "Marcar como surtido" : "Completar"} className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-200 transition-all">
+                                <button onClick={() => selectedList.manages_inventory ? setFulfilling(true) : handleUpdateStatus(selectedList.id, 'completed')} title={selectedList.manages_inventory ? "Surtir pedido" : "Completar"} aria-label={selectedList.manages_inventory ? "Surtir pedido" : "Completar"} className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-200 transition-all">
                                     <CheckCircle2 className="w-4 h-4" />
                                 </button>
                             )}
-                            {selectedList.status === 'completed' && (
+                            {selectedList.status === 'completed' && !warehouseDone && (
                                 <button onClick={() => handleUpdateStatus(selectedList.id, 'active')} title="Reactivar" className="p-2 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 transition-all">
                                     <RotateCcw className="w-4 h-4" />
                                 </button>
                             )}
-                            {selectedList.status !== 'cancelled' && (
+                            {selectedList.status !== 'cancelled' && !warehouseDone && (
                                 <button onClick={() => handleUpdateStatus(selectedList.id, 'cancelled')} title="Cancelar" className="p-2 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 transition-all">
                                     <XCircle className="w-4 h-4" />
                                 </button>
@@ -433,6 +453,21 @@ export function ShoppingLists() {
                                         {item.product_sku && <span className="text-[10px] bg-gray-100 dark:bg-gray-900 text-gray-500 dark:text-gray-400 px-1.5 rounded font-mono">{item.product_sku}</span>}
                                         <span className="text-[10px] text-gray-400">${item.price.toFixed(2)}</span>
                                     </div>
+                                    {/* Dónde está (pedido activo) o de dónde salió (surtido) */}
+                                    {(() => {
+                                        const shelves = warehouseDone ? item.picks : warehouseActive ? item.locations.filter(l => l.quantity > 0) : [];
+                                        if (shelves.length === 0) return null;
+                                        return (
+                                            <div className="flex flex-wrap gap-1 mt-1" aria-label={warehouseDone ? 'Salió de' : 'Ubicaciones'}>
+                                                {warehouseDone && <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400">Salió de</span>}
+                                                {shelves.map(loc => (
+                                                    <span key={loc.code} className="inline-flex items-center gap-0.5 rounded bg-amber-50 dark:bg-amber-900/20 px-1.5 text-[10px] font-semibold text-amber-800 dark:text-amber-300">
+                                                        <MapPin className="w-2.5 h-2.5" aria-hidden="true" />{loc.code} <span className="font-mono">({loc.quantity})</span>
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
 
                                 {/* CANTIDAD: editable solo en pedidos activos y sin pasar del almacén */}
@@ -491,6 +526,16 @@ export function ShoppingLists() {
                     <BarcodeScanner
                         onScan={(code) => { setItemSearch(code); setShowScanner(false); }}
                         onClose={() => setShowScanner(false)}
+                    />
+                )}
+
+                {fulfilling && (
+                    <FulfillOrderModal
+                        listId={selectedList.id}
+                        items={selectedList.items}
+                        onClose={() => setFulfilling(false)}
+                        onDone={handleFulfilled}
+                        onError={(message) => showToast(message, 'error')}
                     />
                 )}
 

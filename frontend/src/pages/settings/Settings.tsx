@@ -94,7 +94,7 @@ export function Settings() {
                         <div className="min-w-0">
                             <h2 id="inventory-settings-title" className="text-lg font-bold text-gray-900 dark:text-white">Gestión de inventario por proveedor</h2>
                             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                Solo los productos de los proveedores activados suman stock con sus facturas y aparecen en Ubicaciones, Asignar productos y Reportes de inventario. Los productos sin proveedor quedan fuera.
+                                Solo los productos de los proveedores activados llevan existencia por ubicación y aparecen en Ubicaciones, Asignar productos y Reportes de inventario. Los productos sin proveedor quedan fuera.
                             </p>
                         </div>
                     </div>

@@ -83,7 +83,7 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
         app.dependency_overrides.update(self.overrides)
 
     def test_all_business_routes_require_authentication(self):
-        self.assertEqual(len(self.routes), 56)
+        self.assertEqual(len(self.routes), 57)
         for route in self.routes:
             with self.subTest(path=route.path):
                 self.assertTrue(has_dependency(route.dependant, get_current_user))
@@ -112,15 +112,15 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_deletions_and_merge_remain_admin_only(self):
         routes = [r for r in self.routes if has_dependency(r.dependant, verify_admin)]
-        self.assertEqual(len(routes), 9)
+        self.assertEqual(len(routes), 8)
         for route in routes:
             path = route.path
             for param in route.param_convertors:
                 path = path.replace("{" + param + "}", "999999")
             for token, expected in [(None, 401), (self.uploader, 403), (self.admin, 200)]:
                 with self.subTest(path=path, expected=expected):
-                    # Body válido para el interruptor de inventario y el ajuste de
-                    # existencias; las demás rutas lo ignoran.
-                    body = b'{"enabled": true, "mode": "set", "quantity": 0}'
+                    # Body válido para el interruptor de inventario; las demás
+                    # rutas lo ignoran.
+                    body = b'{"enabled": true}'
                     self.assertEqual(await request(next(iter(route.methods)), path, token,
                                                    body=body), expected)

@@ -32,6 +32,7 @@ export function ManualEntry({ initialName, initialSku, initialUpc, onCreated, re
         price: "",        // Costo
         selling_price: "", // Venta
         stock: "",
+        location_id: "",
         supplier_id: ""
     };
 
@@ -49,8 +50,19 @@ export function ManualEntry({ initialName, initialSku, initialUpc, onCreated, re
     }, []);
     const supplierOptions = requireInventorySupplier ? suppliers?.filter(s => s.manages_inventory) : suppliers;
     const noInventorySuppliers = requireInventorySupplier && supplierOptions?.length === 0;
-    // La existencia inicial solo aplica a productos del almacén
+    // La existencia inicial solo aplica a productos del almacén y se guarda en
+    // una ubicación. Desde Asignar productos no se pide: el siguiente paso ya
+    // asigna la ubicación con sus piezas.
     const selectedInWarehouse = !!suppliers?.find(s => String(s.id) === formData.supplier_id)?.manages_inventory;
+    const asksInitialStock = selectedInWarehouse && !requireInventorySupplier;
+    const initialStock = asksInitialStock ? parseInt(formData.stock) || 0 : 0;
+    const [locations, setLocations] = useState<{ id: number; code: string; description: string | null }[] | null>(null);
+    useEffect(() => {
+        if (!asksInitialStock || locations) return;
+        axios.get(`${API_URL}/locations`)
+            .then(res => setLocations(res.data))
+            .catch(() => setErrorMsg("No se pudieron cargar las ubicaciones."));
+    }, [asksInitialStock, locations]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -86,6 +98,11 @@ export function ManualEntry({ initialName, initialSku, initialUpc, onCreated, re
             setLoading(false);
             return;
         }
+        if (initialStock > 0 && !formData.location_id) {
+            setErrorMsg("Elige la ubicación donde quedan las piezas");
+            setLoading(false);
+            return;
+        }
 
         try {
             const payload = {
@@ -94,7 +111,8 @@ export function ManualEntry({ initialName, initialSku, initialUpc, onCreated, re
                 upc: formData.upc || null,
                 price: parseFloat(formData.price) || 0,
                 selling_price: parseFloat(formData.selling_price) || 0,
-                stock: selectedInWarehouse ? parseInt(formData.stock) || 0 : 0,
+                stock: initialStock,
+                location_id: initialStock > 0 ? Number(formData.location_id) : null,
                 supplier_id: formData.supplier_id ? Number(formData.supplier_id) : null
             };
 
@@ -186,21 +204,37 @@ export function ManualEntry({ initialName, initialSku, initialUpc, onCreated, re
                         )}
                     </div>
 
-                    {/* EXISTENCIA INICIAL (solo proveedores del almacén) */}
-                    {selectedInWarehouse && (
-                        <div>
-                            <label htmlFor="manual-stock" className="block text-xs font-bold text-gray-400 dark:text-gray-500 uppercase mb-2 ml-1">Existencia inicial <span className="text-[10px] font-normal lowercase">(piezas)</span></label>
-                            <input
-                                id="manual-stock"
-                                type="number"
-                                inputMode="numeric"
-                                min={0}
-                                name="stock"
-                                value={formData.stock}
-                                onChange={handleChange}
-                                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-100 dark:border-gray-600 rounded-2xl focus:bg-white dark:focus:bg-gray-600 focus:border-blue-500 dark:focus:border-blue-500 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none transition-all font-bold"
-                                placeholder="0"
-                            />
+                    {/* EXISTENCIA INICIAL (solo proveedores del almacén): piezas y ubicación */}
+                    {asksInitialStock && (
+                        <div className="grid grid-cols-5 gap-3">
+                            <div className="col-span-2">
+                                <label htmlFor="manual-stock" className="block text-xs font-bold text-gray-400 dark:text-gray-500 uppercase mb-2 ml-1">Existencia inicial <span className="text-[10px] font-normal lowercase">(piezas)</span></label>
+                                <input
+                                    id="manual-stock"
+                                    type="number"
+                                    inputMode="numeric"
+                                    min={0}
+                                    name="stock"
+                                    value={formData.stock}
+                                    onChange={handleChange}
+                                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-100 dark:border-gray-600 rounded-2xl focus:bg-white dark:focus:bg-gray-600 focus:border-blue-500 dark:focus:border-blue-500 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none transition-all font-bold"
+                                    placeholder="0"
+                                />
+                            </div>
+                            <div className="col-span-3">
+                                <label htmlFor="manual-location" className="block text-xs font-bold text-gray-400 dark:text-gray-500 uppercase mb-2 ml-1">Ubicación</label>
+                                <select
+                                    id="manual-location"
+                                    name="location_id"
+                                    value={formData.location_id}
+                                    onChange={handleChange}
+                                    disabled={!locations}
+                                    className="w-full px-3 py-3 text-sm bg-gray-50 dark:bg-gray-700 border-2 border-gray-100 dark:border-gray-600 rounded-2xl focus:bg-white dark:focus:bg-gray-600 focus:border-blue-500 dark:focus:border-blue-500 text-gray-900 dark:text-white focus:outline-none transition-all font-semibold"
+                                >
+                                    <option value="">{!locations ? 'Cargando...' : locations.length === 0 ? 'Crea una ubicación primero' : 'Elige ubicación'}</option>
+                                    {locations?.map(l => <option key={l.id} value={l.id}>{l.code}{l.description ? ` · ${l.description}` : ''}</option>)}
+                                </select>
+                            </div>
                         </div>
                     )}
                 </div>

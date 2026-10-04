@@ -146,6 +146,20 @@ class ShoppingListItem(Base):
 
     shopping_list = relationship("ShoppingList", back_populates="items")
     product = relationship("Product")
+    picks = relationship("ShoppingListItemPick", cascade="all, delete-orphan")
+
+
+class ShoppingListItemPick(Base):
+    """De qué ubicación salieron las piezas de un renglón al surtir el pedido.
+    Guarda el código para que se lea aunque la ubicación se borre después."""
+    __tablename__ = "shopping_list_item_picks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    item_id = Column(Integer, ForeignKey("shopping_list_items.id", ondelete="CASCADE"), index=True)
+    location_id = Column(Integer, ForeignKey("locations.id", ondelete="SET NULL"), nullable=True)
+    location_code = Column(String)
+    quantity = Column(Integer)
+    picked_at = Column(DateTime, default=datetime.utcnow)
 
 
 # --- UBICACIONES / INVENTARIO ---

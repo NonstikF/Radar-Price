@@ -85,6 +85,8 @@ export function Locations() {
     const [searchResults, setSearchResults] = useState<SearchProduct[]>([]);
     const [loadingSearch, setLoadingSearch] = useState(false);
     const [addingProductId, setAddingProductId] = useState<number | null>(null);
+    // Piezas a agregar por producto en el modal (1 si no se escribe nada)
+    const [addQty, setAddQty] = useState<Record<number, string>>({});
 
     // Modal de stock
     const [stockProduct, setStockProduct] = useState<LocationProduct | null>(null);
@@ -380,13 +382,16 @@ export function Locations() {
     // --- PRODUCTOS EN UBICACIÓN ---
     const handleAddProduct = async (productId: number) => {
         if (!detail) return;
+        const quantity = parseInt(addQty[productId] || '1');
+        if (isNaN(quantity) || quantity < 1) return;
         setAddingProductId(productId);
         try {
             await axios.post(`${API_URL}/locations/${detail.id}/products`, {
                 product_id: productId,
-                quantity: 1,
+                quantity,
             });
-            showToast("Producto agregado");
+            showToast(`Producto agregado con ${quantity} ${quantity === 1 ? 'pieza' : 'piezas'}`);
+            setAddQty(prev => ({ ...prev, [productId]: '' }));
             fetchDetail(detail.id);
             setProductSearch(prev => prev + '');
         } catch (err: any) {
@@ -461,13 +466,27 @@ export function Locations() {
                                 {p.already_in_location ? (
                                     <span className="text-xs font-bold text-green-600 dark:text-green-400 px-2">Ya agregado</span>
                                 ) : (
-                                    <button
-                                        onClick={() => handleAddProduct(p.id)}
-                                        disabled={addingProductId === p.id}
-                                        className="bg-amber-700 hover:bg-amber-800 text-white px-3 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 disabled:opacity-50"
-                                    >
-                                        {addingProductId === p.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                                    </button>
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                        <input
+                                            type="number"
+                                            inputMode="numeric"
+                                            min={1}
+                                            placeholder="1"
+                                            aria-label={`Piezas de ${p.name}`}
+                                            value={addQty[p.id] ?? ''}
+                                            onChange={(e) => setAddQty(prev => ({ ...prev, [p.id]: e.target.value }))}
+                                            onKeyDown={(e) => { if (e.key === 'Enter') handleAddProduct(p.id); }}
+                                            className="w-14 py-2 text-center text-sm font-bold bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-amber-500 text-gray-900 dark:text-white"
+                                        />
+                                        <button
+                                            onClick={() => handleAddProduct(p.id)}
+                                            disabled={addingProductId === p.id}
+                                            aria-label={`Agregar ${p.name}`}
+                                            className="bg-amber-700 hover:bg-amber-800 text-white px-3 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 disabled:opacity-50"
+                                        >
+                                            {addingProductId === p.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                                        </button>
+                                    </div>
                                 )}
                             </div>
                         ))

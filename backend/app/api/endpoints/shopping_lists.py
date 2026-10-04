@@ -3,22 +3,27 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func
-from typing import Optional
+from typing import List, Optional
 from pydantic import BaseModel, Field
 
 from app.core.database import get_db
 from app.core.security import verify_admin
-from app.domain.models import ShoppingList, ShoppingListItem, Product, Supplier
-from app.services.inventory import lock_product, set_deducted, supplier_manages_inventory
+from app.domain.models import (
+    Location, Product, ProductLocation, ShoppingList, ShoppingListItem, ShoppingListItemPick, Supplier,
+)
+from app.services.inventory import lock_product, set_deducted, supplier_manages_inventory, sync_stock
 
 router = APIRouter()
 
 # Las listas de proveedores sin inventario funcionan libres, como siempre.
 # Las de proveedores con gestión de inventario son pedidos al almacén:
-# descuentan las piezas al pedirlas y no pueden pasar de la existencia. Una
-# lista cancelada regresa todo; completar (surtir) no mueve stock porque ya
-# se descontó al pedir.
+# apartan las piezas al pedirlas y no pueden pasar de la existencia. Una
+# lista cancelada regresa lo apartado. Al surtir, quien surte indica de qué
+# ubicación sale cada pieza; esas piezas salen de los estantes y el pedido
+# queda cerrado.
 ACTIVE_ONLY_MESSAGE = "Solo se pueden modificar pedidos activos del almacén"
+FULFILLED_MESSAGE = "El pedido ya se surtió: sus piezas salieron del almacén"
+FULFILL_MESSAGE = "Usa Surtir pedido para indicar de qué ubicación sale cada pieza"
 
 
 async def is_warehouse_item(db, item) -> bool:
@@ -31,6 +36,19 @@ async def is_warehouse_item(db, item) -> bool:
 
 def order_source(list_id: int) -> str:
     return f"pedido:{list_id}"
+
+
+async def is_warehouse_list(db, sl) -> bool:
+    """La lista aparta piezas: su proveedor es del almacén o algún renglón
+    ya apartó piezas."""
+    if await supplier_manages_inventory(db, sl.supplier_id):
+        return True
+    deducted = await db.execute(
+        select(ShoppingListItem.id).where(
+            ShoppingListItem.list_id == sl.id, ShoppingListItem.stock_deducted > 0
+        )
+    )
+    return deducted.first() is not None
 
 
 async def sync_item_stock(db, item, list_status: str, removing: bool = False):
@@ -64,6 +82,16 @@ class UpdateStatusRequest(BaseModel):
 
 class UpdateNotesRequest(BaseModel):
     notes: Optional[str] = None
+
+
+class PickRequest(BaseModel):
+    item_id: int
+    location_id: int
+    quantity: int = Field(..., gt=0, le=999999)
+
+
+class FulfillRequest(BaseModel):
+    picks: List[PickRequest] = []
 
 
 # --- LISTAR TODAS LAS LISTAS ---
@@ -122,10 +150,37 @@ async def get_shopping_list(list_id: int, db: AsyncSession = Depends(get_db)):
         .where(ShoppingListItem.list_id == list_id)
         .order_by(ShoppingListItem.added_at.desc())
     )
-    result = await db.execute(stmt)
+    rows = (await db.execute(stmt)).all()
+
+    # Pedido del almacén: de dónde se puede surtir cada producto y, ya
+    # surtido, de dónde salió.
+    product_ids = [product.id for _, product in rows]
+    item_ids = [item.id for item, _ in rows]
+    locations, picks = {}, {}
+    if manages_inventory and product_ids:
+        loc_rows = await db.execute(
+            select(ProductLocation.product_id, Location.id, Location.code, ProductLocation.quantity)
+            .join(Location, ProductLocation.location_id == Location.id)
+            .where(ProductLocation.product_id.in_(product_ids))
+            .order_by(ProductLocation.quantity.desc(), Location.code.asc())
+        )
+        for product_id, location_id, code, quantity in loc_rows.all():
+            locations.setdefault(product_id, []).append(
+                {"location_id": location_id, "code": code, "quantity": quantity or 0}
+            )
+    if item_ids:
+        pick_rows = await db.execute(
+            select(ShoppingListItemPick)
+            .where(ShoppingListItemPick.item_id.in_(item_ids))
+            .order_by(ShoppingListItemPick.id.asc())
+        )
+        for pick in pick_rows.scalars().all():
+            picks.setdefault(pick.item_id, []).append(
+                {"code": pick.location_code, "quantity": pick.quantity}
+            )
 
     items = []
-    for item, product in result.all():
+    for item, product in rows:
         items.append(
             {
                 "id": item.id,
@@ -144,6 +199,10 @@ async def get_shopping_list(list_id: int, db: AsyncSession = Depends(get_db)):
                 ),
                 "subtotal": round(product.price * item.quantity, 2),
                 "added_at": item.added_at,
+                # Piezas apartadas que hay que sacar de un estante al surtir
+                "to_pick": item.stock_deducted or 0,
+                "locations": locations.get(product.id, []),
+                "picks": picks.get(item.id, []),
             }
         )
 
@@ -297,6 +356,11 @@ async def update_status(
         raise HTTPException(404, "Lista no encontrada")
     if data.status == sl.status:
         return {"message": f"Lista marcada como {data.status}"}
+    if await is_warehouse_list(db, sl):
+        if sl.status == "completed":
+            raise HTTPException(400, FULFILLED_MESSAGE)
+        if data.status == "completed":
+            raise HTTPException(400, FULFILL_MESSAGE)
 
     # Solo puede haber un pedido activo por proveedor
     if data.status == "active":
@@ -310,8 +374,7 @@ async def update_status(
         if other.first():
             raise HTTPException(400, "Ya hay un pedido activo de este proveedor")
 
-    # Cancelar regresa las piezas; salir de cancelado las vuelve a descontar.
-    # Pasar entre activo y completado (surtido) no mueve stock.
+    # Cancelar regresa las piezas; salir de cancelado las vuelve a apartar.
     if data.status == "cancelled" or sl.status == "cancelled":
         items = (
             await db.execute(
@@ -325,6 +388,81 @@ async def update_status(
     sl.updated_at = datetime.utcnow()
     await db.commit()
     return {"message": f"Lista marcada como {data.status}"}
+
+
+# --- SURTIR PEDIDO DEL ALMACÉN ---
+@router.post("/{list_id}/fulfill")
+async def fulfill_list(
+    list_id: int, data: FulfillRequest, db: AsyncSession = Depends(get_db)
+):
+    sl = await db.get(ShoppingList, list_id)
+    if not sl:
+        raise HTTPException(404, "Lista no encontrada")
+    if sl.status != "active":
+        raise HTTPException(400, "Solo se surten pedidos activos")
+
+    rows = (
+        await db.execute(
+            select(ShoppingListItem, Product)
+            .join(Product, ShoppingListItem.product_id == Product.id)
+            .where(ShoppingListItem.list_id == list_id)
+        )
+    ).all()
+    items = {item.id: (item, product) for item, product in rows}
+
+    # Piezas por renglón y ubicación (se juntan las repetidas)
+    requested = {}
+    for pick in data.picks:
+        if pick.item_id not in items:
+            raise HTTPException(400, "Uno de los productos ya no está en el pedido")
+        per_item = requested.setdefault(pick.item_id, {})
+        per_item[pick.location_id] = per_item.get(pick.location_id, 0) + pick.quantity
+
+    for item, product in items.values():
+        to_pick = item.stock_deducted or 0
+        picked = sum(requested.get(item.id, {}).values())
+        if picked != to_pick:
+            raise HTTPException(
+                400, f"Indica de dónde salen las {to_pick} piezas de {product.name} (llevas {picked})"
+            )
+
+    touched = []
+    for item_id, per_location in requested.items():
+        item, product = items[item_id]
+        product = await lock_product(db, product.id)
+        touched.append(product)
+        for location_id, quantity in per_location.items():
+            location = await db.get(Location, location_id)
+            stored = (
+                await db.execute(
+                    select(ProductLocation).where(
+                        ProductLocation.location_id == location_id,
+                        ProductLocation.product_id == product.id,
+                    )
+                )
+            ).scalar_one_or_none()
+            if not location or not stored:
+                raise HTTPException(400, f"{product.name} no está en esa ubicación")
+            if (stored.quantity or 0) < quantity:
+                raise HTTPException(
+                    400, f"En {location.code} solo hay {stored.quantity or 0} piezas de {product.name}"
+                )
+            # La fila se queda aunque llegue a cero: el estante sigue siendo
+            # el lugar del producto para cuando se resurta.
+            stored.quantity = (stored.quantity or 0) - quantity
+            db.add(
+                ShoppingListItemPick(
+                    item_id=item.id, location_id=location.id, location_code=location.code, quantity=quantity
+                )
+            )
+
+    sl.status = "completed"
+    sl.updated_at = datetime.utcnow()
+    # Lo apartado salió de los estantes: la existencia disponible no cambia
+    for product in touched:
+        await sync_stock(db, product, "SURTIDO", order_source(list_id))
+    await db.commit()
+    return {"message": "Pedido surtido"}
 
 
 # --- ACTUALIZAR NOTAS ---

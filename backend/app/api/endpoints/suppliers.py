@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from app.core.database import get_db
 from app.core.security import verify_admin
 from app.domain.models import Supplier, Product, ImportBatch
+from app.services.inventory import reconcile_stock
 
 router = APIRouter()
 
@@ -201,6 +202,11 @@ async def set_supplier_inventory(
         raise HTTPException(404, "Proveedor no encontrado")
 
     supplier.manages_inventory = data.enabled
+    # Al activarlo, la existencia que traían sus productos se cuadra con sus
+    # ubicaciones (lo que no tenga estante queda en SINUBICAR)
+    if data.enabled:
+        await db.flush()
+        await reconcile_stock(db, supplier_id)
     await db.commit()
     return {"id": supplier_id, "manages_inventory": data.enabled}
 

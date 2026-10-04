@@ -4,7 +4,7 @@ import * as XLSX from 'xlsx';
 import {
     Search, X, Camera, Filter, PackageOpen, Loader2, ArrowDownAZ, ArrowUpAZ,
     CheckCircle2, AlertTriangle, Tag, ShoppingCart, ChevronLeft, ChevronRight,
-    CheckSquare, Square, Clock, ListChecks, ShieldAlert, FileSpreadsheet, Warehouse, Plus
+    CheckSquare, Square, Clock, ListChecks, ShieldAlert, FileSpreadsheet, Warehouse, Plus, MapPin
 } from 'lucide-react';
 import { BarcodeScanner } from '../../components/ui/BarcodeScanner';
 import { useProductSearch } from '../../hooks/useProductSearch';
@@ -401,6 +401,10 @@ export function PriceChecker({ initialFilter = false, onClearFilter }: Props) {
                                         ? <span className="bg-emerald-100 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 px-2 rounded font-bold flex items-center gap-1"><Warehouse className="w-3 h-3" /> Existencia: {product.stock}</span>
                                         : <span className="bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 px-2 rounded font-bold flex items-center gap-1"><Warehouse className="w-3 h-3" /> Sin existencia</span>
                                     )}
+                                    {/* Piezas en cada ubicación del almacén */}
+                                    {product.stock != null && (product.locations ?? []).map((loc: { code: string; quantity: number }) => (
+                                        <span key={loc.code} className="bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 px-2 rounded font-bold flex items-center gap-1"><MapPin className="w-3 h-3" aria-hidden="true" /> {loc.code} <span className="font-mono">({loc.quantity})</span></span>
+                                    ))}
                                     {(!product.selling_price) && <span className="bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 px-2 rounded flex items-center gap-1 font-bold"><AlertTriangle className="w-3 h-3" /> Sin precio</span>}
                                 </div>
                             </div>

@@ -150,16 +150,13 @@ class InventoryBySupplierTests(unittest.IsolatedAsyncioTestCase):
         pick = lambda s: (s["Maceta existente"], s["Maceta nueva"])
         return pick(after_upload), pick(after_delete)
 
-    async def test_invoice_adds_and_reverts_stock_for_managed_supplier(self):
-        uploaded, deleted = await self.upload_and_delete(MANAGED, "AAA010101AAA")
-        self.assertEqual(uploaded, (9, 6))
-        self.assertEqual(deleted, (5, 0))
-
-    async def test_invoice_leaves_stock_alone_for_unmanaged_supplier(self):
-        uploaded, deleted = await self.upload_and_delete(UNMANAGED, "BBB010101BBB")
-        self.assertEqual(uploaded, (5, 0))
-        # Borrar la factura no resta lo que nunca se sumó
-        self.assertEqual(deleted, (5, 0))
+    async def test_invoices_never_move_stock(self):
+        # Las piezas del almacén se dan de alta en sus ubicaciones, no por factura
+        for supplier_id, rfc in [(MANAGED, "AAA010101AAA"), (UNMANAGED, "BBB010101BBB")]:
+            with self.subTest(supplier_id=supplier_id):
+                uploaded, deleted = await self.upload_and_delete(supplier_id, rfc)
+                self.assertEqual(uploaded, (5, 0))
+                self.assertEqual(deleted, (5, 0))
 
     async def test_batch_items_hide_stock_outside_inventory(self):
         with Session(self.engine) as session:
@@ -176,8 +173,17 @@ class InventoryBySupplierTests(unittest.IsolatedAsyncioTestCase):
         for supplier_id, expected in [(MANAGED, 3), (UNMANAGED, 0), (None, 0)]:
             with self.subTest(supplier_id=supplier_id):
                 name = f"Manual {supplier_id}"
-                await self.call(create_manual, ManualProductSchema(name=name, stock=3, supplier_id=supplier_id))
+                await self.call(create_manual, ManualProductSchema(
+                    name=name, stock=3, location_id=1, supplier_id=supplier_id))
                 self.assertEqual(self.stock()[name], expected)
+        with Session(self.engine) as session:
+            placed = session.query(ProductLocation).join(Product).filter(Product.name == "Manual 1").one()
+            self.assertEqual((placed.location_id, placed.quantity), (1, 3))
+
+    async def test_manual_warehouse_stock_needs_a_location(self):
+        with self.assertRaises(HTTPException) as error:
+            await self.call(create_manual, ManualProductSchema(name="Sin estante", stock=3, supplier_id=MANAGED))
+        self.assertIn("ubicación", error.exception.detail)
 
     async def test_locations_only_show_and_accept_managed_products(self):
         locations = await self.call(get_locations)
