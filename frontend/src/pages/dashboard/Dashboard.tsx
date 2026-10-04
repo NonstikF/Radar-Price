@@ -1,7 +1,12 @@
 import { Link } from 'react-router-dom';
-import { Users, ArrowUpRight, ChevronRight } from 'lucide-react';
+import { Users, Settings, ArrowUpRight, ChevronRight } from 'lucide-react';
 import { getVisibleModules, type WorkspaceModule } from '../../config/workspace';
 import { getSessionUser } from '../../lib/permissions';
+
+const adminLinks = [
+    { title: 'Usuarios y permisos', description: 'Administra el acceso de tu equipo', path: '/admin', icon: Users },
+    { title: 'Configuración', description: 'Ajustes generales del sistema', path: '/settings', icon: Settings },
+];
 
 const desktopColumns: Record<number, string> = { 1: 'lg:grid-cols-1', 2: 'lg:grid-cols-2', 3: 'lg:grid-cols-3' };
 
@@ -50,11 +55,11 @@ export function Dashboard() {
             {modules.length === 0 && <p className="rounded-xl border border-dashed border-gray-300 p-6 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-400">Pide al administrador que habilite los accesos de tu cuenta para comenzar.</p>}
             {isAdmin && <div className="mt-4 flex flex-wrap items-center justify-between gap-2 lg:justify-end lg:gap-4">
                 <p className="px-3 text-xs text-gray-500 dark:text-gray-400">Configuración del equipo</p>
-                <Link to="/admin" className="group flex min-h-14 w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 sm:w-auto sm:min-w-80">
-                    <Users aria-hidden="true" className="h-5 w-5 shrink-0 text-gray-500 dark:text-gray-400" />
-                    <span className="flex-1"><span className="block text-sm font-semibold text-gray-700 dark:text-gray-200">Usuarios y permisos</span><span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">Administra el acceso de tu equipo</span></span>
+                {adminLinks.map(({ title, description, path, icon: Icon }) => <Link key={path} to={path} className="group flex min-h-14 w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 sm:w-auto sm:min-w-72">
+                    <Icon aria-hidden="true" className="h-5 w-5 shrink-0 text-gray-500 dark:text-gray-400" />
+                    <span className="flex-1"><span className="block text-sm font-semibold text-gray-700 dark:text-gray-200">{title}</span><span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">{description}</span></span>
                     <ArrowUpRight aria-hidden="true" className="h-4 w-4 text-gray-400 group-hover:text-blue-600" />
-                </Link>
+                </Link>)}
             </div>}
         </div>
     );
